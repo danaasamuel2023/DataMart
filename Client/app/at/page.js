@@ -72,7 +72,7 @@ const HubnetBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('http://localhost:5000/api/v1/purchase-hubnet-data', {
+      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/purchase-hubnet-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network,

@@ -50,7 +50,7 @@ export default function DepositPage() {
     
     try {
       // Call the deposit API endpoint
-      const response = await axios.post('http://localhost:5000/api/v1/deposit', {
+      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/deposit', {
         userId,
         amount: parseFloat(amount),
         email: userEmail

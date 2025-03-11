@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 // API URL - Replace with your actual API URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/developer';
+const API_URL = process.env.REACT_APP_API_URL || 'https://datamartbackened.onrender.com/api/developer';
 
 const ApiKeyManagement = () => {
   const [apiKeys, setApiKeys] = useState([]);

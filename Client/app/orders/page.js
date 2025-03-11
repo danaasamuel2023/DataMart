@@ -130,7 +130,7 @@ const TransactionsPage = () => {
               if (externalStatus === 'Completed' && transaction.status !== 'Completed') {
                 try {
                   // Notify your backend about the status change
-                  await axios.post(`http://localhost:5000/api/v1/data/update-status/${transaction.id}`, {
+                  await axios.post(`https://datamartbackened.onrender.com/api/v1/data/update-status/${transaction.id}`, {
                     status: externalStatus
                   }, {
                     headers: {

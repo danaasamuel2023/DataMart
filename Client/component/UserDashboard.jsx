@@ -39,7 +39,7 @@ const DashboardPage = () => {
       setLoading(true);
       const authToken = localStorage.getItem('authToken');
       
-      const response = await fetch(`http://localhost:5000/api/v1/data/user-dashboard/${userId}`, {
+      const response = await fetch(`https://datamartbackened.onrender.com/api/v1/data/user-dashboard/${userId}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }
