@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Link from 'next/link';
 
-export default function PaymentCallback() {
+// Create a client component that uses useSearchParams
+function PaymentCallbackClient() {
   const [status, setStatus] = useState('processing');
   const [message, setMessage] = useState('Verifying your payment...');
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function PaymentCallback() {
       verifyPayment();
     }
   }, [reference]);
-  
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg transform transition-all">
@@ -98,5 +99,31 @@ export default function PaymentCallback() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Fallback component to show while loading
+function PaymentCallbackFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-6">Payment Processing</h1>
+          <div className="flex justify-center my-8">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent"></div>
+          </div>
+          <p className="text-lg text-gray-700">Loading payment details...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main component that wraps the client component with Suspense
+export default function PaymentCallback() {
+  return (
+    <Suspense fallback={<PaymentCallbackFallback />}>
+      <PaymentCallbackClient />
+    </Suspense>
   );
 }
