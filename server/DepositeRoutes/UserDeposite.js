@@ -47,7 +47,7 @@ router.post('/deposit', async (req, res) => {
         amount: amount * 100, // Convert to kobo (smallest currency unit)
         currency: 'GHS',
         reference,
-        callback_url: `http://localhost:3000/payment/callback?reference=${reference}` // Replace with your actual callback URL
+        callback_url: `https://data-mart.vercel.app/payment/callback?reference=${reference}` // Replace with your actual callback URL
       },
       {
         headers: {
