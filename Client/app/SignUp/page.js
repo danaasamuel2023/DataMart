@@ -8,7 +8,8 @@ import {
   User, 
   Phone, 
   RefreshCw, 
-  ArrowRight 
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 
 export default function SignupPage() {
@@ -21,6 +22,7 @@ export default function SignupPage() {
     referralCode: ''
   });
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,10 +35,12 @@ export default function SignupPage() {
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
 
     // Validate password match
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      setIsSubmitting(false);
       return;
     }
 
@@ -63,9 +67,11 @@ export default function SignupPage() {
         window.location.href = '/SignIn';
       } else {
         setError(data.message || 'Signup failed');
+        setIsSubmitting(false);
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
+      setIsSubmitting(false);
     }
   };
 
@@ -94,6 +100,7 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required 
+                disabled={isSubmitting}
               />
             </div>
             <div className="relative">
@@ -106,6 +113,7 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required 
+                disabled={isSubmitting}
               />
             </div>
             <div className="relative">
@@ -118,6 +126,7 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required 
+                disabled={isSubmitting}
               />
             </div>
             <div className="relative">
@@ -130,6 +139,7 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required 
+                disabled={isSubmitting}
               />
             </div>
             <div className="relative">
@@ -142,6 +152,7 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required 
+                disabled={isSubmitting}
               />
             </div>
             <div className="relative">
@@ -153,19 +164,33 @@ export default function SignupPage() {
                 value={formData.referralCode}
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isSubmitting}
               />
             </div>
             <button 
               type="submit" 
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center"
+              className={`w-full text-white py-2 rounded-lg transition flex items-center justify-center 
+                ${isSubmitting 
+                  ? 'bg-blue-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:transform active:scale-95'}`}
+              disabled={isSubmitting}
             >
-              Sign Up <ArrowRight className="ml-2" size={20} />
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="animate-spin mr-2" size={20} />
+                  Signing Up...
+                </>
+              ) : (
+                <>
+                  Sign Up <ArrowRight className="ml-2" size={20} />
+                </>
+              )}
             </button>
           </form>
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               Already have an account? 
-              <Link href="/login" className="text-blue-600 ml-1 hover:underline">
+              <Link href="/Signin" className="text-blue-600 ml-1 hover:underline">
                 Login
               </Link>
             </p>
