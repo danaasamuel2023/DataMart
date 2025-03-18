@@ -6,6 +6,8 @@ import axios from 'axios';
 
 export default function DepositPage() {
   const [amount, setAmount] = useState('');
+  const [totalAmount, setTotalAmount] = useState('');
+  const [fee, setFee] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -35,6 +37,19 @@ export default function DepositPage() {
     checkAuth();
   }, [router]);
   
+  // Calculate fee and total amount when deposit amount changes
+  useEffect(() => {
+    if (amount && amount > 0) {
+      const feeAmount = parseFloat(amount) * 0.02; // 2% fee
+      const total = parseFloat(amount) + feeAmount;
+      setFee(feeAmount.toFixed(2));
+      setTotalAmount(total.toFixed(2));
+    } else {
+      setFee('');
+      setTotalAmount('');
+    }
+  }, [amount]);
+  
   const handleDeposit = async (e) => {
     e.preventDefault();
     
@@ -49,10 +64,10 @@ export default function DepositPage() {
     setSuccess('');
     
     try {
-      // Call the deposit API endpoint
+      // Call the deposit API endpoint with the total amount (including fee)
       const response = await axios.post('https://datamartbackened.onrender.com/api/v1/deposit', {
         userId,
-        amount: parseFloat(amount),
+        amount: parseFloat(totalAmount), // Send the total amount including fee
         email: userEmail
       });
       
@@ -109,6 +124,23 @@ export default function DepositPage() {
           />
         </div>
         
+        {amount && amount > 0 && (
+          <div className="mb-4 p-3 bg-gray-50 rounded">
+            <div className="flex justify-between text-sm mb-1">
+              <span>Deposit Amount:</span>
+              <span>GHS {parseFloat(amount).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-1">
+              <span>Processing Fee (2%):</span>
+              <span>GHS {fee}</span>
+            </div>
+            <div className="flex justify-between font-bold text-sm border-t pt-1 mt-1">
+              <span>Total Amount:</span>
+              <span>GHS {totalAmount}</span>
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center justify-between">
           <button
             type="submit"
@@ -121,6 +153,7 @@ export default function DepositPage() {
       </form>
       
       <div className="mt-6 text-sm text-gray-600">
+        <p>• A 2% processing fee is applied to all deposits</p>
         <p>• Payments are processed securely via Paystack</p>
         <p>• Funds will be available in your wallet immediately after successful payment</p>
         <p>• For any issues, please contact support</p>
