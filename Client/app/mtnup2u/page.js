@@ -19,7 +19,7 @@ const MTNBundleCards = () => {
   }, []);
 
   const bundles = [
-    { capacity: '1', mb: '1000', price: '0.2', network: 'YELLO' },
+    { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO' },
     { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO' },
     { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO' },
     { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO' },
