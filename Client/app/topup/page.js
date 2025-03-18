@@ -153,7 +153,7 @@ export default function DepositPage() {
       </form>
       
       <div className="mt-6 text-sm text-gray-600">
-        <p>• A 2% processing fee is applied to all deposits</p>
+        <p>• A 3% processing fee is applied to all deposits</p>
         <p>• Payments are processed securely via Paystack</p>
         <p>• Funds will be available in your wallet immediately after successful payment</p>
         <p>• For any issues, please contact support</p>
