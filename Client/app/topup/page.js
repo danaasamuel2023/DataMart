@@ -40,7 +40,7 @@ export default function DepositPage() {
   // Calculate fee and total amount when deposit amount changes
   useEffect(() => {
     if (amount && amount > 0) {
-      const feeAmount = parseFloat(amount) * 0.02; // 2% fee
+      const feeAmount = parseFloat(amount) * 0.03; // 3% fee
       const total = parseFloat(amount) + feeAmount;
       setFee(feeAmount.toFixed(2));
       setTotalAmount(total.toFixed(2));
@@ -131,7 +131,7 @@ export default function DepositPage() {
               <span>GHS {parseFloat(amount).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm mb-1">
-              <span>Processing Fee (2%):</span>
+              <span>Processing Fee (3%):</span>
               <span>GHS {fee}</span>
             </div>
             <div className="flex justify-between font-bold text-sm border-t pt-1 mt-1">
