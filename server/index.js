@@ -8,6 +8,7 @@ const dataOrderRoutes = require('./orderRou/order.js');
 const Deposit = require('./DepositeRoutes/UserDeposite.js');
 const Developer = require('./ResellerApi/resellerApi.js')
 const HubnetAt = require('./HubnetInteraction/hubnet.js');
+const AdminManagement = require('./admin-management/adminManagemet.js')
 dotenv.config();
 
 // Initialize Express app
@@ -26,6 +27,7 @@ app.use('/api/v1/data', dataOrderRoutes);
 app.use('/api/v1', Deposit);
 app.use('/api/developer', Developer)
 app.use('/api/v1', HubnetAt);
+app.use('/api',AdminManagement)
 
 // Default Route
 app.get('/', (req, res) => {
