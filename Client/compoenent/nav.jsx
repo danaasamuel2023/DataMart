@@ -25,6 +25,7 @@ const Navbar = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [animationComplete, setAnimationComplete] = useState(false);
+  const [activeSection, setActiveSection] = useState("Dashboard");
   const router = useRouter();
 
   // Check system preference and local storage on initial load
@@ -85,9 +86,12 @@ const Navbar = () => {
   }, [isMobileMenuOpen]);
 
   // Function to handle navigation and close mobile menu
-  const handleNavigation = (path) => {
+  const handleNavigation = (path, section) => {
     router.push(path);
     setIsMobileMenuOpen(false);
+    if (section) {
+      setActiveSection(section);
+    }
   };
 
   // Prevent scrolling when mobile menu is open
@@ -269,20 +273,23 @@ const Navbar = () => {
       <div className="md:hidden w-full z-50">
         {/* Mobile Top Bar */}
         <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white flex justify-between items-center p-4 shadow-md fixed top-0 left-0 right-0">
-          <div className="text-xl font-bold">DaTa Mart</div>
+          <div className="text-xl font-bold flex items-center">
+            <span className="animate-pulse mr-2">⚡</span>
+            <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">DaTa Mart</span>
+          </div>
           <div className="flex items-center space-x-4">
             <button 
               onClick={toggleDarkMode} 
-              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transform transition hover:rotate-12"
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
             <button 
               onClick={toggleMobileMenu} 
-              className="focus:outline-none menu-toggle p-1 rounded-md bg-gray-200 dark:bg-gray-700"
+              className="focus:outline-none menu-toggle p-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white transform transition-all hover:scale-110"
               aria-label="Toggle menu"
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
@@ -292,103 +299,171 @@ const Navbar = () => {
 
         {/* Mobile Sliding Menu with Animation */}
         <div 
-          className={`fixed inset-y-0 right-0 w-full bg-gray-100 dark:bg-gray-900 z-40 transform ${
+          className={`fixed inset-0 z-40 transform ${
             isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-          } transition-transform duration-300 ease-in-out pt-16 overflow-hidden`}
+          } transition-all duration-300 ease-in-out`}
         >
-          <div className={`h-full overflow-y-auto pb-20 mobile-menu-container ${
-            animationComplete ? 'animate-none' : 'animate-fadeIn'
-          }`}>
-            <nav>
-              {/* Top Up Button (Prominent in Mobile) */}
-              <div className="px-6 py-3">
+          {/* Backdrop with blur effect */}
+          <div 
+            className={`absolute inset-0 bg-black/30 backdrop-blur-sm ${
+              isMobileMenuOpen ? 'opacity-100' : 'opacity-0'
+            } transition-opacity duration-300`}
+            onClick={() => setIsMobileMenuOpen(false)}
+          ></div>
+          
+          {/* Menu Content */}
+          <div 
+            className={`absolute right-0 inset-y-0 w-4/5 max-w-sm bg-gray-100 dark:bg-gray-900 shadow-xl overflow-hidden transition-transform duration-300 mobile-menu-container`}
+          >
+            {/* Header with close button */}
+            <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="absolute top-4 right-4 bg-white/20 rounded-full p-1 hover:bg-white/30 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <div className="text-2xl font-bold mb-1">DaTa Mart</div>
+              <div className="text-sm opacity-80">Your mobile data solution</div>
+            </div>
+
+            {/* Navigation Menu with Tab View */}
+            <div className="flex border-b border-gray-200 dark:border-gray-700">
+              {["Dashboard", "Services", "Uploads", "API"].map((section) => (
+                <button
+                  key={section}
+                  className={`flex-1 py-3 text-sm font-medium transition-all ${
+                    activeSection === section 
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400" 
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                  onClick={() => setActiveSection(section)}
+                >
+                  {section}
+                </button>
+              ))}
+            </div>
+
+            {/* Content area with animations */}
+            <div className="overflow-y-auto h-full pb-24">
+              {/* Top Up Button (Always visible) */}
+              <div className="p-4 animate-fadeIn">
                 <button 
                   onClick={() => handleNavigation('/topup')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-md flex items-center justify-center font-medium transition-all duration-200 transform hover:scale-105"
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg flex items-center justify-center font-medium shadow-md transition-all transform hover:translate-y-1 hover:shadow-lg"
                 >
                   <CreditCard className="mr-2" /> Top Up Account
                 </button>
               </div>
               
               {/* Dashboard Section */}
-              <SectionHeader text="Dashboard" />
-              <MobileNavItem 
-                icon={<LayoutDashboard />} 
-                text="Dashboard" 
-                onClick={() => handleNavigation('/')} 
-              />
-              <MobileNavItem 
-                icon={<Home />} 
-                text="Home" 
-                onClick={() => handleNavigation('/')} 
-              />
+              {activeSection === "Dashboard" && (
+                <div className="animate-slideInRight">
+                  <MobileNavItem 
+                    icon={<LayoutDashboard className="text-blue-500" />} 
+                    text="Dashboard Overview" 
+                    onClick={() => handleNavigation('/', "Dashboard")} 
+                    description="View your account summary"
+                  />
+                  <MobileNavItem 
+                    icon={<Home className="text-green-500" />} 
+                    text="Home" 
+                    onClick={() => handleNavigation('/', "Dashboard")} 
+                    description="Return to home page"
+                  />
+                </div>
+              )}
 
               {/* Services Section */}
-              <SectionHeader text="Services" />
-              <MobileNavItem 
-                icon={<Layers />} 
-                text="AT iShare Bundle" 
-                onClick={() => handleNavigation('/at-ishare')} 
-              />
-              <MobileNavItem 
-                icon={<Layers />} 
-                text="MTNUP2U Bundle" 
-                onClick={() => handleNavigation('/mtnup2u')} 
-              />
-              <MobileNavItem 
-                icon={<Layers />} 
-                text="MTNUP2U Pricing" 
-                onClick={() => handleNavigation('/mtnup2u-pricing')} 
-              />
-              <MobileNavItem 
-                icon={<Layers />} 
-                text="AT Big Time Bundle" 
-                onClick={() => handleNavigation('/services/at-bigtime')} 
-                isNew 
-              />
-              <MobileNavItem 
-                icon={<Phone />} 
-                text="Telecel Bundle" 
-                onClick={() => handleNavigation('/TELECEL')} 
-                isNew
-                isSpecial
-              />
+              {activeSection === "Services" && (
+                <div className="animate-slideInRight">
+                  <MobileNavItem 
+                    icon={<Layers className="text-indigo-500" />} 
+                    text="AT iShare Bundle" 
+                    onClick={() => handleNavigation('/at-ishare', "Services")} 
+                    description="Share data with friends"
+                  />
+                  <MobileNavItem 
+                    icon={<Layers className="text-purple-500" />} 
+                    text="MTNUP2U Bundle" 
+                    onClick={() => handleNavigation('/mtnup2u', "Services")} 
+                    description="Customized bundle options"
+                  />
+                  <MobileNavItem 
+                    icon={<Layers className="text-purple-400" />} 
+                    text="MTNUP2U Pricing" 
+                    onClick={() => handleNavigation('/mtnup2u-pricing', "Services")} 
+                    description="View bundle pricing details"
+                  />
+                  <MobileNavItem 
+                    icon={<Layers className="text-blue-500" />} 
+                    text="AT Big Time Bundle" 
+                    onClick={() => handleNavigation('/services/at-bigtime', "Services")} 
+                    isNew 
+                    description="Exclusive new data bundles"
+                  />
+                  <MobileNavItem 
+                    icon={<Phone className="text-yellow-500" />} 
+                    text="Telecel Bundle" 
+                    onClick={() => handleNavigation('/TELECEL', "Services")} 
+                    isNew
+                    isSpecial
+                    description="New Telecel partnership bundles"
+                  />
+                </div>
+              )}
 
               {/* Bulk Uploads Section */}
-              <SectionHeader text="Bulk Uploads" />
-              <MobileNavItem 
-                icon={<FileSpreadsheet />} 
-                text="MTNUP2U Excel" 
-                onClick={() => handleNavigation('/uploads/mtnup2u')} 
-              />
-              <MobileNavItem 
-                icon={<FileSpreadsheet />} 
-                text="AT iShare Excel" 
-                onClick={() => handleNavigation('/uploads/at-ishare')} 
-              />
+              {activeSection === "Uploads" && (
+                <div className="animate-slideInRight">
+                  <MobileNavItem 
+                    icon={<FileSpreadsheet className="text-green-500" />} 
+                    text="MTNUP2U Excel Upload" 
+                    onClick={() => handleNavigation('/uploads/mtnup2u', "Uploads")} 
+                    description="Bulk processing for MTN bundles"
+                  />
+                  <MobileNavItem 
+                    icon={<FileSpreadsheet className="text-blue-500" />} 
+                    text="AT iShare Excel Upload" 
+                    onClick={() => handleNavigation('/uploads/at-ishare', "Uploads")} 
+                    description="Bulk processing for AirTel"
+                  />
+                </div>
+              )}
 
               {/* API & Documentation Section */}
-              <SectionHeader text="API & Documentation" />
-              <MobileNavItem 
-                icon={<Key />} 
-                text="API Keys" 
-                onClick={() => handleNavigation('/api-keys')} 
-              />
-              <MobileNavItem 
-                icon={<FileText />} 
-                text="API Documentation" 
-                onClick={() => handleNavigation('/api-doc')} 
-              />
-            </nav>
+              {activeSection === "API" && (
+                <div className="animate-slideInRight">
+                  <MobileNavItem 
+                    icon={<Key className="text-amber-500" />} 
+                    text="API Keys Management" 
+                    onClick={() => handleNavigation('/api-keys', "API")} 
+                    description="Manage your API access"
+                  />
+                  <MobileNavItem 
+                    icon={<FileText className="text-blue-500" />} 
+                    text="API Documentation" 
+                    onClick={() => handleNavigation('/api-doc', "API")} 
+                    description="Learn how to integrate"
+                  />
+                </div>
+              )}
+            </div>
             
-            {/* Close button at the bottom for easy closing */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-              <button 
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-md flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-              >
-                <X size={18} className="mr-2" /> Close Menu
-              </button>
+            {/* Bottom profile/account section */}
+            <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-gray-100 to-transparent dark:from-gray-900 p-4 pt-8">
+              <div className="flex items-center p-3 rounded-lg bg-white dark:bg-gray-800 shadow-md">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                  U
+                </div>
+                <div className="ml-3">
+                  <div className="font-medium text-sm">User Account</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Manage settings</div>
+                </div>
+                <button className="ml-auto bg-gray-200 dark:bg-gray-700 p-1.5 rounded-full">
+                  <ArrowUpRight size={16} className="text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -399,11 +474,40 @@ const Navbar = () => {
         {/* Sidebar spacer for desktop */}
         <div className={`hidden md:block ${isCollapsed ? 'w-16' : 'w-64'} flex-shrink-0 transition-all duration-300`}></div>
       </div>
+
+      {/* Add animation keyframes for new animations */}
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes slideInRight {
+          from { transform: translateX(20px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+        
+        .animate-slideInRight {
+          animation: slideInRight 0.3s ease-out forwards;
+        }
+        
+        .active:scale-98 {
+          transition: transform 0.1s;
+        }
+        
+        .active:scale-98:active {
+          transform: scale(0.98);
+        }
+      `}</style>
     </>
   );
 };
 
-// Desktop Navigation Item Component - Updated for collapsed state
+// Desktop Navigation Item Component - Unchanged
 const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false, isCollapsed = false }) => (
   <div 
     className={`${isCollapsed ? 'px-0 py-4 justify-center' : 'px-4 py-2'} hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer ${
@@ -429,39 +533,45 @@ const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = fal
   </div>
 );
 
-// Mobile Navigation Item Component - Updated with icons and animations
-const MobileNavItem = ({ icon, text, onClick, isNew = false, isSpecial = false }) => (
+// Enhanced Mobile Navigation Item Component
+const MobileNavItem = ({ icon, text, onClick, isNew = false, isSpecial = false, description = "" }) => (
   <div 
-    className={`px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center space-x-3 transition-all duration-200 ${
+    className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
       isSpecial 
-        ? 'bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30' 
-        : 'hover:bg-gray-200 dark:hover:bg-gray-800'
-    } active:scale-98 transform`}
+        ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
+        : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
+    } transition-all duration-200`}
     onClick={onClick}
   >
-    <div className={`${isSpecial ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}`}>
-      {icon}
+    <div className="flex items-center">
+      <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center">
+          <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
+            {text}
+          </span>
+          {isNew && (
+            <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
+              New
+            </span>
+          )}
+        </div>
+        {description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+        )}
+      </div>
+      <div className="ml-2">
+        <span className={`rounded-full p-1 ${
+          isSpecial 
+            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+            : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
+        }`}>
+          <ArrowUpRight size={14} />
+        </span>
+      </div>
     </div>
-    <span className={isSpecial ? 'font-medium text-yellow-700 dark:text-yellow-300' : ''}>
-      {text}
-    </span>
-    {isNew && (
-      <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-        New
-      </span>
-    )}
-    {isSpecial && (
-      <span className="ml-auto">
-        <ArrowUpRight className="text-yellow-600 dark:text-yellow-400" />
-      </span>
-    )}
-  </div>
-);
-
-// Mobile Section Header
-const SectionHeader = ({ text }) => (
-  <div className="px-6 py-3 text-gray-500 dark:text-gray-400 uppercase font-semibold text-sm bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-    {text}
   </div>
 );
 
