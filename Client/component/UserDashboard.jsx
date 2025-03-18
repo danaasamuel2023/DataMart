@@ -14,6 +14,10 @@ const DashboardPage = () => {
     recentTransactions: []
   });
 
+  const ViewAll=()=>{
+    router.push('/orders');
+  }
+
   useEffect(() => {
     // Check if user is authenticated
     const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
@@ -204,7 +208,7 @@ const DashboardPage = () => {
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Recent Transactions</h2>
-              <button className="text-sm hover:text-yellow-600 font-medium" style={{ color: mtnYellow }}>View All</button>
+              <button className="text-sm hover:text-yellow-600 font-medium" style={{ color: mtnYellow }} onClick={ViewAll}>View All</button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">

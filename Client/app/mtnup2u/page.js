@@ -19,7 +19,7 @@ const MTNBundleCards = () => {
   }, []);
 
   const bundles = [
-    { capacity: '1', mb: '1000', price: '4.700', network: 'YELLO' },
+    { capacity: '1', mb: '1000', price: '0.2', network: 'YELLO' },
     { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO' },
     { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO' },
     { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO' },
@@ -75,7 +75,7 @@ const MTNBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
+      const response = await axios.post('http://localhost:5000/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network,
