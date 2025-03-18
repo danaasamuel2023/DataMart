@@ -9,10 +9,10 @@ const AuthGuard = ({ children }) => {
 
   useEffect(() => {
     // Check if user is authenticated
-    const authStatus = sessionStorage.getItem('isAuthenticated') === 'true';
+    // const authStatus = sessionStorage.getItem('isAuthenticated') === 'true';
     const userData = localStorage.getItem('userData');
     
-    if (!authStatus || !userData) {
+    if (!userData) {
       router.push('/SignIn');
     } else {
       setIsAuthenticated(true);

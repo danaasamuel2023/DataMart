@@ -120,6 +120,39 @@ const Navbar = () => {
     };
   }, [isMobileMenuOpen]);
 
+  // DataMart Logo SVG Component
+  const DataMartLogo = ({ width = 180, height = 40, onClick }) => (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 200 60" 
+      width={width} 
+      height={height} 
+      onClick={onClick}
+      className="cursor-pointer hover:opacity-80 transition-opacity duration-200"
+    >
+      {/* Background shape */}
+      <rect x="10" y="10" width="180" height="40" rx="8" fill={isDarkMode ? "#1e293b" : "#f0f8ff"} stroke={isDarkMode ? "#3182ce" : "#2c5282"} strokeWidth="2"/>
+      
+      {/* "Data" text */}
+      <text x="30" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill={isDarkMode ? "#3182ce" : "#2c5282"}>Data</text>
+      
+      {/* "mart" text */}
+      <text x="85" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill="#3182ce">mart</text>
+      
+      {/* Database icon */}
+      <g transform="translate(150, 30) scale(0.7)">
+        <circle cx="0" cy="0" r="12" fill="#3182ce"/>
+        <path d="M-8,-2 L8,-2 M-8,2 L8,2" stroke="white" strokeWidth="2" fill="none"/>
+        <ellipse cx="0" cy="-6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
+        <ellipse cx="0" cy="6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
+      </g>
+      
+      {/* Search icon elements */}
+      <circle cx="15" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
+      <circle cx="185" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
+    </svg>
+  );
+
   return (
     <>
       {/* Desktop Sidebar */}
@@ -129,23 +162,29 @@ const Navbar = () => {
         } bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white h-screen fixed left-0 top-0 overflow-y-auto transition-all duration-300 z-30`}
       >
         <div className={`p-4 text-2xl font-bold border-b border-gray-300 dark:border-gray-700 flex ${isCollapsed ? 'justify-center' : 'justify-between'} items-center`}>
-          {!isCollapsed && 'DaTa Mart'}
-          <div className="flex items-center">
-            {!isCollapsed && (
+          {isCollapsed ? (
+            <div className="flex justify-center w-full">
+              <DataMartLogo width={40} height={30} onClick={() => handleNavigation('/')} />
+            </div>
+          ) : (
+            <DataMartLogo onClick={() => handleNavigation('/')} />
+          )}
+          {!isCollapsed && (
+            <div className="flex items-center">
               <button 
                 onClick={toggleDarkMode} 
                 className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mr-2"
               >
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
-            )}
-            <button 
-              onClick={toggleSidebar}
-              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-            >
-              {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            </button>
-          </div>
+              <button 
+                onClick={toggleSidebar}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              >
+                {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+              </button>
+            </div>
+          )}
         </div>
         
         <nav className="mt-5">
@@ -273,9 +312,8 @@ const Navbar = () => {
       <div className="md:hidden w-full z-50">
         {/* Mobile Top Bar */}
         <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white flex justify-between items-center p-4 shadow-md fixed top-0 left-0 right-0">
-          <div className="text-xl font-bold flex items-center">
-            <span className="animate-pulse mr-2">⚡</span>
-            <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">DaTa Mart</span>
+          <div className="flex items-center" onClick={() => handleNavigation('/')}>
+            <DataMartLogo width={120} height={30} />
           </div>
           <div className="flex items-center space-x-4">
             <button 
@@ -323,8 +361,10 @@ const Navbar = () => {
               >
                 <X size={18} />
               </button>
-              <div className="text-2xl font-bold mb-1">DaTa Mart</div>
-              <div className="text-sm opacity-80">Your mobile data solution</div>
+              <div className="flex items-center" onClick={() => handleNavigation('/')}>
+                <DataMartLogo width={150} height={40} />
+              </div>
+              <div className="text-sm opacity-80 mt-2">Your mobile data solution</div>
             </div>
 
             {/* Navigation Menu with Tab View */}

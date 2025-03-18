@@ -24,7 +24,7 @@ export const metadata = {
     siteName: "DataMart",
     images: [
       {
-        url: "/images/datamart-og.jpg",
+        url: "/component/datamart-logo.svg",
         width: 1200,
         height: 630,
         alt: "DataMart - Ghana's Data Marketplace",

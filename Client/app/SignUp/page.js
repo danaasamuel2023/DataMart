@@ -79,6 +79,32 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md bg-white shadow-xl rounded-xl overflow-hidden">
         <div className="p-8">
+          {/* Datamart Logo */}
+          <div className="flex justify-center mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" className="h-16 w-auto">
+              {/* Background shape */}
+              <rect x="10" y="10" width="180" height="40" rx="8" fill="#f0f8ff" stroke="#2c5282" strokeWidth="2"/>
+              
+              {/* "Data" text */}
+              <text x="30" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill="#2c5282">Data</text>
+              
+              {/* "mart" text */}
+              <text x="85" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill="#3182ce">mart</text>
+              
+              {/* Database icon */}
+              <g transform="translate(150, 30) scale(0.7)">
+                <circle cx="0" cy="0" r="12" fill="#3182ce"/>
+                <path d="M-8,-2 L8,-2 M-8,2 L8,2" stroke="white" strokeWidth="2" fill="none"/>
+                <ellipse cx="0" cy="-6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
+                <ellipse cx="0" cy="6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
+              </g>
+              
+              {/* Search icon elements */}
+              <circle cx="15" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
+              <circle cx="185" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
+            </svg>
+          </div>
+          
           <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
             Create Account
           </h2>
