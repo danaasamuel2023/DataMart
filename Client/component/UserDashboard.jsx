@@ -20,11 +20,7 @@ const DashboardPage = () => {
 
   useEffect(() => {
     // Check if user is authenticated
-    const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
-    if (!isAuthenticated) {
-      router.push('/SignIn');
-      return;
-    }
+    
 
     // Fetch user data from localStorage
     const userDataString = localStorage.getItem('userData');
