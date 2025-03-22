@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/compoenent/nav";
 import Footer from "@/compoenent/footer";
+import AuthGuard from "@/component/AuthGuide";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,7 +47,7 @@ export const metadata = {
     index: true,
     follow: true,
   },
-  metadataBase: new URL("https://datamart.gh"),
+  metadataBase: new URL("https://datamartgh.shop"),
 };
 
 export default function RootLayout({ children }) {
@@ -56,7 +57,11 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
         <Navbar />
-        <main className="flex-grow">{children}</main>
+        <main className="flex-grow">
+          <AuthGuard excludePaths={['/signin', '/signup']}>
+            {children}
+          </AuthGuard>
+        </main>
         <Footer />
       </body>
     </html>

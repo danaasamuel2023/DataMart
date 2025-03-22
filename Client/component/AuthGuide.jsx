@@ -1,15 +1,26 @@
 'use client'
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 const AuthGuard = ({ children }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // List of paths that should bypass authentication
+  const publicPaths = ['/SignIn', '/signup'];
+  const isPublicPath = publicPaths.includes(pathname);
 
   useEffect(() => {
+    // If current path is public, don't check auth
+    if (isPublicPath) {
+      setLoading(false);
+      setIsAuthenticated(true);
+      return;
+    }
+    
     // Check if user is authenticated
-    // const authStatus = sessionStorage.getItem('isAuthenticated') === 'true';
     const userData = localStorage.getItem('userData');
     
     if (!userData) {
@@ -19,7 +30,7 @@ const AuthGuard = ({ children }) => {
     }
     
     setLoading(false);
-  }, [router]);
+  }, [router, isPublicPath, pathname]);
 
   if (loading) {
     return (

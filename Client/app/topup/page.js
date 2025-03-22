@@ -20,10 +20,10 @@ export default function DepositPage() {
   // Check authentication status on component mount
   useEffect(() => {
     const checkAuth = () => {
-      const authStatus = sessionStorage.getItem('isAuthenticated');
+      // const authStatus = sessionStorage.getItem('isAuthenticated');
       const userData = localStorage.getItem('userData');
       
-      if (authStatus === 'true' && userData) {
+      if (userData) {
         const user = JSON.parse(userData);
         setUserId(user.id);
         setUserEmail(user.email);
