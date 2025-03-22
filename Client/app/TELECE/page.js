@@ -19,21 +19,21 @@ const TelecelBundleCards = () => {
   }, []);
 
   const bundles = [
-    { capacity: '1', mb: '1000', price: '7', network: 'TELECEL' },
-    { capacity: '2', mb: '2000', price: '13', network: 'TELECEL' },
-    { capacity: '3', mb: '3000', price: '18', network: 'TELECEL' },
-    { capacity: '4', mb: '4000', price: '23.00', network: 'TELECEL' },
-    { capacity: '5', mb: '5000', price: '25.00', network: 'TELECEL' },
-    // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL' },
-    // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL' },
-    { capacity: '10', mb: '10000', price: '49.0', network: 'TELECEL' },
-    // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL' },
-    { capacity: '15', mb: '15000', price: '70.0', network: 'TELECEL' },
-    { capacity: '20', mb: '20000', price: '88.00', network: 'TELECEL' },
-    { capacity: '25', mb: '25000', price: '110.0', network: 'TELECEL' },
-    { capacity: '30', mb: '30000', price: '120.00', network: 'TELECEL' },
-    { capacity: '40', mb: '40000', price: '167.00', network: 'TELECEL' },
-    { capacity: '50', mb: '50000', price: '204.00', network: 'TELECEL' }
+    // { capacity: '1', mb: '1000', price: '3.65', network: 'TELECEL' },
+    // { capacity: '2', mb: '2000', price: '7.30', network: 'TELECEL' },
+    // { capacity: '3', mb: '3000', price: '11.20', network: 'TELECEL' },
+    // { capacity: '4', mb: '4000', price: '14.00', network: 'TELECEL' },
+    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL' },
+    { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL' },
+    { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL' },
+    { capacity: '10', mb: '10000', price: '35.50', network: 'TELECEL' },
+    { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL' },
+    { capacity: '15', mb: '15000', price: '55.50', network: 'TELECEL' },
+    { capacity: '20', mb: '20000', price: '75.00', network: 'TELECEL' },
+    { capacity: '25', mb: '25000', price: '92.00', network: 'TELECEL' },
+    { capacity: '30', mb: '30000', price: '110.00', network: 'TELECEL' },
+    { capacity: '40', mb: '40000', price: '145.00', network: 'TELECEL' },
+    { capacity: '50', mb: '50000', price: '180.00', network: 'TELECEL' }
   ];
 
   // Telecel Logo SVG
