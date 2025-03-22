@@ -19,22 +19,22 @@ const MTNBundleCards = () => {
   }, []);
 
   const bundles = [
-    { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO' },
-    { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO' },
-    { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO' },
-    { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO' },
-    { capacity: '5', mb: '5000', price: '22.50', network: 'YELLO' },
-    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO' },
-    { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO' },
-    { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO' },
+    { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: false },
+    { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO', inStock: false },
+    { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: false },
+    { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: false },
+    { capacity: '5', mb: '5000', price: '22.50', network: 'YELLO', inStock: false },
+    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: false },
+    { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: false },
+    { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: false },
     // { capacity: '12', mb: '15000', price: '55.50', network: 'YELLO' },
-    { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO' },
-    { capacity: '20', mb: '20000', price: '85.00', network: 'YELLO' },
-    { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO' },
-    { capacity: '30', mb: '30000', price: '128.00', network: 'YELLO' },
-    { capacity: '40', mb: '40000', price: '165.00', network: 'YELLO' },
-    { capacity: '50', mb: '50000', price: '206.00', network: 'YELLO' },
-    { capacity: '100', mb: '100000', price: '406.00', network: 'YELLO' }
+    { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: false },
+    { capacity: '20', mb: '20000', price: '85.00', network: 'YELLO', inStock: false },
+    { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: false },
+    { capacity: '30', mb: '30000', price: '128.00', network: 'YELLO', inStock: false },
+    { capacity: '40', mb: '40000', price: '165.00', network: 'YELLO', inStock: false },
+    { capacity: '50', mb: '50000', price: '206.00', network: 'YELLO', inStock: false },
+    { capacity: '100', mb: '100000', price: '406.00', network: 'YELLO', inStock: false }
   ];
 
   // MTN Logo SVG
@@ -47,10 +47,13 @@ const MTNBundleCards = () => {
   );
 
   const handleSelectBundle = (index) => {
-    setSelectedBundleIndex(index === selectedBundleIndex ? null : index);
-    setPhoneNumber('');
-    // Clear any error messages for this bundle
-    setBundleMessages(prev => ({ ...prev, [index]: null }));
+    // Only allow selection if the bundle is in stock
+    if (bundles[index].inStock) {
+      setSelectedBundleIndex(index === selectedBundleIndex ? null : index);
+      setPhoneNumber('');
+      // Clear any error messages for this bundle
+      setBundleMessages(prev => ({ ...prev, [index]: null }));
+    }
   };
 
   const handlePurchase = async (bundle, index) => {
@@ -137,9 +140,18 @@ const MTNBundleCards = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {bundles.map((bundle, index) => (
-          <div key={index} className="flex flex-col">
+          <div key={index} className="flex flex-col relative">
+            {/* Out of stock overlay */}
+            {!bundle.inStock && (
+              <div className="absolute inset-0 bg-black bg-opacity-60 rounded-lg z-10 flex flex-col items-center justify-center">
+                <span className="bg-red-600 text-white font-bold py-2 px-4 rounded-full transform rotate-[-10deg] shadow-lg">
+                  OUT OF STOCK
+                </span>
+              </div>
+            )}
+            
             <div 
-              className={`flex flex-col bg-yellow-400 overflow-hidden shadow-md cursor-pointer transition-transform duration-300 hover:translate-y-[-5px] ${selectedBundleIndex === index ? 'rounded-t-lg' : 'rounded-lg'}`}
+              className={`flex flex-col ${bundle.inStock ? 'bg-yellow-400' : 'bg-gray-300'} overflow-hidden shadow-md transition-transform duration-300 ${bundle.inStock ? 'cursor-pointer hover:translate-y-[-5px]' : 'cursor-not-allowed'} ${selectedBundleIndex === index ? 'rounded-t-lg' : 'rounded-lg'}`}
               onClick={() => handleSelectBundle(index)}
             >
               <div className="flex flex-col items-center justify-center p-5 space-y-3">
