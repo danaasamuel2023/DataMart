@@ -27,17 +27,21 @@ router.post('/deposit', async (req, res) => {
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
 
-    // Create a pending transaction
+    // Store the original amount in the transaction
+    // This will be the actual amount added to the wallet (without the fee)
     const transaction = new Transaction({
       userId,
       type: 'deposit',
-      amount,
+      amount, // This is the amount WITHOUT the fee
       status: 'pending',
       reference,
       gateway: 'paystack'
     });
 
     await transaction.save();
+
+    // The frontend has already added 3% to the amount the user will pay
+    // So we don't need to modify the amount here, as Paystack will receive the full amount with fee
 
     // Initiate Paystack payment
     const paystackResponse = await axios.post(
@@ -88,7 +92,7 @@ router.post('/paystack/webhook', async (req, res) => {
 
     // Handle successful charge
     if (event.event === 'charge.success') {
-      const { reference, amount } = event.data;
+      const { reference } = event.data;
 
       // Find transaction by reference
       const transaction = await Transaction.findOne({ reference });
@@ -101,10 +105,11 @@ router.post('/paystack/webhook', async (req, res) => {
       transaction.status = 'completed';
       await transaction.save();
 
-      // Update user's wallet balance
+      // Update user's wallet balance with the original amount (without fee)
+      // The transaction.amount already contains the amount without the fee
       const user = await User.findById(transaction.userId);
       if (user) {
-        user.walletBalance += amount / 100; // Convert from kobo to GHS
+        user.walletBalance += transaction.amount; 
         await user.save();
       }
 
@@ -118,6 +123,7 @@ router.post('/paystack/webhook', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 router.get('/verify-payment', async (req, res) => {
   try {
     const { reference } = req.query;
@@ -174,7 +180,7 @@ router.get('/verify-payment', async (req, res) => {
           transaction.status = 'completed';
           await transaction.save();
 
-          // Update user's wallet balance
+          // Update user's wallet balance with the original amount (without fee)
           const user = await User.findById(transaction.userId);
           if (user) {
             user.walletBalance += transaction.amount;
@@ -228,4 +234,5 @@ router.get('/verify-payment', async (req, res) => {
     });
   }
 });
+
 module.exports = router;

@@ -64,10 +64,12 @@ export default function DepositPage() {
     setSuccess('');
     
     try {
-      // Call the deposit API endpoint with the total amount (including fee)
+      // Call the deposit API endpoint with the BASE amount (without fee)
+      // but tell Paystack to charge the total amount
       const response = await axios.post('https://datamartbackened.onrender.com/api/v1/deposit', {
         userId,
-        amount: parseFloat(totalAmount), // Send the total amount including fee
+        amount: parseFloat(amount), // Send the base amount WITHOUT fee
+        totalAmountWithFee: parseFloat(totalAmount), // Send the total amount for Paystack to charge
         email: userEmail
       });
       
@@ -85,6 +87,72 @@ export default function DepositPage() {
     }
   };
   
+  // BACKEND CHANGES (routes file)
+  // Initiate Deposit endpoint
+  router.post('/deposit', async (req, res) => {
+    try {
+      const { userId, amount, totalAmountWithFee, email } = req.body;
+  
+      // Validate input
+      if (!userId || !amount || amount <= 0) {
+        return res.status(400).json({ error: 'Invalid deposit details' });
+      }
+  
+      // Find user to get their email
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+  
+      // Generate a unique transaction reference
+      const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
+  
+      // Create a pending transaction - store the original amount
+      const transaction = new Transaction({
+        userId,
+        type: 'deposit',
+        amount, // This is the BASE amount WITHOUT fee that will be added to wallet
+        status: 'pending',
+        reference,
+        gateway: 'paystack'
+      });
+  
+      await transaction.save();
+  
+      // Initiate Paystack payment with the total amount including fee
+      const paystackAmount = totalAmountWithFee ? 
+        parseFloat(totalAmountWithFee) * 100 : // If provided, use total with fee
+        parseFloat(amount) * 100; // Fallback to base amount if no total provided
+      
+      const paystackResponse = await axios.post(
+        `${PAYSTACK_BASE_URL}/transaction/initialize`,
+        {
+          email: email || user.email,
+          amount: paystackAmount, // Convert to kobo (smallest currency unit)
+          currency: 'GHS',
+          reference,
+          callback_url: `https://data-mart.vercel.app/payment/callback?reference=${reference}`
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+  
+      // Return Paystack payment URL
+      return res.json({
+        message: 'Deposit initiated',
+        paystackUrl: paystackResponse.data.data.authorization_url,
+        reference
+      });
+  
+    } catch (error) {
+      console.error('Deposit Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
   // Show loading or redirect if not authenticated yet
   if (!isAuthenticated) {
     return <div className="flex justify-center items-center min-h-screen">Checking authentication...</div>;
