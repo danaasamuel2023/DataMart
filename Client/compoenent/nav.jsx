@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Phone,
-  ArrowUpRight
+  ArrowUpRight,
+  LogOut
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -45,6 +46,16 @@ const Navbar = () => {
       setIsCollapsed(true);
     }
   }, []);
+
+  // Logout function
+  const handleLogout = () => {
+    // Remove auth token and user data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    
+    // Redirect to login page
+    router.push('/login');
+  };
 
   // Toggle dark mode
   const toggleDarkMode = () => {
@@ -187,124 +198,142 @@ const Navbar = () => {
           )}
         </div>
         
-        <nav className="mt-5">
-          {/* Dashboard Section */}
-          {!isCollapsed && (
-            <div className="px-4 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
-              Dashboard
-            </div>
-          )}
-          <NavItem 
-            icon={<LayoutDashboard />} 
-            text="Dashboard" 
-            path="/" 
-            onClick={() => handleNavigation('/')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<Home />} 
-            text="Home" 
-            path="/" 
-            onClick={() => handleNavigation('/')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<CreditCard />} 
-            text="Top Up" 
-            path="/topup" 
-            onClick={() => handleNavigation('/topup')} 
-            isHighlighted={true}
-            isCollapsed={isCollapsed} 
-          />
+        <nav className="mt-5 flex flex-col justify-between h-[calc(100vh-80px)]">
+          <div>
+            {/* Dashboard Section */}
+            {!isCollapsed && (
+              <div className="px-4 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                Dashboard
+              </div>
+            )}
+            <NavItem 
+              icon={<LayoutDashboard />} 
+              text="Dashboard" 
+              path="/" 
+              onClick={() => handleNavigation('/')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<Home />} 
+              text="Home" 
+              path="/" 
+              onClick={() => handleNavigation('/')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<CreditCard />} 
+              text="Top Up" 
+              path="/topup" 
+              onClick={() => handleNavigation('/topup')} 
+              isHighlighted={true}
+              isCollapsed={isCollapsed} 
+            />
 
-          {/* Services Section */}
-          {!isCollapsed && (
-            <div className="px-4 py-2 mt-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
-              Services
-            </div>
-          )}
-          {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
-          <NavItem 
-            icon={<Layers />} 
-            text="AT iShare Bundle" 
-            path="/at-ishare" 
-            onClick={() => handleNavigation('/at-ishare')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<Layers />} 
-            text="MTNUP2U Bundle" 
-            path="/mtnup2u" 
-            onClick={() => handleNavigation('/mtnup2u')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<Layers />} 
-            text="MTNUP2U Pricing" 
-            path="/mtnup2u-pricing" 
-            onClick={() => handleNavigation('/mtnup2u-pricing')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<Layers />} 
-            text="AT Big Time Bundle" 
-            path="/services/at-bigtime" 
-            onClick={() => handleNavigation('/services/at-bigtime')} 
-            isNew 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<Phone />} 
-            text="Telecel Bundle" 
-            path="/TELECEL" 
-            onClick={() => handleNavigation('/TELECEL')} 
-            isNew 
-            isCollapsed={isCollapsed}
-          />
+            {/* Services Section */}
+            {!isCollapsed && (
+              <div className="px-4 py-2 mt-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                Services
+              </div>
+            )}
+            {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
+            <NavItem 
+              icon={<Layers />} 
+              text="AT iShare Bundle" 
+              path="/at-ishare" 
+              onClick={() => handleNavigation('/at-ishare')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<Layers />} 
+              text="MTNUP2U Bundle" 
+              path="/mtnup2u" 
+              onClick={() => handleNavigation('/mtnup2u')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<Layers />} 
+              text="MTNUP2U Pricing" 
+              path="/mtnup2u-pricing" 
+              onClick={() => handleNavigation('/mtnup2u-pricing')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<Layers />} 
+              text="AT Big Time Bundle" 
+              path="/services/at-bigtime" 
+              onClick={() => handleNavigation('/services/at-bigtime')} 
+              isNew 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<Phone />} 
+              text="Telecel Bundle" 
+              path="/TELECEL" 
+              onClick={() => handleNavigation('/TELECEL')} 
+              isNew 
+              isCollapsed={isCollapsed}
+            />
 
-          {/* Bulk Uploads Section */}
-          {!isCollapsed && (
-            <div className="px-4 py-2 mt-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
-              Bulk Uploads
-            </div>
-          )}
-          {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
-          <NavItem 
-            icon={<FileSpreadsheet />} 
-            text="MTNUP2U Excel" 
-            path="/uploads/mtnup2u" 
-            onClick={() => handleNavigation('/uploads/mtnup2u')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<FileSpreadsheet />} 
-            text="AT iShare Excel" 
-            path="/uploads/at-ishare" 
-            onClick={() => handleNavigation('/uploads/at-ishare')} 
-            isCollapsed={isCollapsed}
-          />
+            {/* Bulk Uploads Section */}
+            {!isCollapsed && (
+              <div className="px-4 py-2 mt-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                Bulk Uploads
+              </div>
+            )}
+            {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
+            <NavItem 
+              icon={<FileSpreadsheet />} 
+              text="MTNUP2U Excel" 
+              path="/uploads/mtnup2u" 
+              onClick={() => handleNavigation('/uploads/mtnup2u')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<FileSpreadsheet />} 
+              text="AT iShare Excel" 
+              path="/uploads/at-ishare" 
+              onClick={() => handleNavigation('/uploads/at-ishare')} 
+              isCollapsed={isCollapsed}
+            />
 
-          {/* API & Documentation Section */}
-          {!isCollapsed && (
-            <div className="px-4 py-2 mt-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
-              API & Documentation
-            </div>
-          )}
-          {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
-          <NavItem 
-            icon={<Key />} 
-            text="API Keys" 
-            path="/api-keys" 
-            onClick={() => handleNavigation('/api-keys')} 
-            isCollapsed={isCollapsed}
-          />
-          <NavItem 
-            icon={<FileText />} 
-            text="API Documentation" 
-            path="/api-docs" 
-            onClick={() => handleNavigation('/api-doc')} 
-            isCollapsed={isCollapsed}
-          />
+            {/* API & Documentation Section */}
+            {!isCollapsed && (
+              <div className="px-4 py-2 mt-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                API & Documentation
+              </div>
+            )}
+            {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
+            <NavItem 
+              icon={<Key />} 
+              text="API Keys" 
+              path="/api-keys" 
+              onClick={() => handleNavigation('/api-keys')} 
+              isCollapsed={isCollapsed}
+            />
+            <NavItem 
+              icon={<FileText />} 
+              text="API Documentation" 
+              path="/api-docs" 
+              onClick={() => handleNavigation('/api-doc')} 
+              isCollapsed={isCollapsed}
+            />
+          </div>
+          
+          {/* Logout Section */}
+          <div className="mt-auto">
+            {!isCollapsed && (
+              <div className="px-4 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                Account
+              </div>
+            )}
+            {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
+            <NavItem 
+              icon={<LogOut />} 
+              text="Logout" 
+              onClick={handleLogout} 
+              isCollapsed={isCollapsed}
+            />
+          </div>
         </nav>
       </aside>
 
@@ -490,7 +519,7 @@ const Navbar = () => {
               )}
             </div>
             
-            {/* Bottom profile/account section */}
+            {/* Bottom profile/account section with logout */}
             <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-gray-100 to-transparent dark:from-gray-900 p-4 pt-8">
               <div className="flex items-center p-3 rounded-lg bg-white dark:bg-gray-800 shadow-md">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
@@ -500,8 +529,11 @@ const Navbar = () => {
                   <div className="font-medium text-sm">User Account</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Manage settings</div>
                 </div>
-                <button className="ml-auto bg-gray-200 dark:bg-gray-700 p-1.5 rounded-full">
-                  <ArrowUpRight size={16} className="text-gray-600 dark:text-gray-400" />
+                <button 
+                  className="ml-auto bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-2 rounded-full hover:bg-red-200 dark:hover:bg-red-800/30 transition-colors"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={16} />
                 </button>
               </div>
             </div>

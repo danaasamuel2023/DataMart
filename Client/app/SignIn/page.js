@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (response.ok) {
         // Store token securely
         localStorage.setItem('authToken', data.token);
-        sessionStorage.setItem('isAuthenticated', 'true');
+       
         
         // Store user info if provided
         if (data.user) {
