@@ -11,7 +11,7 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 // Initiate Deposit
 router.post('/deposit', async (req, res) => {
   try {
-    const { userId, amount, email } = req.body;
+    const { userId, amount, totalAmountWithFee, email } = req.body;
 
     // Validate input
     if (!userId || !amount || amount <= 0) {
@@ -27,12 +27,11 @@ router.post('/deposit', async (req, res) => {
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
 
-    // Store the original amount in the transaction
-    // This will be the actual amount added to the wallet (without the fee)
+    // Create a pending transaction - store the original amount
     const transaction = new Transaction({
       userId,
       type: 'deposit',
-      amount, // This is the amount WITHOUT the fee
+      amount, // This is the BASE amount WITHOUT fee that will be added to wallet
       status: 'pending',
       reference,
       gateway: 'paystack'
@@ -40,18 +39,19 @@ router.post('/deposit', async (req, res) => {
 
     await transaction.save();
 
-    // The frontend has already added 3% to the amount the user will pay
-    // So we don't need to modify the amount here, as Paystack will receive the full amount with fee
-
-    // Initiate Paystack payment
+    // Initiate Paystack payment with the total amount including fee
+    const paystackAmount = totalAmountWithFee ? 
+      parseFloat(totalAmountWithFee) * 100 : // If provided, use total with fee
+      parseFloat(amount) * 100; // Fallback to base amount if no total provided
+    
     const paystackResponse = await axios.post(
       `${PAYSTACK_BASE_URL}/transaction/initialize`,
       {
-        email: email || user.email, // Use provided email or user's email
-        amount: amount * 100, // Convert to kobo (smallest currency unit)
+        email: email || user.email,
+        amount: paystackAmount, // Convert to kobo (smallest currency unit)
         currency: 'GHS',
         reference,
-        callback_url: `https://data-mart.vercel.app/payment/callback?reference=${reference}` // Replace with your actual callback URL
+        callback_url: `https://data-mart.vercel.app/payment/callback?reference=${reference}`
       },
       {
         headers: {
@@ -106,7 +106,6 @@ router.post('/paystack/webhook', async (req, res) => {
       await transaction.save();
 
       // Update user's wallet balance with the original amount (without fee)
-      // The transaction.amount already contains the amount without the fee
       const user = await User.findById(transaction.userId);
       if (user) {
         user.walletBalance += transaction.amount; 
