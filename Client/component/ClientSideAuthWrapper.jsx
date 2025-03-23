@@ -4,7 +4,7 @@ import AuthGuard from '@/component/AuthGuide';
 
 export default function ClientSideAuthWrapper({ children }) {
   const pathname = usePathname();
-  const isAuthPage = pathname === '/SignIn' || pathname === '/signup';
+  const isAuthPage = pathname === '/signin' || pathname === '/signup';
   
   if (isAuthPage) {
     return children;
