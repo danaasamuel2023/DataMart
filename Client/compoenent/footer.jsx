@@ -1,104 +1,247 @@
 // components/Footer.jsx
+'use client'
+import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { Phone, Mail, MapPin, Clock, ArrowRight, ExternalLink } from 'lucide-react';
 
 const Footer = () => {
+  // This function helps match the dark mode state from localStorage
+  // to ensure footer colors match with navbar theme
+  const [isDarkMode, setIsDarkMode] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Check system preference and local storage on initial load
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (savedTheme === null && prefersDarkMode)) {
+      setIsDarkMode(true);
+    }
+    
+    // Listen for theme changes
+    const handleStorageChange = () => {
+      const currentTheme = localStorage.getItem('theme');
+      setIsDarkMode(currentTheme === 'dark');
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // DataMart Logo SVG Component - similar to navbar for consistency
+  const DataMartLogo = ({ width = 180, height = 40 }) => (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 200 60" 
+      width={width} 
+      height={height}
+      className="transition-opacity duration-200"
+    >
+      {/* Background shape */}
+      <rect x="10" y="10" width="180" height="40" rx="8" fill={isDarkMode ? "#1e293b" : "#f0f8ff"} stroke={isDarkMode ? "#3182ce" : "#2c5282"} strokeWidth="2"/>
+      
+      {/* "Data" text */}
+      <text x="30" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill={isDarkMode ? "#3182ce" : "#2c5282"}>Data</text>
+      
+      {/* "mart" text */}
+      <text x="85" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill="#3182ce">mart</text>
+      
+      {/* Database icon */}
+      <g transform="translate(150, 30) scale(0.7)">
+        <circle cx="0" cy="0" r="12" fill="#3182ce"/>
+        <path d="M-8,-2 L8,-2 M-8,2 L8,2" stroke="white" strokeWidth="2" fill="none"/>
+        <ellipse cx="0" cy="-6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
+        <ellipse cx="0" cy="6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
+      </g>
+      
+      {/* Search icon elements */}
+      <circle cx="15" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
+      <circle cx="185" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
+    </svg>
+  );
+
   return (
-    <footer className="bg-blue-900 text-white">
+    <footer className={`border-t ${isDarkMode ? 'bg-gray-900 text-white border-gray-800' : 'bg-gray-100 text-gray-800 border-gray-200'} transition-colors duration-300`}>
       <div className="max-w-7xl mx-auto px-4 py-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h2 className="text-2xl font-bold mb-4">DataMart</h2>
-            <p className="mb-4">Your one-stop shop for affordable data bundles. Powered by SamTech.</p>
-            <div className="flex space-x-4 mt-4">
-              <a href="#" className="h-8 w-8 rounded-full bg-blue-800 flex items-center justify-center hover:bg-blue-700 transition">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
-                </svg>
-              </a>
-              <a href="#" className="h-8 w-8 rounded-full bg-blue-800 flex items-center justify-center hover:bg-blue-700 transition">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-                </svg>
-              </a>
-              <a href="#" className="h-8 w-8 rounded-full bg-blue-800 flex items-center justify-center hover:bg-blue-700 transition">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
-                </svg>
-              </a>
-              <a href="#" className="h-8 w-8 rounded-full bg-blue-800 flex items-center justify-center hover:bg-blue-700 transition">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z" />
-                </svg>
-              </a>
+            <div className="mb-4">
+              <DataMartLogo width={150} height={40} />
+            </div>
+            <p className={`mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Your one-stop shop for affordable data bundles. Powered by SamTech.
+            </p>
+            <div className="flex space-x-3 mt-5">
+              {/* Social media icons with consistent styling */}
+              {['twitter', 'instagram', 'facebook', 'linkedin'].map((platform) => (
+                <a 
+                  key={platform}
+                  href="#" 
+                  className={`h-9 w-9 rounded-full ${
+                    isDarkMode 
+                      ? 'bg-gray-800 hover:bg-blue-900 text-blue-400' 
+                      : 'bg-gray-200 hover:bg-blue-100 text-blue-600'
+                  } flex items-center justify-center transition-all duration-200 hover:scale-110`}
+                >
+                  <SocialIcon platform={platform} />
+                </a>
+              ))}
             </div>
           </div>
           
           {/* Quick Links */}
           <div>
-            <h3 className="text-xl font-bold mb-4">Quick Links</h3>
-            <ul className="space-y-2">
-              <li><Link href="/" className="hover:text-blue-300 transition">Home</Link></li>
-              <li><Link href="/data-plans" className="hover:text-blue-300 transition">Data Plans</Link></li>
-              <li><Link href="/about" className="hover:text-blue-300 transition">About Us</Link></li>
-              <li><Link href="/faq" className="hover:text-blue-300 transition">FAQs</Link></li>
-              <li><Link href="/contact" className="hover:text-blue-300 transition">Contact Us</Link></li>
+            <h3 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+              Quick Links
+            </h3>
+            <ul className="space-y-3">
+              {[
+                { name: 'Home', path: '/' },
+                { name: 'Dashboard', path: '/dashboard' },
+                { name: 'About Us', path: '/about' },
+                { name: 'FAQs', path: '/faq' },
+                { name: 'Contact Us', path: '/contact' }
+              ].map((link) => (
+                <li key={link.name}>
+                  <Link 
+                    href={link.path} 
+                    className={`flex items-center group ${
+                      isDarkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'
+                    } transition-colors`}
+                  >
+                    <ArrowRight size={14} className={`mr-2 opacity-0 group-hover:opacity-100 transition-opacity ${
+                      isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                    }`} />
+                    <span>{link.name}</span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
           
           {/* Data Bundles */}
           <div>
-            <h3 className="text-xl font-bold mb-4">Our Data Bundles</h3>
-            <ul className="space-y-2">
-              <li><Link href="/mtnup2u" className="hover:text-blue-300 transition">MTN</Link></li>
-              <li><Link href="/at-ishare" className="hover:text-blue-300 transition">AIRTEL TIGO</Link></li>
-              <li><Link href="/TELECEL" className="hover:text-blue-300 transition">TELECEL</Link></li>
-              {/* <li><Link href="/data-plans/special" className="hover:text-blue-300 transition">Special Offers</Link></li>
-              <li><Link href="/data-plans/corporate" className="hover:text-blue-300 transition">Corporate Plans</Link></li> */}
+            <h3 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+              Our Data Bundles
+            </h3>
+            <ul className="space-y-3">
+              {[
+                { name: 'MTN UP2U Bundle', path: '/mtnup2u' },
+                { name: 'AIRTEL TIGO iShare', path: '/at-ishare' },
+                { name: 'AT Big Time Bundle', path: '/services/at-bigtime' },
+                { name: 'TELECEL Bundle', path: '/TELECEL', isNew: true }
+              ].map((bundle) => (
+                <li key={bundle.name}>
+                  <Link 
+                    href={bundle.path} 
+                    className={`flex items-center group ${
+                      isDarkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'
+                    } transition-colors`}
+                  >
+                    <ArrowRight size={14} className={`mr-2 opacity-0 group-hover:opacity-100 transition-opacity ${
+                      isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                    }`} />
+                    <span>{bundle.name}</span>
+                    {bundle.isNew && (
+                      <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        New
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
           
           {/* Contact Information */}
           <div>
-            <h3 className="text-xl font-bold mb-4">Contact Us</h3>
-            <div className="space-y-3">
-              <p className="flex items-start">
-                <svg className="h-5 w-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                <span>SamTech Building, Digital Street, Accra</span>
-              </p>
-              <p className="flex items-start">
-                <svg className="h-5 w-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                </svg>
-                <span>0597760914</span>
-              </p>
-              <p className="flex items-start">
-                <svg className="h-5 w-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                </svg>
-                <span>unimarketgh@gmail.com</span>
-              </p>
-              <p className="flex items-start">
-                <svg className="h-5 w-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>Mon-Sat: 8AM - 8PM</span>
-              </p>
+            <h3 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+              Contact Us
+            </h3>
+            <div className="space-y-4">
+              <ContactItem 
+                icon={<MapPin size={18} />} 
+                text="SamTech Building, Digital Street, Accra" 
+                isDarkMode={isDarkMode}
+              />
+              <ContactItem 
+                icon={<Phone size={18} />} 
+                text="0597760914" 
+                isDarkMode={isDarkMode}
+              />
+              <ContactItem 
+                icon={<Mail size={18} />} 
+                text="unimarketgh@gmail.com" 
+                isDarkMode={isDarkMode}
+              />
+              <ContactItem 
+                icon={<Clock size={18} />} 
+                text="Mon-Sat: 8AM - 8PM" 
+                isDarkMode={isDarkMode}
+              />
             </div>
           </div>
         </div>
         
-        {/* Copyright */}
-        <div className="pt-8 mt-8 border-t border-blue-800 text-center">
-          <p>&copy; {new Date().getFullYear()} DataMart by SamTech. All rights reserved.</p>
+        {/* Copyright with subtle separator */}
+        <div className={`pt-8 mt-8 border-t ${
+          isDarkMode ? 'border-gray-800' : 'border-gray-200'
+        } text-center`}>
+          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+            &copy; {new Date().getFullYear()} DataMart by SamTech. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
   );
+};
+
+// Helper Components
+const ContactItem = ({ icon, text, isDarkMode }) => (
+  <div className="flex items-start group">
+    <div className={`mr-3 p-2 rounded-full ${
+      isDarkMode 
+        ? 'bg-gray-800 text-blue-400 group-hover:bg-blue-900/30' 
+        : 'bg-gray-200 text-blue-600 group-hover:bg-blue-100'
+    } transition-colors`}>
+      {icon}
+    </div>
+    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+      {text}
+    </span>
+  </div>
+);
+
+const SocialIcon = ({ platform }) => {
+  switch (platform) {
+    case 'twitter':
+      return (
+        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
+        </svg>
+      );
+    case 'facebook':
+      return (
+        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
+        </svg>
+      );
+    case 'instagram':
+      return (
+        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+        </svg>
+      );
+    case 'linkedin':
+      return (
+        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z" />
+        </svg>
+      );
+    default:
+      return null;
+  }
 };
 
 export default Footer;
