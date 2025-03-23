@@ -24,10 +24,10 @@ const DashboardPage = () => {
 
     // Fetch user data from localStorage
     const userDataString = localStorage.getItem('userData');
-    if (!userDataString) {
-      router.push('/SignIn');
-      return;
-    }
+    // if (!userDataString) {
+    //   router.push('/SignIn');
+    //   return;
+    // }
 
     const userData = JSON.parse(userDataString);
     fetchDashboardData(userData.id);
