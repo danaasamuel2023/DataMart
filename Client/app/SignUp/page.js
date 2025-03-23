@@ -68,7 +68,7 @@ export default function SignupPage() {
         // Try router.push first
         try {
           // Force a hard navigation instead of client-side navigation
-          window.location.href = '/Signin';
+          window.location.href = '/SignIn';
         } catch (err) {
           console.error("Navigation error:", err);
           alert("Registration successful. Please go to the login page to continue.");
@@ -225,7 +225,7 @@ export default function SignupPage() {
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               Already have an account? 
-              <Link href="/Signin" className="text-blue-600 ml-1 hover:underline">
+              <Link href="/SignIn" className="text-blue-600 ml-1 hover:underline">
                 Login
               </Link>
             </p>
