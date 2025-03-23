@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/compoenent/nav";
 import Footer from "@/compoenent/footer";
 import AuthGuard from "@/component/AuthGuide";
+import WhatsAppLink from "@/component/groupIcon";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,7 +64,8 @@ export default function RootLayout({ children }) {
         <main className="flex-grow">
          
             {children}
-      
+            <WhatsAppLink/>
+
         </main>
         <Footer />
       </body>
