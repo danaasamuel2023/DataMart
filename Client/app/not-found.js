@@ -17,7 +17,7 @@ export default function NotFound() {
         
         {/* Error Message */}
         <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Page Not Found</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Try tommorow morning pls</h2>
           <p className="text-lg text-gray-600 mb-6">
             Oops! The page you're looking for doesn't exist or has been moved.
           </p>
