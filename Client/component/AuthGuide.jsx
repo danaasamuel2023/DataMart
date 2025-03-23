@@ -10,8 +10,7 @@ const AuthGuard = ({ children }) => {
   
   // List of paths that should bypass authentication
   const publicPaths = ['/signin', '/signup'];
-  const isPublicPath = publicPaths.includes(pathname);
-
+  const isPublicPath = publicPaths.includes(pathname.toLowerCase())
   useEffect(() => {
     // If current path is public, don't check auth
     if (isPublicPath) {
