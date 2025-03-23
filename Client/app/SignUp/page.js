@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   Mail, 
   Lock, 
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function SignupPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -45,7 +47,6 @@ export default function SignupPage() {
     }
 
     try {
-      // TODO: Replace with actual signup API call
       const response = await fetch('https://datamartbackened.onrender.com/api/v1/register', {
         method: 'POST',
         headers: {
@@ -63,13 +64,21 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Redirect to login or dashboard
-        window.location.href = '/SignIn';
+        // Use a direct, synchronous approach for navigation
+        // Try router.push first
+        try {
+          // Force a hard navigation instead of client-side navigation
+          window.location.href = '/signin';
+        } catch (err) {
+          console.error("Navigation error:", err);
+          alert("Registration successful. Please go to the login page to continue.");
+        }
       } else {
         setError(data.message || 'Signup failed');
         setIsSubmitting(false);
       }
     } catch (err) {
+      console.error('Signup error:', err);
       setError('An error occurred. Please try again.');
       setIsSubmitting(false);
     }
@@ -216,7 +225,7 @@ export default function SignupPage() {
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               Already have an account? 
-              <Link href="/Signin" className="text-blue-600 ml-1 hover:underline">
+              <Link href="/signin" className="text-blue-600 ml-1 hover:underline">
                 Login
               </Link>
             </p>

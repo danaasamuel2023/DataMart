@@ -24,7 +24,7 @@ const AuthGuard = ({ children }) => {
     const userData = localStorage.getItem('userData');
     
     if (!userData) {
-      router.push('/SignIn');
+      router.push('/SignUp');
     } else {
       setIsAuthenticated(true);
     }
