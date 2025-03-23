@@ -1,19 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { User, DataPurchase, Transaction, ReferralBonus } = require('../schema/schema');
+const { User, DataPurchase, Transaction, ReferralBonus,DataInventory } = require('../schema/schema');
 const mongoose = require('mongoose');
 const auth = require('../middlewareUser/middleware');
 const adminAuth = require('../adminMiddleware/middleware');
 
 // Middleware to check if user is admin
-router.use(auth, adminAuth);
+
 
 /**
  * @route   GET /api/admin/users
  * @desc    Get all users
  * @access  Admin
  */
-router.get('/users', async (req, res) => {
+router.get('/users',auth, adminAuth, async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '' } = req.query;
     
@@ -53,7 +53,7 @@ router.get('/users', async (req, res) => {
  * @desc    Get user by ID
  * @access  Admin
  */
-router.get('/users/:id', async (req, res) => {
+router.get('/users/:id',auth, adminAuth, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     
@@ -76,7 +76,7 @@ router.get('/users/:id', async (req, res) => {
  * @desc    Update user details
  * @access  Admin
  */
-router.put('/users/:id', async (req, res) => {
+router.put('/users/:id',auth, adminAuth, async (req, res) => {
   try {
     const { name, email, phoneNumber, role, walletBalance, referralCode } = req.body;
     
@@ -114,7 +114,7 @@ router.put('/users/:id', async (req, res) => {
  * @desc    Add money to user wallet
  * @access  Admin
  */
-router.put('/users/:id/add-money', async (req, res) => {
+router.put('/users/:id/add-money',auth, adminAuth, async (req, res) => {
   try {
     const { amount } = req.body;
     
@@ -175,7 +175,7 @@ router.put('/users/:id/add-money', async (req, res) => {
  * @desc    Delete user
  * @access  Admin
  */
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id',auth, adminAuth, async (req, res) => {
   try {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -226,7 +226,7 @@ router.delete('/users/:id', async (req, res) => {
  * @desc    Get all data purchase orders
  * @access  Admin
  */
-router.get('/orders', async (req, res) => {
+router.get('/orders',auth, adminAuth, async (req, res) => {
   try {
     const { 
       page = 1, 
@@ -289,7 +289,7 @@ router.get('/orders', async (req, res) => {
  * @desc    Update order status
  * @access  Admin
  */
-router.put('/orders/:id/status', async (req, res) => {
+router.put('/orders/:id/status', auth, adminAuth ,async (req, res) => {
   try {
     const { status } = req.body;
     
@@ -370,6 +370,74 @@ router.get('/analytics', async (req, res) => {
       monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue[0].total : 0,
       recentOrders
     });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+router.put('/inventory/:network/toggle',auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
+    
+    // Find the inventory item
+    let inventoryItem = await DataInventory.findOne({ network });
+    
+    if (!inventoryItem) {
+      // Create new inventory item if it doesn't exist
+      inventoryItem = new DataInventory({
+        network,
+        inStock: false // Set to false since we're toggling from non-existent (assumed true)
+      });
+    } else {
+      // Toggle existing item
+      inventoryItem.inStock = !inventoryItem.inStock;
+      inventoryItem.updatedAt = Date.now();
+    }
+    
+    await inventoryItem.save();
+    
+    res.json({ 
+      network: inventoryItem.network, 
+      inStock: inventoryItem.inStock,
+      message: `${network} is now ${inventoryItem.inStock ? 'in stock' : 'out of stock'}`
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   GET /api/check-availability
+ * @desc    Check network availability
+ * @access  Public
+ */
+router.get('/check-availability', async (req, res) => {
+  try {
+    const { network } = req.query;
+    
+    if (!network) {
+      return res.status(400).json({ msg: 'Please provide network name' });
+    }
+    
+    const inventoryItem = await DataInventory.findOne({ network });
+    
+    // If network doesn't exist in inventory or is marked as out of stock
+    if (!inventoryItem || !inventoryItem.inStock) {
+      return res.json({ 
+        available: false, 
+        message: `${network} data is currently out of stock` 
+      });
+    }
+    
+    // Network is available
+    return res.json({ 
+      available: true,
+      message: `${network} data is available for purchase` 
+    });
+    
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

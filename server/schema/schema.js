@@ -47,6 +47,15 @@ const ReferralBonusSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const DataInventorySchema = new mongoose.Schema({
+  network: { type: String, enum: ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at"], required: true },
+  
+  inStock: { type: Boolean, default: true },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+
+
 // Add this to your schema.js file
 
 const Schema = mongoose.Schema;
@@ -99,6 +108,6 @@ const DataPurchase = mongoose.model("DataPurchase", DataPurchaseSchema);
 const Transaction = mongoose.model("Transaction", TransactionSchema);
 const ReferralBonus = mongoose.model("ReferralBonus", ReferralBonusSchema);
 const ApiKey = mongoose.model('ApiKey', apiKeySchema);
+const DataInventory = mongoose.model("DataInventory", DataInventorySchema);
 
-
-module.exports = { User, DataPurchase, Transaction, ReferralBonus,ApiKey };
+module.exports = { User, DataPurchase, Transaction, ReferralBonus,ApiKey,DataInventory };
