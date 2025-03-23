@@ -25,9 +25,9 @@ const MTNBundleCards = () => {
     { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: false },
     { capacity: '5', mb: '5000', price: '22.50', network: 'YELLO', inStock: false },
     { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: false },
+    { capacity: '7', mb: '7000', price: '31.50', network: 'YELLO', inStock: false },
     { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: false },
     { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: false },
-    // { capacity: '12', mb: '15000', price: '55.50', network: 'YELLO' },
     { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: false },
     { capacity: '20', mb: '20000', price: '85.00', network: 'YELLO', inStock: false },
     { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: false },
@@ -47,19 +47,26 @@ const MTNBundleCards = () => {
   );
 
   const handleSelectBundle = (index) => {
-    // Only allow selection if the bundle is in stock
-    if (bundles[index].inStock) {
-      setSelectedBundleIndex(index === selectedBundleIndex ? null : index);
-      setPhoneNumber('');
-      // Clear any error messages for this bundle
-      setBundleMessages(prev => ({ ...prev, [index]: null }));
-    }
+    // Allow selection regardless of stock status
+    setSelectedBundleIndex(index === selectedBundleIndex ? null : index);
+    setPhoneNumber('');
+    // Clear any error messages for this bundle
+    setBundleMessages(prev => ({ ...prev, [index]: null }));
   };
 
   const handlePurchase = async (bundle, index) => {
     // Clear previous messages
     setBundleMessages(prev => ({ ...prev, [index]: null }));
     setGlobalMessage({ text: '', type: '' });
+    
+    // Check if bundle is out of stock first
+    if (!bundle.inStock) {
+      setBundleMessages(prev => ({ 
+        ...prev, 
+        [index]: { text: 'Sorry, this bundle is currently out of stock.', type: 'error' } 
+      }));
+      return;
+    }
     
     if (!phoneNumber || phoneNumber.length < 10) {
       setBundleMessages(prev => ({ 
@@ -141,19 +148,20 @@ const MTNBundleCards = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {bundles.map((bundle, index) => (
           <div key={index} className="flex flex-col relative">
-            {/* Out of stock overlay */}
-            {!bundle.inStock && (
-              <div className="absolute inset-0 bg-black bg-opacity-60 rounded-lg z-10 flex flex-col items-center justify-center">
-                <span className="bg-red-600 text-white font-bold py-2 px-4 rounded-full transform rotate-[-10deg] shadow-lg">
-                  OUT OF STOCK
-                </span>
-              </div>
-            )}
-            
+            {/* Card shows "OUT OF STOCK" badge but is still clickable */}
             <div 
-              className={`flex flex-col ${bundle.inStock ? 'bg-yellow-400' : 'bg-gray-300'} overflow-hidden shadow-md transition-transform duration-300 ${bundle.inStock ? 'cursor-pointer hover:translate-y-[-5px]' : 'cursor-not-allowed'} ${selectedBundleIndex === index ? 'rounded-t-lg' : 'rounded-lg'}`}
+              className={`flex flex-col bg-yellow-400 overflow-hidden shadow-md transition-transform duration-300 cursor-pointer hover:translate-y-[-5px] ${selectedBundleIndex === index ? 'rounded-t-lg' : 'rounded-lg'}`}
               onClick={() => handleSelectBundle(index)}
             >
+              {/* Out of stock badge */}
+              {!bundle.inStock && (
+                <div className="absolute top-2 right-2 z-10">
+                  <span className="bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-full shadow-lg">
+                    OUT OF STOCK
+                  </span>
+                </div>
+              )}
+              
               <div className="flex flex-col items-center justify-center p-5 space-y-3">
                 <div className="w-20 h-20 flex justify-center items-center">
                   <MTNLogo />
