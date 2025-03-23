@@ -68,7 +68,7 @@ export default function SignupPage() {
         // Try router.push first
         try {
           // Force a hard navigation instead of client-side navigation
-          window.location.href = '/signin';
+          window.location.href = '/Signin';
         } catch (err) {
           console.error("Navigation error:", err);
           alert("Registration successful. Please go to the login page to continue.");
