@@ -61,9 +61,9 @@ export default function RootLayout({ children }) {
       >
         <Navbar />
         <main className="flex-grow">
-          <AuthGuard excludePaths={['/Signin', '/Signup']}>
+         
             {children}
-          </AuthGuard>
+      
         </main>
         <Footer />
       </body>
