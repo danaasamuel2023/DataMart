@@ -9,7 +9,7 @@ const AuthGuard = ({ children }) => {
   const [loading, setLoading] = useState(true);
   
   // List of paths that should bypass authentication
-  const publicPaths = ['/Signin', '/Signup'];
+  const publicPaths = ['/Signin', '/SignUp'];
   const isPublicPath = publicPaths.includes(pathname)
   useEffect(() => {
     // If current path is public, don't check auth
@@ -23,7 +23,7 @@ const AuthGuard = ({ children }) => {
     const userData = localStorage.getItem('userData');
     
     if (!userData) {
-      router.push('/Signup');
+      router.push('/SignUp');
     } else {
       setIsAuthenticated(true);
     }
