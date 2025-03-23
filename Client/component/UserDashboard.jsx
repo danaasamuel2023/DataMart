@@ -25,7 +25,7 @@ const DashboardPage = () => {
     // Fetch user data from localStorage
     const userDataString = localStorage.getItem('userData');
     if (!userDataString) {
-      router.push('/Signup');
+      router.push('/SignUp');
       return;
     }
 
