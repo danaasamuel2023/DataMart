@@ -289,25 +289,112 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
  * @desc    Update order status
  * @access  Admin
  */
-router.put('/orders/:id/status', auth, adminAuth ,async (req, res) => {
+router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
   try {
     const { status } = req.body;
     
-    if (!['pending', 'completed', 'failed', 'processing'].includes(status)) {
+    if (!['pending', 'completed', 'failed', 'processing', 'refunded'].includes(status)) {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    const order = await DataPurchase.findByIdAndUpdate(
-      req.params.id,
-      { $set: { status } },
-      { new: true }
-    ).populate('userId', 'name email phoneNumber');
+    // Find the order first to get previous status and user info
+    const order = await DataPurchase.findById(req.params.id)
+      .populate('userId', 'name email phoneNumber walletBalance');
     
     if (!order) {
       return res.status(404).json({ msg: 'Order not found' });
     }
     
-    res.json(order);
+    const previousStatus = order.status;
+    
+    // Process refund if status is being changed to failed
+    if (status === 'failed' && previousStatus !== 'failed') {
+      try {
+        // Start a transaction for the refund process
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        
+        try {
+          // Find the user and update their wallet balance
+          const user = await User.findById(order.userId._id).session(session);
+          
+          if (user) {
+            // Add the refund amount to the user's wallet balance
+            user.walletBalance += order.price;
+            await user.save({ session });
+            
+            // Create refund transaction record
+            const transaction = new Transaction({
+              userId: user._id,
+              type: 'refund',
+              amount: order.price,
+              status: 'completed',
+              reference: `REFUND-${order._id}-${Date.now()}`,
+              gateway: 'wallet-refund'
+            });
+            
+            await transaction.save({ session });
+            
+            console.log(`Refunded ${order.price} to user ${user._id} for order ${order._id}`);
+            
+            // Send refund SMS to the user
+            try {
+              // Format phone number for SMS if needed
+              const formatPhoneForSms = (phone) => {
+                // Remove the '+' if it exists or format as needed
+                return phone.replace(/^\+233/, '');
+              };
+              
+              if (user.phoneNumber) {
+                const userPhone = formatPhoneForSms(user.phoneNumber);
+                const refundMessage = `Your data order for ${order.dataAmount}${order.dataUnit} on ${order.network} could not be processed. Your account has been refunded with ₵${order.price}. Reference: ${order.reference}`;
+                
+                // Assuming you have a sendSMS function similar to the one in paste-2.txt
+                // This would be imported or defined elsewhere in your application
+                await sendSMS(userPhone, refundMessage, {
+                  useCase: 'transactional',
+                  senderID: 'YourCompany' // Replace with your actual sender ID
+                });
+                
+                console.log(`Refund SMS sent to ${userPhone} for order ${order._id}`);
+              }
+            } catch (smsError) {
+              console.error('Failed to send refund SMS:', smsError.message);
+              // Continue with the transaction even if SMS fails
+            }
+          } else {
+            console.error(`User not found for refund: ${order.userId._id}`);
+          }
+          
+          // Update the order status
+          order.status = status;
+          order.processedBy = req.user.id; // Assuming you store the admin ID who processed it
+          order.updatedAt = Date.now();
+          await order.save({ session });
+          
+          await session.commitTransaction();
+          session.endSession();
+          
+        } catch (txError) {
+          await session.abortTransaction();
+          session.endSession();
+          throw txError;
+        }
+      } catch (refundError) {
+        console.error('Error processing refund:', refundError.message);
+        return res.status(500).json({ msg: 'Error processing refund' });
+      }
+    } else {
+      // Just update the status if not a refund scenario
+      order.status = status;
+      order.updatedAt = Date.now();
+      await order.save();
+    }
+    
+    res.json({
+      msg: 'Order status updated successfully',
+      order
+    });
   } catch (err) {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
@@ -316,6 +403,7 @@ router.put('/orders/:id/status', auth, adminAuth ,async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
 
 /**
  * @route   GET /api/admin/analytics
