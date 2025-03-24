@@ -129,7 +129,7 @@ const DashboardPage = () => {
     try {
       const authToken = localStorage.getItem('authToken');
       
-      const response = await fetch(`http://localhost:5000/api/v1/user-transactions/${userId}?status=pending`, {
+      const response = await fetch(`https://datamartbackened.onrender.com/api/v1/user-transactions/${userId}?status=pending`, {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }

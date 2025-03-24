@@ -79,7 +79,7 @@ const TransactionsPage = () => {
     setLoading(true);
     try {
       const userId = userData.id;
-      let url = `http://localhost:5000/api/v1/user-transactions/${userId}?page=${pagination.page}&limit=${pagination.limit}`;
+      let url = `https://datamartbackened.onrender.com/api/v1/user-transactions/${userId}?page=${pagination.page}&limit=${pagination.limit}`;
       
       if (statusFilter) {
         url += `&status=${statusFilter}`;
