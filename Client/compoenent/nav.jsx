@@ -22,13 +22,13 @@ import {
 } from 'lucide-react';
 
 const Navbar = () => {
+  const router = useRouter(); // Correctly using useRouter at the top level
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [animationComplete, setAnimationComplete] = useState(false);
   const [activeSection, setActiveSection] = useState("Dashboard");
-  const router = useRouter();
-
+ 
   // Check system preference and local storage on initial load
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -175,10 +175,14 @@ const Navbar = () => {
         <div className={`p-4 text-2xl font-bold border-b border-gray-300 dark:border-gray-700 flex ${isCollapsed ? 'justify-center' : 'justify-between'} items-center`}>
           {isCollapsed ? (
             <div className="flex justify-center w-full">
-              <DataMartLogo width={40} height={30} onClick={() => handleNavigation('/')} />
+              <Link href="/">
+                <DataMartLogo width={40} height={30} />
+              </Link>
             </div>
           ) : (
-            <DataMartLogo onClick={() => handleNavigation('/')} />
+            <Link href="/">
+              <DataMartLogo />
+            </Link>
           )}
           {!isCollapsed && (
             <div className="flex items-center">
@@ -210,21 +214,18 @@ const Navbar = () => {
               icon={<LayoutDashboard />} 
               text="Dashboard" 
               path="/" 
-              onClick={() => handleNavigation('/')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<Home />} 
               text="Home" 
               path="/" 
-              onClick={() => handleNavigation('/')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<CreditCard />} 
               text="Top Up" 
               path="/topup" 
-              onClick={() => handleNavigation('/topup')} 
               isHighlighted={true}
               isCollapsed={isCollapsed} 
             />
@@ -240,28 +241,24 @@ const Navbar = () => {
               icon={<Layers />} 
               text="AT iShare Bundle" 
               path="/at-ishare" 
-              onClick={() => handleNavigation('/at-ishare')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<Layers />} 
               text="MTNUP2U Bundle" 
               path="/mtnup2u" 
-              onClick={() => handleNavigation('/mtnup2u')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<Layers />} 
               text="MTNUP2U Pricing" 
               path="/mtnup2u-pricing" 
-              onClick={() => handleNavigation('/mtnup2u-pricing')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<Layers />} 
               text="AT Big Time Bundle" 
               path="/services/at-bigtime" 
-              onClick={() => handleNavigation('/services/at-bigtime')} 
               isNew 
               isCollapsed={isCollapsed}
             />
@@ -269,7 +266,6 @@ const Navbar = () => {
               icon={<Phone />} 
               text="Telecel Bundle" 
               path="/TELECEL" 
-              onClick={() => handleNavigation('/TELECEL')} 
               isNew 
               isCollapsed={isCollapsed}
             />
@@ -285,14 +281,12 @@ const Navbar = () => {
               icon={<FileSpreadsheet />} 
               text="MTNUP2U Excel" 
               path="/uploads/mtnup2u" 
-              onClick={() => handleNavigation('/uploads/mtnup2u')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<FileSpreadsheet />} 
               text="AT iShare Excel" 
               path="/uploads/at-ishare" 
-              onClick={() => handleNavigation('/uploads/at-ishare')} 
               isCollapsed={isCollapsed}
             />
 
@@ -307,14 +301,12 @@ const Navbar = () => {
               icon={<Key />} 
               text="API Keys" 
               path="/api-keys" 
-              onClick={() => handleNavigation('/api-keys')} 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<FileText />} 
               text="API Documentation" 
               path="/api-docs" 
-              onClick={() => handleNavigation('/api-doc')} 
               isCollapsed={isCollapsed}
             />
           </div>
@@ -341,9 +333,9 @@ const Navbar = () => {
       <div className="md:hidden w-full z-50">
         {/* Mobile Top Bar */}
         <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white flex justify-between items-center p-4 shadow-md fixed top-0 left-0 right-0">
-          <div className="flex items-center" onClick={() => handleNavigation('/')}>
+          <Link href="/" className="flex items-center">
             <DataMartLogo width={120} height={30} />
-          </div>
+          </Link>
           <div className="flex items-center space-x-4">
             <button 
               onClick={toggleDarkMode} 
@@ -390,9 +382,9 @@ const Navbar = () => {
               >
                 <X size={18} />
               </button>
-              <div className="flex items-center" onClick={() => handleNavigation('/')}>
+              <Link href="/" className="flex items-center">
                 <DataMartLogo width={150} height={40} />
-              </div>
+              </Link>
               <div className="text-sm opacity-80 mt-2">Your mobile data solution</div>
             </div>
 
@@ -417,12 +409,12 @@ const Navbar = () => {
             <div className="overflow-y-auto h-full pb-24">
               {/* Top Up Button (Always visible) */}
               <div className="p-4 animate-fadeIn">
-                <button 
-                  onClick={() => handleNavigation('/topup')}
+                <Link 
+                  href="/topup"
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg flex items-center justify-center font-medium shadow-md transition-all transform hover:translate-y-1 hover:shadow-lg"
                 >
                   <CreditCard className="mr-2" /> Top Up Account
-                </button>
+                </Link>
               </div>
               
               {/* Dashboard Section */}
@@ -431,13 +423,13 @@ const Navbar = () => {
                   <MobileNavItem 
                     icon={<LayoutDashboard className="text-blue-500" />} 
                     text="Dashboard Overview" 
-                    onClick={() => handleNavigation('/', "Dashboard")} 
+                    path="/"
                     description="View your account summary"
                   />
                   <MobileNavItem 
                     icon={<Home className="text-green-500" />} 
                     text="Home" 
-                    onClick={() => handleNavigation('/', "Dashboard")} 
+                    path="/" 
                     description="Return to home page"
                   />
                 </div>
@@ -449,32 +441,32 @@ const Navbar = () => {
                   <MobileNavItem 
                     icon={<Layers className="text-indigo-500" />} 
                     text="AT iShare Bundle" 
-                    onClick={() => handleNavigation('/at-ishare', "Services")} 
+                    path="/at-ishare"
                     description="Share data with friends"
                   />
                   <MobileNavItem 
                     icon={<Layers className="text-purple-500" />} 
                     text="MTNUP2U Bundle" 
-                    onClick={() => handleNavigation('/mtnup2u', "Services")} 
+                    path="/mtnup2u"
                     description="Customized bundle options"
                   />
                   <MobileNavItem 
                     icon={<Layers className="text-purple-400" />} 
                     text="MTNUP2U Pricing" 
-                    onClick={() => handleNavigation('/mtnup2u-pricing', "Services")} 
+                    path="/mtnup2u-pricing"
                     description="View bundle pricing details"
                   />
                   <MobileNavItem 
                     icon={<Layers className="text-blue-500" />} 
                     text="AT Big Time Bundle" 
-                    onClick={() => handleNavigation('/services/at-bigtime', "Services")} 
+                    path="/services/at-bigtime"
                     isNew 
                     description="Exclusive new data bundles"
                   />
                   <MobileNavItem 
                     icon={<Phone className="text-yellow-500" />} 
                     text="Telecel Bundle" 
-                    onClick={() => handleNavigation('/TELECEL', "Services")} 
+                    path="/TELECEL"
                     isNew
                     isSpecial
                     description="New Telecel partnership bundles"
@@ -488,13 +480,13 @@ const Navbar = () => {
                   <MobileNavItem 
                     icon={<FileSpreadsheet className="text-green-500" />} 
                     text="MTNUP2U Excel Upload" 
-                    onClick={() => handleNavigation('/uploads/mtnup2u', "Uploads")} 
+                    path="/uploads/mtnup2u"
                     description="Bulk processing for MTN bundles"
                   />
                   <MobileNavItem 
                     icon={<FileSpreadsheet className="text-blue-500" />} 
                     text="AT iShare Excel Upload" 
-                    onClick={() => handleNavigation('/uploads/at-ishare', "Uploads")} 
+                    path="/uploads/at-ishare"
                     description="Bulk processing for AirTel"
                   />
                 </div>
@@ -506,13 +498,13 @@ const Navbar = () => {
                   <MobileNavItem 
                     icon={<Key className="text-amber-500" />} 
                     text="API Keys Management" 
-                    onClick={() => handleNavigation('/api-keys', "API")} 
+                    path="/api-keys"
                     description="Manage your API access"
                   />
                   <MobileNavItem 
                     icon={<FileText className="text-blue-500" />} 
                     text="API Documentation" 
-                    onClick={() => handleNavigation('/api-doc', "API")} 
+                    path="/api-doc"
                     description="Learn how to integrate"
                   />
                 </div>
@@ -579,72 +571,150 @@ const Navbar = () => {
   );
 };
 
-// Desktop Navigation Item Component - Unchanged
-const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false, isCollapsed = false }) => (
-  <div 
-    className={`${isCollapsed ? 'px-0 py-4 justify-center' : 'px-4 py-2'} hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer ${
-      isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium' : ''
-    } transition-colors duration-200`}
-    onClick={onClick}
-    title={isCollapsed ? text : ""}
-  >
-    <div className={isCollapsed ? "flex justify-center w-full" : ""}>
-      {icon}
-    </div>
-    {!isCollapsed && <span className="ml-3">{text}</span>}
-    {!isCollapsed && isNew && (
-      <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-        New
-      </span>
-    )}
-    {!isCollapsed && isHighlighted && (
-      <span className="ml-auto text-blue-600 dark:text-blue-400">
-        →
-      </span>
-    )}
-  </div>
-);
-
-// Enhanced Mobile Navigation Item Component
-const MobileNavItem = ({ icon, text, onClick, isNew = false, isSpecial = false, description = "" }) => (
-  <div 
-    className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
-      isSpecial 
-        ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
-        : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
-    } transition-all duration-200`}
-    onClick={onClick}
-  >
-    <div className="flex items-center">
-      <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
-        {icon}
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center">
-          <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
-            {text}
-          </span>
-          {isNew && (
-            <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
-              New
-            </span>
-          )}
+// Desktop Navigation Item Component - Changed to use Link
+const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false, isCollapsed = false }) => {
+  // If there's an onClick handler, use a div with onClick
+  if (onClick) {
+    return (
+      <div 
+        className={`${isCollapsed ? 'px-0 py-4 justify-center' : 'px-4 py-2'} hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer ${
+          isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium' : ''
+        } transition-colors duration-200`}
+        onClick={onClick}
+        title={isCollapsed ? text : ""}
+      >
+        <div className={isCollapsed ? "flex justify-center w-full" : ""}>
+          {icon}
         </div>
-        {description && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+        {!isCollapsed && <span className="ml-3">{text}</span>}
+        {!isCollapsed && isNew && (
+          <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+            New
+          </span>
+        )}
+        {!isCollapsed && isHighlighted && (
+          <span className="ml-auto text-blue-600 dark:text-blue-400">
+            →
+          </span>
         )}
       </div>
-      <div className="ml-2">
-        <span className={`rounded-full p-1 ${
-          isSpecial 
-            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
-            : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
-        }`}>
-          <ArrowUpRight size={14} />
-        </span>
-      </div>
-    </div>
-  </div>
-);
+    );
+  }
 
-export default Navbar;
+  // Otherwise use a Link
+  return (
+    <Link href={path}>
+      <div 
+        className={`${isCollapsed ? 'px-0 py-4 justify-center' : 'px-4 py-2'} hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer ${
+          isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium' : ''
+        } transition-colors duration-200`}
+        title={isCollapsed ? text : ""}
+      >
+        <div className={isCollapsed ? "flex justify-center w-full" : ""}>
+          {icon}
+        </div>
+        {!isCollapsed && <span className="ml-3">{text}</span>}
+        {!isCollapsed && isNew && (
+          <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+            New
+          </span>
+        )}
+        {!isCollapsed && isHighlighted && (
+          <span className="ml-auto text-blue-600 dark:text-blue-400">
+            →
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+};
+
+// Enhanced Mobile Navigation Item Component - Changed to use Link
+const MobileNavItem = ({ icon, text, path, onClick, isNew = false, isSpecial = false, description = "" }) => {
+  // If there's an onClick handler, use a div with onClick
+  if (onClick) {
+    return (
+      <div 
+        className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
+          isSpecial 
+            ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
+            : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
+        } transition-all duration-200`}
+        onClick={onClick}
+      >
+        <div className="flex items-center">
+          <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
+            {icon}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center">
+              <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
+                {text}
+              </span>
+              {isNew && (
+                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
+                  New
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+            )}
+          </div>
+          <div className="ml-2">
+            <span className={`rounded-full p-1 ${
+              isSpecial 
+                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+                : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
+            }`}>
+              <ArrowUpRight size={14} />
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Otherwise use a Link
+  return (
+    <Link href={path}>
+      <div 
+        className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
+          isSpecial 
+            ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
+            : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
+        } transition-all duration-200`}
+      >
+        <div className="flex items-center">
+          <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
+            {icon}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center">
+              <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
+                {text}
+              </span>
+              {isNew && (
+                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
+                  New
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+            )}
+          </div>
+          <div className="ml-2">
+            <span className={`rounded-full p-1 ${
+              isSpecial 
+                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+                : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
+            }`}>
+              <ArrowUpRight size={14} />
+            </span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  )};
+  export default Navbar;

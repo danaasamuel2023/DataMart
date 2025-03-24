@@ -4,8 +4,113 @@ const { User, DataPurchase, Transaction, ReferralBonus,DataInventory } = require
 const mongoose = require('mongoose');
 const auth = require('../middlewareUser/middleware');
 const adminAuth = require('../adminMiddleware/middleware');
+const axios = require('axios');
+
 
 // Middleware to check if user is admin
+
+// const mongoose = require('mongoose');
+const ARKESEL_API_KEY = 'QkNhS0l2ZUZNeUdweEtmYVRUREg';
+
+const sendSMS = async (phoneNumber, message, options = {}) => {
+  const {
+    scheduleTime = null,
+    useCase = null,
+    senderID = 'Bundle'
+  } = options;
+
+  // Input validation
+  if (!phoneNumber || !message) {
+    throw new Error('Phone number and message are required');
+  }
+
+  // Base parameters
+  const params = {
+    action: 'send-sms',
+    api_key: ARKESEL_API_KEY,
+    to: phoneNumber,
+    from: senderID,
+    sms: message
+  };
+
+  // Add optional parameters
+  if (scheduleTime) {
+    params.schedule = scheduleTime;
+  }
+
+  if (useCase && ['promotional', 'transactional'].includes(useCase)) {
+    params.use_case = useCase;
+  }
+
+  // Add Nigerian use case if phone number starts with 234
+  if (phoneNumber.startsWith('234') && !useCase) {
+    params.use_case = 'transactional';
+  }
+
+  try {
+    const response = await axios.get('https://sms.arkesel.com/sms/api', {
+      params,
+      timeout: 10000 // 10 second timeout
+    });
+
+    // Map error codes to meaningful messages
+    const errorCodes = {
+      '100': 'Bad gateway request',
+      '101': 'Wrong action',
+      '102': 'Authentication failed',
+      '103': 'Invalid phone number',
+      '104': 'Phone coverage not active',
+      '105': 'Insufficient balance',
+      '106': 'Invalid Sender ID',
+      '109': 'Invalid Schedule Time',
+      '111': 'SMS contains spam word. Wait for approval'
+    };
+
+    if (response.data.code !== 'ok') {
+      const errorMessage = errorCodes[response.data.code] || 'Unknown error occurred';
+      throw new Error(`SMS sending failed: ${errorMessage}`);
+    }
+
+    console.log('SMS sent successfully:', {
+      to: phoneNumber,
+      status: response.data.code,
+      balance: response.data.balance,
+      mainBalance: response.data.main_balance
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+
+  } catch (error) {
+    // Handle specific error types
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('SMS API responded with error:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('No response received from SMS API:', error.message);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('SMS request setup error:', error.message);
+    }
+
+    // Instead of swallowing the error, return error details
+    return {
+      success: false,
+      error: {
+        message: error.message,
+        code: error.response?.data?.code,
+        details: error.response?.data
+      }
+    };
+  }
+};
 
 
 /**
@@ -230,7 +335,7 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 10, 
+      limit = 100, 
       status = '',
       network = '',
       startDate = '',
@@ -297,8 +402,8 @@ router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Find the order first to get previous status and user info
-    const order = await DataPurchase.findById(req.params.id)
+    // Find the order by geonetReference instead of _id
+    const order = await DataPurchase.findOne({ geonetReference: req.params.id })
       .populate('userId', 'name email phoneNumber walletBalance');
     
     if (!order) {
@@ -347,13 +452,13 @@ router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
               
               if (user.phoneNumber) {
                 const userPhone = formatPhoneForSms(user.phoneNumber);
-                const refundMessage = `Your data order for ${order.dataAmount}${order.dataUnit} on ${order.network} could not be processed. Your account has been refunded with ₵${order.price}. Reference: ${order.reference}`;
+                const refundMessage = `DATAMART: Your order for ${order.capacity}GB ${order.network} data bundle (Ref: ${order.geonetReference}) could not be processed. Your account has been refunded with GHS${order.price.toFixed(2)}. Thank you for choosing DATAMART.`;
                 
                 // Assuming you have a sendSMS function similar to the one in paste-2.txt
                 // This would be imported or defined elsewhere in your application
                 await sendSMS(userPhone, refundMessage, {
                   useCase: 'transactional',
-                  senderID: 'YourCompany' // Replace with your actual sender ID
+                  senderID: 'Bundle' // Replace with your actual sender ID
                 });
                 
                 console.log(`Refund SMS sent to ${userPhone} for order ${order._id}`);
@@ -397,13 +502,12 @@ router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Order not found' });
+    if (err.kind === 'ObjectId' || err.name === 'CastError') {
+      return res.status(400).json({ msg: 'Invalid order format' });
     }
     res.status(500).send('Server Error');
   }
 });
-
 
 /**
  * @route   GET /api/admin/analytics

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import Link from 'next/link';
+import { Info } from 'lucide-react'; // Make sure to install lucide-react
 
 export default function DepositPage() {
   const [amount, setAmount] = useState('');
@@ -94,7 +96,35 @@ export default function DepositPage() {
   
   return (
     <div className="max-w-md mx-auto my-10 p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6 text-center">Deposit Funds</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-center flex-1">Deposit Funds</h1>
+        <Link 
+          href="/howtodeposite" 
+          className="flex items-center text-sm px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full transition-colors"
+        >
+          <Info size={16} className="mr-1" />
+          How to Deposit
+        </Link>
+      </div>
+      
+      {/* Helpful guide banner */}
+      <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-start">
+          <Info size={20} className="text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+          <div>
+            <p className="text-sm text-yellow-800 font-medium">Not sure how to make a successful deposit?</p>
+            <p className="text-xs text-yellow-700 mt-1">
+              Learn how to complete your payment without errors and ensure your account is credited properly.
+            </p>
+            <Link 
+              href="/howtodeposite" 
+              className="mt-2 inline-block text-xs font-medium px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded transition-colors"
+            >
+              View Deposit Guide
+            </Link>
+          </div>
+        </div>
+      </div>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -159,6 +189,14 @@ export default function DepositPage() {
         <p>• Payments are processed securely via Paystack</p>
         <p>• Funds will be available in your wallet immediately after successful payment</p>
         <p>• For any issues, please contact support</p>
+        <p className="mt-2">
+          <Link 
+            href="/myorders" 
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            Check your deposit history
+          </Link>
+        </p>
       </div>
     </div>
   );

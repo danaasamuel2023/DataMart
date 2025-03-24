@@ -23,16 +23,16 @@ const DataPurchaseSchema = new mongoose.Schema({
   method: { type: String, enum: ["web", "api"], required: true }, // Source of purchase
   price: { type: Number, required: true }, // Cost of data package
   geonetReference: { type: String, required: true }, // Unique reference from Geonet
-  status: { type: String, enum: ["pending", "completed", "failed","processing"], default: "pending" }, // Status
+  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund"], default: "pending" }, // Status
   createdAt: { type: Date, default: Date.now }
 });
 
 // Transaction Schema (Deposits & Purchases)
 const TransactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  type: { type: String, enum: ["deposit", "purchase"], required: true }, // Deposit or Data Purchase
+  type: { type: String, enum: ["deposit", "purchase","refund"], required: true }, // Deposit or Data Purchase
   amount: { type: Number, required: true },
-  status: { type: String, enum: ["pending", "completed", "failed"], default: "pending" },
+  status: { type: String, enum: ["pending", "completed", "failed","refund"], default: "pending" },
   reference: { type: String, unique: true, required: true }, // Unique transaction ID
   gateway: { type: String, required: true }, // Payment method (Mobile Money, Card, etc.)
   createdAt: { type: Date, default: Date.now }

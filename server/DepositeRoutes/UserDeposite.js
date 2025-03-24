@@ -234,4 +234,171 @@ router.get('/verify-payment', async (req, res) => {
   }
 });
 
+// NEW ROUTE: Get all transactions for a user
+router.get('/user-transactions/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status, page = 1, limit = 10 } = req.query;
+    
+    // Validate userId
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User ID is required' 
+      });
+    }
+    
+    // Build query filter
+    const filter = { userId };
+    
+    // Add status filter if provided
+    if (status) {
+      filter.status = status;
+    }
+    
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Find transactions
+    const transactions = await Transaction.find(filter)
+      .sort({ createdAt: -1 }) // Most recent first
+      .skip(skip)
+      .limit(parseInt(limit));
+      
+    // Get total count for pagination
+    const totalCount = await Transaction.countDocuments(filter);
+    
+    return res.json({
+      success: true,
+      data: {
+        transactions,
+        pagination: {
+          total: totalCount,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(totalCount / parseInt(limit))
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get Transactions Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// NEW ROUTE: Verify pending transaction by ID
+router.post('/verify-pending-transaction/:transactionId', async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    
+    // Find the transaction
+    const transaction = await Transaction.findById(transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        error: 'Transaction not found'
+      });
+    }
+    
+    // Check if transaction is pending
+    if (transaction.status !== 'pending') {
+      return res.json({
+        success: false,
+        message: `Transaction is already ${transaction.status}`,
+        data: {
+          transactionId,
+          reference: transaction.reference,
+          amount: transaction.amount,
+          status: transaction.status
+        }
+      });
+    }
+    
+    // Verify with Paystack
+    try {
+      const paystackResponse = await axios.get(
+        `${PAYSTACK_BASE_URL}/transaction/verify/${transaction.reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const { data } = paystackResponse.data;
+      
+      // If payment is successful
+      if (data.status === 'success') {
+        // Update transaction status
+        transaction.status = 'completed';
+        await transaction.save();
+        
+        // Update user's wallet balance
+        const user = await User.findById(transaction.userId);
+        if (user) {
+          user.walletBalance += transaction.amount;
+          await user.save();
+        }
+        
+        return res.json({
+          success: true,
+          message: 'Transaction verified and completed successfully',
+          data: {
+            transactionId,
+            reference: transaction.reference,
+            amount: transaction.amount,
+            status: 'completed'
+          }
+        });
+      } else if (data.status === 'failed') {
+        // Mark transaction as failed
+        transaction.status = 'failed';
+        await transaction.save();
+        
+        return res.json({
+          success: false,
+          message: 'Payment failed',
+          data: {
+            transactionId,
+            reference: transaction.reference,
+            amount: transaction.amount,
+            status: 'failed'
+          }
+        });
+      } else {
+        // Still pending on Paystack side
+        return res.json({
+          success: false,
+          message: `Payment status on gateway: ${data.status}`,
+          data: {
+            transactionId,
+            reference: transaction.reference,
+            amount: transaction.amount,
+            status: transaction.status
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Paystack verification error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to verify payment with Paystack'
+      });
+    }
+    
+  } catch (error) {
+    console.error('Verify Pending Transaction Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
 module.exports = router;

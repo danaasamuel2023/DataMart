@@ -1,7 +1,44 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, ArrowUp, ArrowDown, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
+const TransactionsNotification = ({ pendingCount, onClick }) => {
+  return (
+    <div className="mb-6 bg-white rounded-lg shadow overflow-hidden border-l-4" style={{ borderLeftColor: "#ffcc00" }}>
+      <div className="p-4 flex items-start">
+        <div className="flex-shrink-0 pt-0.5">
+          <AlertCircle className="h-5 w-5 text-yellow-500" />
+        </div>
+        <div className="ml-3 w-full">
+          <div className="flex justify-between items-center">
+            <h3 className="text-md font-medium text-gray-900">Transactions Management</h3>
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                {pendingCount} pending
+              </span>
+            )}
+          </div>
+          <div className="mt-2 text-sm text-gray-500">
+            <p>
+              View your transaction history and verify any uncredited payments. 
+              {pendingCount > 0 ? " You have pending transactions that might need verification." : ""}
+            </p>
+          </div>
+          <div className="mt-3">
+            <button
+              onClick={onClick}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white"
+              style={{ backgroundColor: "#ffcc00" }}
+            >
+              View Transactions
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const DashboardPage = () => {
   const router = useRouter();
@@ -13,15 +50,18 @@ const DashboardPage = () => {
     todayRevenue: 0,
     recentTransactions: []
   });
+  const [pendingTransactions, setPendingTransactions] = useState(0);
 
-  const ViewAll=()=>{
+  const ViewAll = () => {
     router.push('/orders');
-  }
+  };
+
+  const navigateToTransactions = () => {
+    router.push('/myorders');
+  };
 
   useEffect(() => {
     // Check if user is authenticated
-    
-
     // Fetch user data from localStorage
     const userDataString = localStorage.getItem('userData');
     if (!userDataString) {
@@ -31,6 +71,7 @@ const DashboardPage = () => {
 
     const userData = JSON.parse(userDataString);
     fetchDashboardData(userData.id);
+    fetchPendingTransactionsCount(userData.id);
   }, [router]);
 
   // Fetch dashboard data from API
@@ -63,7 +104,7 @@ const DashboardPage = () => {
           recentTransactions: todayOrders.orders.map(order => ({
             id: order._id,
             customer: order.phoneNumber,
-            method: order.method, // Add this line
+            method: order.method,
             amount: order.price,
             gb: formatDataCapacity(order.capacity),
             time: new Date(order.createdAt).toLocaleTimeString('en-US', {
@@ -83,19 +124,37 @@ const DashboardPage = () => {
     }
   };
 
+  // Fetch pending transactions count
+  const fetchPendingTransactionsCount = async (userId) => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      
+      const response = await fetch(`http://localhost:5000/api/v1/user-transactions/${userId}?status=pending`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch pending transactions');
+      }
+
+      const responseData = await response.json();
+      
+      if (responseData.success) {
+        setPendingTransactions(responseData.data.pagination.total);
+      }
+    } catch (error) {
+      console.error('Error fetching pending transactions:', error);
+    }
+  };
+
   // Helper function to format data capacity (convert to GB if needed)
   const formatDataCapacity = (capacity) => {
     if (capacity >= 1000) {
       return (capacity / 1000).toFixed(1);
     }
     return capacity;
-  };
-
-  // Calculate percentage change (placeholder for now)
-  // In a real implementation, you'd fetch previous day's data as well
-  const calculatePercentageChange = (current, previous) => {
-    if (previous === 0) return 0;
-    return ((current - previous) / previous * 100).toFixed(1);
   };
 
   // Format currency
@@ -151,6 +210,12 @@ const DashboardPage = () => {
 
       {/* Dashboard Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Transactions Notification */}
+        <TransactionsNotification 
+          pendingCount={pendingTransactions} 
+          onClick={navigateToTransactions} 
+        />
+
         {/* Key Stats - Account Balance and Orders Today */}
         <div className="mb-8 bg-white rounded-lg shadow overflow-hidden">
           <div className="h-2" style={{ backgroundColor: mtnYellow }}></div>
@@ -256,7 +321,7 @@ const DashboardPage = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="px-4 py-4 text-center text-sm text-gray-500">
+                      <td colSpan="6" className="px-4 py-4 text-center text-sm text-gray-500">
                         No transactions today
                       </td>
                     </tr>
@@ -272,7 +337,7 @@ const DashboardPage = () => {
           <div className="h-2" style={{ backgroundColor: mtnYellow }}></div>
           <div className="p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <button 
                 onClick={() => router.push('/new-order')}
                 className="rounded-lg p-4 flex flex-col items-center transition-colors" 
@@ -288,18 +353,25 @@ const DashboardPage = () => {
                 <span className="text-sm font-medium">Sales Report</span>
               </button>
               <button 
-                onClick={() => router.push('/manage-data')}
+                onClick={() => router.push('/orders')}
                 className="rounded-lg p-4 flex flex-col items-center transition-colors"
                 style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
                 <Database className="h-6 w-6 mb-2" />
                 <span className="text-sm font-medium">Manage Data</span>
               </button>
               <button 
-                onClick={() => router.push('/add-credit')}
+                onClick={() => router.push('/topup')}
                 className="rounded-lg p-4 flex flex-col items-center transition-colors"
                 style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
                 <CreditCard className="h-6 w-6 mb-2" />
                 <span className="text-sm font-medium">Add Credit</span>
+              </button>
+              <button 
+                onClick={navigateToTransactions}
+                className="rounded-lg p-4 flex flex-col items-center transition-colors"
+                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
+                <AlertCircle className="h-6 w-6 mb-2" />
+                <span className="text-sm font-medium">Transactions</span>
               </button>
             </div>
           </div>
