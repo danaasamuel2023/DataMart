@@ -38,8 +38,12 @@ const logOperation = (operation, data) => {
 // Data Package Pricing for all networks
 const DATA_PACKAGES = [
     // TELECEL Packages
-    { capacity: '5', mb: '5000', price: '1.00', network: 'TELECEL' },
-    { capacity: '6', mb: '6000', price: '21.00', network: 'TELECEL' },
+  // { capacity: '1', mb: '1000', price: '3.65', network: 'TELECEL' },
+    // { capacity: '2', mb: '2000', price: '7.30', network: 'TELECEL' },
+    // { capacity: '3', mb: '3000', price: '11.20', network: 'TELECEL' },
+    // { capacity: '4', mb: '4000', price: '14.00', network: 'TELECEL' },
+    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL' },
+    { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL' },
     { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL' },
     { capacity: '10', mb: '10000', price: '35.50', network: 'TELECEL' },
     { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL' },
@@ -51,27 +55,38 @@ const DATA_PACKAGES = [
     { capacity: '50', mb: '50000', price: '180.00', network: 'TELECEL' },
     
     // MTN Packages
-    { capacity: '1', mb: '1000', price: '1.00', network: 'YELLO' },
-    { capacity: '2', mb: '2000', price: '19.00', network: 'YELLO' },
-    { capacity: '5', mb: '5000', price: '45.00', network: 'YELLO' },
-    { capacity: '10', mb: '10000', price: '85.00', network: 'YELLO' },
-    { capacity: '15', mb: '15000', price: '125.00', network: 'YELLO' },
-    { capacity: '20', mb: '20000', price: '160.00', network: 'YELLO' },
-    { capacity: '25', mb: '25000', price: '195.00', network: 'YELLO' },
-    { capacity: '35', mb: '35000', price: '269.00', network: 'YELLO' },
-    { capacity: '50', mb: '50000', price: '380.00', network: 'YELLO' },
-    { capacity: '100', mb: '100000', price: '750.00', network: 'YELLO' },
-    
+   // { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: true },
+   { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO', inStock: true },
+   { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: true },
+   { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: true },
+   { capacity: '5', mb: '5000', price: '22.50', network: 'YELLO', inStock: true },
+   { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: true },
+   { capacity: '7', mb: '7000', price: '31.50', network: 'YELLO', inStock: true },
+   { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: true },
+   { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: true },
+   { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: true },
+   { capacity: '20', mb: '20000', price: '85.00', network: 'YELLO', inStock: true },
+   { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: true },
+   { capacity: '30', mb: '30000', price: '128.00', network: 'YELLO', inStock: true },
+   { capacity: '40', mb: '40000', price: '165.00', network: 'YELLO', inStock: true },
+   { capacity: '50', mb: '50000', price: '206.00', network: 'YELLO', inStock: true },
+   { capacity: '100', mb: '100000', price: '406.00', network: 'YELLO', inStock: true },
     // AirtelTigo Packages
-    { capacity: '1.5', mb: '1500', price: '15.00', network: 'AT_PREMIUM' },
-    { capacity: '3', mb: '3000', price: '29.00', network: 'AT_PREMIUM' },
-    { capacity: '6', mb: '6000', price: '55.00', network: 'AT_PREMIUM' },
-    { capacity: '10', mb: '10000', price: '89.00', network: 'AT_PREMIUM' },
-    { capacity: '15', mb: '15000', price: '130.00', network: 'AT_PREMIUM' },
-    { capacity: '20', mb: '20000', price: '169.00', network: 'AT_PREMIUM' },
-    { capacity: '25', mb: '25000', price: '210.00', network: 'AT_PREMIUM' },
-    { capacity: '40', mb: '40000', price: '330.00', network: 'AT_PREMIUM' },
-    { capacity: '60', mb: '60000', price: '490.00', network: 'AT_PREMIUM' }
+    { capacity: '1', mb: '1000', price: '3.9', network: 'AT_PREMIUM' },
+    { capacity: '2', mb: '2000', price: '8.30', network: 'AT_PREMIUM' },
+    { capacity: '3', mb: '3000', price: '13.20', network: 'AT_PREMIUM' },
+    { capacity: '4', mb: '4000', price: '16.00', network: 'AT_PREMIUM' },
+    { capacity: '5', mb: '5000', price: '19.00', network: 'AT_PREMIUM' },
+    { capacity: '6', mb: '6000', price: '23.00', network: 'AT_PREMIUM' },
+    { capacity: '8', mb: '8000', price: '30.00', network: 'AT_PREMIUM' },
+    { capacity: '10', mb: '10000', price: '37.50', network: 'AT_PREMIUM' },
+    { capacity: '12', mb: '12000', price: '42.50', network: 'AT_PREMIUM' },
+    { capacity: '15', mb: '15000', price: '54.50', network: 'AT_PREMIUM' },
+    // { capacity: '20', mb: '20000', price: '75.00', network: 'AT_PREMIUM' },
+    { capacity: '25', mb: '25000', price: '87.00', network: 'AT_PREMIUM' },
+    { capacity: '30', mb: '30000', price: '110.00', network: 'AT_PREMIUM' },
+    { capacity: '40', mb: '40000', price: '145.00', network: 'AT_PREMIUM' },
+    { capacity: '50', mb: '50000', price: '180.00', network: 'AT_PREMIUM' }
 ];
 
 
