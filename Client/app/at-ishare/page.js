@@ -53,15 +53,54 @@ const ATBundleCards = () => {
     setBundleMessages(prev => ({ ...prev, [index]: null }));
   };
 
+  // Function to validate phone number format
+  const validatePhoneNumber = (number) => {
+    // Remove any spaces or dashes
+    const cleanNumber = number.replace(/[\s-]/g, '');
+    
+    // Check if it starts with 0
+    if (cleanNumber.startsWith('0')) {
+      // Should be 0 followed by 9 digits (total 10 digits)
+      return cleanNumber.length === 10 && /^0\d{9}$/.test(cleanNumber);
+    }
+    
+    // If it doesn't start with 0, it's invalid
+    return false;
+  };
+  
+  // Format phone number as user types
+  const formatPhoneNumber = (input) => {
+    // Remove all non-numeric characters
+    let formatted = input.replace(/\D/g, '');
+    
+    // If it doesn't start with 0, add it
+    if (!formatted.startsWith('0') && formatted.length > 0) {
+      formatted = '0' + formatted;
+    }
+    
+    // Limit to correct length (0 + 9 digits = 10 digits total)
+    if (formatted.length > 10) {
+      formatted = formatted.substring(0, 10);
+    }
+    
+    return formatted;
+  };
+
+  const handlePhoneNumberChange = (e) => {
+    const formattedNumber = formatPhoneNumber(e.target.value);
+    setPhoneNumber(formattedNumber);
+  };
+
   const handlePurchase = async (bundle, index) => {
     // Clear previous messages
     setBundleMessages(prev => ({ ...prev, [index]: null }));
     setGlobalMessage({ text: '', type: '' });
     
-    if (!phoneNumber || phoneNumber.length < 10) {
+    // Validate phone number
+    if (!validatePhoneNumber(phoneNumber)) {
       setBundleMessages(prev => ({ 
         ...prev, 
-        [index]: { text: 'Please enter a valid phone number', type: 'error' } 
+        [index]: { text: 'Please enter a valid phone number starting with 0 followed by 9 digits', type: 'error' } 
       }));
       return;
     }
@@ -179,13 +218,17 @@ const ATBundleCards = () => {
                 )}
                 
                 <div className="mb-4">
+                  <label className="block text-sm font-medium text-white mb-1">
+                    Phone Number (must start with 0)
+                  </label>
                   <input
                     type="tel"
                     className="w-full px-4 py-2 rounded bg-blue-600 text-white placeholder-blue-200 border border-blue-500 focus:outline-none focus:border-blue-300"
-                    placeholder="Enter recipient number"
+                    placeholder="0XXXXXXXXX"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={handlePhoneNumberChange}
                   />
+                  <p className="mt-1 text-xs text-blue-200">Format: 0 followed by 9 digits (10 digits total)</p>
                 </div>
                 <button
                   onClick={() => handlePurchase(bundle, index)}
