@@ -91,16 +91,16 @@ export default function DepositPage() {
   
   // Show loading or redirect if not authenticated yet
   if (!isAuthenticated) {
-    return <div className="flex justify-center items-center min-h-screen">Checking authentication...</div>;
+    return <div className="flex justify-center items-center min-h-screen text-gray-800 dark:text-gray-200">Checking authentication...</div>;
   }
   
   return (
-    <div className="max-w-md mx-auto my-10 p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-md mx-auto my-10 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-center flex-1">Deposit Funds</h1>
+        <h1 className="text-2xl font-bold text-center flex-1 text-gray-900 dark:text-white">Deposit Funds</h1>
         <Link 
           href="/howtodeposite" 
-          className="flex items-center text-sm px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full transition-colors"
+          className="flex items-center text-sm px-3 py-1 bg-blue-50 dark:bg-blue-900 hover:bg-blue-100 dark:hover:bg-blue-800 text-blue-600 dark:text-blue-300 rounded-full transition-colors"
         >
           <Info size={16} className="mr-1" />
           How to Deposit
@@ -108,17 +108,17 @@ export default function DepositPage() {
       </div>
       
       {/* Helpful guide banner */}
-      <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
         <div className="flex items-start">
-          <Info size={20} className="text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+          <Info size={20} className="text-yellow-600 dark:text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
           <div>
-            <p className="text-sm text-yellow-800 font-medium">Not sure how to make a successful deposit?</p>
-            <p className="text-xs text-yellow-700 mt-1">
+            <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">Not sure how to make a successful deposit?</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
               Learn how to complete your payment without errors and ensure your account is credited properly.
             </p>
             <Link 
               href="/howtodeposite" 
-              className="mt-2 inline-block text-xs font-medium px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded transition-colors"
+              className="mt-2 inline-block text-xs font-medium px-3 py-1 bg-yellow-100 dark:bg-yellow-800 hover:bg-yellow-200 dark:hover:bg-yellow-700 text-yellow-800 dark:text-yellow-200 rounded transition-colors"
             >
               View Deposit Guide
             </Link>
@@ -127,26 +127,26 @@ export default function DepositPage() {
       </div>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
       
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded mb-4">
           {success}
         </div>
       )}
       
       <form onSubmit={handleDeposit}>
         <div className="mb-4">
-          <label htmlFor="amount" className="block text-gray-700 text-sm font-bold mb-2">
+          <label htmlFor="amount" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
             Amount (GHS)
           </label>
           <input
             type="number"
             id="amount"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline"
             placeholder="Enter amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -157,16 +157,16 @@ export default function DepositPage() {
         </div>
         
         {amount && amount > 0 && (
-          <div className="mb-4 p-3 bg-gray-50 rounded">
-            <div className="flex justify-between text-sm mb-1">
+          <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+            <div className="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
               <span>Deposit Amount:</span>
               <span>GHS {parseFloat(amount).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm mb-1">
+            <div className="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
               <span>Processing Fee (3%):</span>
               <span>GHS {fee}</span>
             </div>
-            <div className="flex justify-between font-bold text-sm border-t pt-1 mt-1">
+            <div className="flex justify-between font-bold text-sm border-t dark:border-gray-600 pt-1 mt-1 text-gray-700 dark:text-gray-200">
               <span>Total Amount:</span>
               <span>GHS {totalAmount}</span>
             </div>
@@ -184,7 +184,7 @@ export default function DepositPage() {
         </div>
       </form>
       
-      <div className="mt-6 text-sm text-gray-600">
+      <div className="mt-6 text-sm text-gray-600 dark:text-gray-300">
         <p>• A 3% processing fee is applied to all deposits</p>
         <p>• Payments are processed securely via Paystack</p>
         <p>• Funds will be available in your wallet immediately after successful payment</p>
@@ -192,7 +192,7 @@ export default function DepositPage() {
         <p className="mt-2">
           <Link 
             href="/myorders" 
-            className="text-blue-600 hover:text-blue-800 underline"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
           >
             Check your deposit history
           </Link>

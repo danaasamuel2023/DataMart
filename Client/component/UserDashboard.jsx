@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, ArrowUp, ArrowDown, AlertCircle } from 'lucide-react';
+import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, ArrowUp, ArrowDown, AlertCircle, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const TransactionsNotification = ({ pendingCount, onClick }) => {
@@ -40,6 +40,37 @@ const TransactionsNotification = ({ pendingCount, onClick }) => {
   );
 };
 
+const DepositNotification = ({ onClick }) => {
+  return (
+    <div className="mb-6 bg-white rounded-lg shadow overflow-hidden border-l-4" style={{ borderLeftColor: "#ffcc00" }}>
+      <div className="p-4 flex items-start">
+        <div className="flex-shrink-0 pt-0.5">
+          <PlusCircle className="h-5 w-5 text-yellow-500" />
+        </div>
+        <div className="ml-3 w-full">
+          <div className="flex justify-between items-center">
+            <h3 className="text-md font-medium text-gray-900">Add Funds to Your Account</h3>
+          </div>
+          <div className="mt-2 text-sm text-gray-500">
+            <p>
+              Need more credits? Deposit money into your account to continue selling data packages without interruption.
+            </p>
+          </div>
+          <div className="mt-3">
+            <button
+              onClick={onClick}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white"
+              style={{ backgroundColor: "#ffcc00" }}
+            >
+              Deposit Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DashboardPage = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -58,6 +89,10 @@ const DashboardPage = () => {
 
   const navigateToTransactions = () => {
     router.push('/myorders');
+  };
+
+  const navigateToTopup = () => {
+    router.push('/topup');
   };
 
   useEffect(() => {
@@ -216,6 +251,11 @@ const DashboardPage = () => {
           onClick={navigateToTransactions} 
         />
 
+        {/* Deposit Notification */}
+        <DepositNotification
+          onClick={navigateToTopup}
+        />
+
         {/* Key Stats - Account Balance and Orders Today */}
         <div className="mb-8 bg-white rounded-lg shadow overflow-hidden">
           <div className="h-2" style={{ backgroundColor: mtnYellow }}></div>
@@ -228,6 +268,13 @@ const DashboardPage = () => {
                 <CreditCard className="h-6 w-6 mb-2" style={{ color: mtnYellow }} />
                 <span className="text-sm font-medium text-gray-600">Account Balance</span>
                 <span className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(stats.balance)}</span>
+                <button
+                  onClick={navigateToTopup}
+                  className="mt-2 text-xs font-medium px-2 py-1 rounded-full text-white"
+                  style={{ backgroundColor: mtnYellow }}
+                >
+                  Deposit
+                </button>
               </div>
               
               {/* Orders Today Box */}
@@ -316,7 +363,7 @@ const DashboardPage = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{formatCurrency(transaction.amount)}</div>
-                        </td>
+                          </td>
                       </tr>
                     ))
                   ) : (
@@ -337,7 +384,7 @@ const DashboardPage = () => {
           <div className="h-2" style={{ backgroundColor: mtnYellow }}></div>
           <div className="p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <button 
                 onClick={() => router.push('/new-order')}
                 className="rounded-lg p-4 flex flex-col items-center transition-colors" 
@@ -372,6 +419,13 @@ const DashboardPage = () => {
                 style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
                 <AlertCircle className="h-6 w-6 mb-2" />
                 <span className="text-sm font-medium">Transactions</span>
+              </button>
+              <button 
+                onClick={navigateToTopup}
+                className="rounded-lg p-4 flex flex-col items-center transition-colors"
+                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
+                <PlusCircle className="h-6 w-6 mb-2" />
+                <span className="text-sm font-medium">Deposit Money</span>
               </button>
             </div>
           </div>
