@@ -58,7 +58,7 @@ const ATBundleCards = () => {
     const cleanNumber = number.replace(/[\s-]/g, '');
     
     // Airtel Tigo prefixes: 024, 054, 055, 057
-    const airtelTigoPrefixes = ['024', '054', '055', '057'];
+    const airtelTigoPrefixes = ['024', '054', '055', '057','026','027'];
     
     // Check if number starts with valid Airtel Tigo prefix and is 10 digits
     return cleanNumber.length === 10 && 
