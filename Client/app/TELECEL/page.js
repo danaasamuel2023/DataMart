@@ -12,10 +12,10 @@ const TelecelBundleCards = () => {
   const [userData, setUserData] = useState(null);
   const [bundles, setBundles] = useState([
     { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: true },
-    { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: true },
-    { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: true },
+    // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: true },
+    // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: true },
     { capacity: '10', mb: '10000', price: '35.50', network: 'TELECEL', inStock: true },
-    { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: true },
+    // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: true },
     { capacity: '15', mb: '15000', price: '55.50', network: 'TELECEL', inStock: true },
     { capacity: '20', mb: '20000', price: '75.00', network: 'TELECEL', inStock: true },
     { capacity: '25', mb: '25000', price: '92.00', network: 'TELECEL', inStock: true },
