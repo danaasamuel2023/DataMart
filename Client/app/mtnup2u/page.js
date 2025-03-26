@@ -223,6 +223,8 @@ const MTNBundleCards = () => {
           <div className="ml-3">
             <h3 className="text-lg font-bold text-red-800">Important Notice</h3>
             <div className="mt-2 text-sm text-red-700">
+            <p className="mb-1"> Turbonet and Broadband Sim Cards Are not r<strong>eligible for this offe</strong>.</p>
+
               <p className="mb-1">• Please do not place orders for the same number at the same time interval. One will be rejected and <strong>no refund will be provided</strong>.</p>
               <p className="mb-1">• Data bundle delivery is not instant. Some numbers may receive data faster while others take some time .</p>
               <p className="mb-1">• No refunds will be issued for wrong transactions or incorrect phone numbers.</p>
