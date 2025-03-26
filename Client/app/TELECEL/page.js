@@ -92,7 +92,7 @@ const TelecelBundleCards = () => {
     const cleanedNumber = number.replace(/[\s-]/g, '');
     
     // Telecel Ghana numbers typically start with 026, 057, or 027
-    const telecelPrefixes = ['026', '057', '027'];
+    const telecelPrefixes = ['026', '057', '027','020'];
     
     // Check if the number:
     // 1. Is exactly 10 digits long
