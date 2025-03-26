@@ -29,7 +29,6 @@ const ATBundleCards = () => {
     { capacity: '10', mb: '10000', price: '37.50', network: 'AT_PREMIUM' },
     { capacity: '12', mb: '12000', price: '42.50', network: 'AT_PREMIUM' },
     { capacity: '15', mb: '15000', price: '54.50', network: 'AT_PREMIUM' },
-    // { capacity: '20', mb: '20000', price: '75.00', network: 'AT_PREMIUM' },
     { capacity: '25', mb: '25000', price: '87.00', network: 'AT_PREMIUM' },
     { capacity: '30', mb: '30000', price: '110.00', network: 'AT_PREMIUM' },
     { capacity: '40', mb: '40000', price: '145.00', network: 'AT_PREMIUM' },
@@ -53,19 +52,17 @@ const ATBundleCards = () => {
     setBundleMessages(prev => ({ ...prev, [index]: null }));
   };
 
-  // Function to validate phone number format
+  // Function to validate phone number format for Airtel Tigo
   const validatePhoneNumber = (number) => {
     // Remove any spaces or dashes
     const cleanNumber = number.replace(/[\s-]/g, '');
     
-    // Check if it starts with 0
-    if (cleanNumber.startsWith('0')) {
-      // Should be 0 followed by 9 digits (total 10 digits)
-      return cleanNumber.length === 10 && /^0\d{9}$/.test(cleanNumber);
-    }
+    // Airtel Tigo prefixes: 024, 054, 055, 057
+    const airtelTigoPrefixes = ['024', '054', '055', '057'];
     
-    // If it doesn't start with 0, it's invalid
-    return false;
+    // Check if number starts with valid Airtel Tigo prefix and is 10 digits
+    return cleanNumber.length === 10 && 
+           airtelTigoPrefixes.some(prefix => cleanNumber.startsWith(prefix));
   };
   
   // Format phone number as user types
@@ -73,12 +70,7 @@ const ATBundleCards = () => {
     // Remove all non-numeric characters
     let formatted = input.replace(/\D/g, '');
     
-    // If it doesn't start with 0, add it
-    if (!formatted.startsWith('0') && formatted.length > 0) {
-      formatted = '0' + formatted;
-    }
-    
-    // Limit to correct length (0 + 9 digits = 10 digits total)
+    // Limit to correct length (10 digits total)
     if (formatted.length > 10) {
       formatted = formatted.substring(0, 10);
     }
@@ -100,7 +92,10 @@ const ATBundleCards = () => {
     if (!validatePhoneNumber(phoneNumber)) {
       setBundleMessages(prev => ({ 
         ...prev, 
-        [index]: { text: 'Please enter a valid phone number starting with 0 followed by 9 digits', type: 'error' } 
+        [index]: { 
+          text: 'Please enter a valid Airtel Tigo phone number (024, 054, 055, or 057 followed by 7 digits)', 
+          type: 'error' 
+        } 
       }));
       return;
     }
@@ -219,16 +214,16 @@ const ATBundleCards = () => {
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-white mb-1">
-                    Phone Number (must start with 0)
+                    Airtel Tigo Phone Number
                   </label>
                   <input
                     type="tel"
                     className="w-full px-4 py-2 rounded bg-blue-600 text-white placeholder-blue-200 border border-blue-500 focus:outline-none focus:border-blue-300"
-                    placeholder="0XXXXXXXXX"
+                    placeholder="024XXXXXXX or 054XXXXXXX"
                     value={phoneNumber}
                     onChange={handlePhoneNumberChange}
                   />
-                  <p className="mt-1 text-xs text-blue-200">Format: 0 followed by 9 digits (10 digits total)</p>
+                  <p className="mt-1 text-xs text-blue-200">Must start with 024, 054, 055, or 057 followed by 7 digits</p>
                 </div>
                 <button
                   onClick={() => handlePurchase(bundle, index)}

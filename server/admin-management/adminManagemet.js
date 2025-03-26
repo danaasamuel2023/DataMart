@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const auth = require('../middlewareUser/middleware');
 const adminAuth = require('../adminMiddleware/middleware');
 const axios = require('axios');
+const PAYSTACK_SECRET_KEY = 'sk_live_0fba72fb9c4fc71200d2e0cdbb4f2b37c1de396c'; 
+
 
 
 // Middleware to check if user is admin
@@ -632,6 +634,250 @@ router.get('/check-availability', async (req, res) => {
     
   } catch (err) {
     console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+/**
+ * @route   GET /api/admin/transactions
+ * @desc    Get all transactions with pagination, filtering and sorting
+ * @access  Admin
+ */
+router.get('/transactions', auth, adminAuth, async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 100, 
+      type = '',
+      status = '',
+      gateway = '',
+      startDate = '',
+      endDate = '',
+      search = ''
+    } = req.query;
+    
+    // Build filter
+    const filter = {};
+    
+    if (type) filter.type = type;
+    if (status) filter.status = status;
+    if (gateway) filter.gateway = gateway;
+    
+    // Search by reference or userId
+    if (search) {
+      if (mongoose.Types.ObjectId.isValid(search)) {
+        filter.userId = search;
+      } else {
+        filter.reference = { $regex: search, $options: 'i' };
+      }
+    }
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const endDateObj = new Date(endDate);
+        endDateObj.setDate(endDateObj.getDate() + 1); // Include end date until midnight
+        filter.createdAt.$lte = endDateObj;
+      }
+    }
+    
+    const transactions = await Transaction.find(filter)
+      .populate('userId', 'name email phoneNumber')
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .sort({ createdAt: -1 });
+    
+    const total = await Transaction.countDocuments(filter);
+    
+    // Calculate total transaction amount for filtered transactions
+    const totalAmount = await Transaction.aggregate([
+      { $match: filter },
+      { $match: { status: 'completed' } },
+      { 
+        $group: { 
+          _id: '$type', 
+          total: { $sum: '$amount' } 
+        } 
+      }
+    ]);
+    
+    // Format the totals by type (deposit, payment, etc.)
+    const amountByType = {};
+    totalAmount.forEach(item => {
+      amountByType[item._id] = item.total;
+    });
+    
+    res.json({
+      transactions,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      totalTransactions: total,
+      amountByType
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   GET /api/admin/transactions/:id
+ * @desc    Get transaction details by ID
+ * @access  Admin
+ */
+router.get('/transactions/:id', auth, adminAuth, async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id)
+      .populate('userId', 'name email phoneNumber');
+    
+    if (!transaction) {
+      return res.status(404).json({ msg: 'Transaction not found' });
+    }
+    
+    res.json(transaction);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Transaction not found' });
+    }
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   GET /api/admin/verify-paystack/:reference
+ * @desc    Verify payment status from Paystack
+ * @access  Admin
+ */
+router.get('/verify-paystack/:reference', auth, adminAuth, async (req, res) => {
+  try {
+    const { reference } = req.params;
+    
+    // First check if transaction exists in our database
+    const transaction = await Transaction.findOne({ reference })
+      .populate('userId', 'name email phoneNumber');
+    
+    if (!transaction) {
+      return res.status(404).json({ msg: 'Transaction reference not found in database' });
+    }
+    
+    // Only verify Paystack transactions
+    if (transaction.gateway !== 'paystack') {
+      return res.status(400).json({ 
+        msg: 'This transaction was not processed through Paystack',
+        transaction
+      });
+    }
+    
+    // Verify with Paystack API
+    try {
+      const paystackResponse = await axios.get(
+        `https://api.paystack.co/transaction/verify/${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const paystackData = paystackResponse.data;
+      
+      // Update transaction status based on Paystack response
+      if (paystackData.status && paystackData.data.status === 'success') {
+        // Update transaction in database if needed
+        if (transaction.status !== 'completed') {
+          transaction.status = 'completed';
+          transaction.metadata = {
+            ...transaction.metadata,
+            paystackVerification: paystackData.data
+          };
+          await transaction.save();
+        }
+        
+        return res.json({
+          transaction,
+          paystackVerification: paystackData.data,
+          verified: true,
+          message: 'Payment was successfully verified on Paystack'
+        });
+      } else {
+        // Update transaction in database if needed
+        if (transaction.status !== 'failed') {
+          transaction.status = 'failed';
+          transaction.metadata = {
+            ...transaction.metadata,
+            paystackVerification: paystackData.data
+          };
+          await transaction.save();
+        }
+        
+        return res.json({
+          transaction,
+          paystackVerification: paystackData.data,
+          verified: false,
+          message: 'Payment verification failed on Paystack'
+        });
+      }
+    } catch (verifyError) {
+      console.error('Paystack verification error:', verifyError.message);
+      return res.status(500).json({
+        msg: 'Error verifying payment with Paystack',
+        error: verifyError.message,
+        transaction
+      });
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   PUT /api/admin/transactions/:id/update-status
+ * @desc    Manually update transaction status
+ * @access  Admin
+ */
+router.put('/transactions/:id/update-status', auth, adminAuth, async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+    
+    if (!['pending', 'completed', 'failed', 'processing', 'refunded'].includes(status)) {
+      return res.status(400).json({ msg: 'Invalid status value' });
+    }
+    
+    const transaction = await Transaction.findById(req.params.id);
+    
+    if (!transaction) {
+      return res.status(404).json({ msg: 'Transaction not found' });
+    }
+    
+    // Update transaction fields
+    transaction.status = status;
+    transaction.updatedAt = Date.now();
+    
+    // Add admin notes if provided
+    if (adminNotes) {
+      transaction.metadata = {
+        ...transaction.metadata,
+        adminNotes,
+        updatedBy: req.user.id,
+        updateDate: new Date()
+      };
+    }
+    
+    await transaction.save();
+    
+    res.json({
+      msg: 'Transaction status updated successfully',
+      transaction
+    });
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Transaction not found' });
+    }
     res.status(500).send('Server Error');
   }
 });

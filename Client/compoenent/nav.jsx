@@ -239,29 +239,18 @@ const Navbar = () => {
             {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
             <NavItem 
               icon={<Layers />} 
-              text="AT iShare Bundle" 
+              text="AIRTEL TIGO" 
               path="/at-ishare" 
               isCollapsed={isCollapsed}
             />
             <NavItem 
               icon={<Layers />} 
-              text="MTNUP2U Bundle" 
+              text="MTN" 
               path="/mtnup2u" 
               isCollapsed={isCollapsed}
             />
-            <NavItem 
-              icon={<Layers />} 
-              text="MTNUP2U Pricing" 
-              path="/mtnup2u-pricing" 
-              isCollapsed={isCollapsed}
-            />
-            <NavItem 
-              icon={<Layers />} 
-              text="AT Big Time Bundle" 
-              path="/services/at-bigtime" 
-              isNew 
-              isCollapsed={isCollapsed}
-            />
+           
+           
             <NavItem 
               icon={<Phone />} 
               text="Telecel Bundle" 
@@ -440,36 +429,25 @@ const Navbar = () => {
                 <div className="animate-slideInRight">
                   <MobileNavItem 
                     icon={<Layers className="text-indigo-500" />} 
-                    text="AT iShare Bundle" 
+                    text="AIRTEL TIGO" 
                     path="/at-ishare"
-                    description="Share data with friends"
+                    description="Airtel Tigo"
                   />
                   <MobileNavItem 
                     icon={<Layers className="text-purple-500" />} 
-                    text="MTNUP2U Bundle" 
+                    text="MTN" 
                     path="/mtnup2u"
                     description="Customized bundle options"
                   />
-                  <MobileNavItem 
-                    icon={<Layers className="text-purple-400" />} 
-                    text="MTNUP2U Pricing" 
-                    path="/mtnup2u-pricing"
-                    description="View bundle pricing details"
-                  />
-                  <MobileNavItem 
-                    icon={<Layers className="text-blue-500" />} 
-                    text="AT Big Time Bundle" 
-                    path="/services/at-bigtime"
-                    isNew 
-                    description="Exclusive new data bundles"
-                  />
+                 
+                
                   <MobileNavItem 
                     icon={<Phone className="text-yellow-500" />} 
-                    text="Telecel Bundle" 
+                    text="Telecel" 
                     path="/TELECEL"
                     isNew
                     isSpecial
-                    description="New Telecel partnership bundles"
+                    description="Telecel bundles"
                   />
                 </div>
               )}
