@@ -292,7 +292,7 @@ const TelecelBundleCards = () => {
                       value={phoneNumber}
                       onChange={handlePhoneNumberChange}
                     />
-                    <p className="mt-1 text-xs text-white">Format: 026/057/027 followed by 7 digits</p>
+                    <p className="mt-1 text-xs text-white">Format: 026/057/027/020 followed by 7 digits</p>
                   </div>
                   <button
                     onClick={() => handlePurchase(bundle, index)}
