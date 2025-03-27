@@ -386,7 +386,7 @@ const DashboardPage = () => {
             <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <button 
-                onClick={() => router.push('/new-order')}
+                onClick={() => router.push('/mtnup2u')}
                 className="rounded-lg p-4 flex flex-col items-center transition-colors" 
                 style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
                 <Package className="h-6 w-6 mb-2" />

@@ -167,7 +167,8 @@ router.post('/purchase-hubnet-data', async (req, res) => {
         price,
         status: 'completed', // Initially set as processing until confirmed
         hubnetReference: orderReference,
-        referrerNumber: referrerNumber || null
+        referrerNumber: referrerNumber || null,
+        geonetReference:orderReference
       });
   
       logOperation('HUBNET_DATA_PURCHASE_DOCUMENTS_CREATED', {

@@ -153,7 +153,7 @@ router.post('/purchase-data', async (req, res) => {
 
     // Generate unique references
     const transactionReference = `TRX-${uuidv4()}`;
-    const orderReference = `ORDER-${uuidv4()}`;
+    const orderReference = Math.floor(1000 + Math.random() * 900000);;
 
     logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
       network_key: network,
@@ -632,6 +632,259 @@ router.get('/user-dashboard/:userId', async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to fetch user dashboard information',
+      details: error.message
+    });
+  }
+});
+
+// Get User Sales Report
+router.get('/sales-report/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { 
+      startDate, 
+      endDate, 
+      network, 
+      format = 'json',
+      groupBy = 'day' // Options: 'day', 'week', 'month'
+    } = req.query;
+
+    logOperation('SALES_REPORT_REQUEST', {
+      userId,
+      startDate,
+      endDate,
+      network,
+      format,
+      groupBy,
+      timestamp: new Date()
+    });
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      logOperation('SALES_REPORT_INVALID_ID', { userId });
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid user ID'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      logOperation('SALES_REPORT_USER_NOT_FOUND', { userId });
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    // Prepare date range
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Set time to end of day for end date
+        const endDateObj = new Date(endDate);
+        endDateObj.setHours(23, 59, 59, 999);
+        dateFilter.createdAt.$lte = endDateObj;
+      }
+    }
+
+    // Prepare network filter
+    const networkFilter = {};
+    if (network && network !== 'All') {
+      networkFilter.network = network;
+    }
+
+    // Combine all filters
+    const filter = {
+      userId,
+      ...dateFilter,
+      ...networkFilter
+    };
+
+    logOperation('SALES_REPORT_FILTER', filter);
+
+    // Fetch all matching purchases
+    const purchases = await DataPurchase.find(filter).sort({ createdAt: 1 });
+
+    logOperation('SALES_REPORT_PURCHASES_FOUND', {
+      count: purchases.length
+    });
+
+    // Generate summary metrics
+    const totalSales = purchases.reduce((total, purchase) => total + purchase.price, 0);
+    const totalOrders = purchases.length;
+    const totalDataSold = purchases.reduce((total, purchase) => {
+      // Convert capacity to GB if needed (assuming capacity is in MB)
+      const gbValue = purchase.capacity >= 1000 ? purchase.capacity / 1000 : purchase.capacity;
+      return total + gbValue;
+    }, 0);
+
+    // Group data according to the groupBy parameter
+    let groupedData = [];
+    
+    if (groupBy === 'day') {
+      // Group by day
+      const grouped = {};
+      
+      purchases.forEach(purchase => {
+        const date = new Date(purchase.createdAt);
+        const day = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        if (!grouped[day]) {
+          grouped[day] = {
+            date: day,
+            sales: 0,
+            orders: 0,
+            dataSold: 0
+          };
+        }
+        
+        grouped[day].sales += purchase.price;
+        grouped[day].orders += 1;
+        
+        // Add data sold in GB
+        const gbValue = purchase.capacity >= 1000 ? purchase.capacity / 1000 : purchase.capacity;
+        grouped[day].dataSold += gbValue;
+      });
+      
+      groupedData = Object.values(grouped);
+      
+    } else if (groupBy === 'week') {
+      // Group by week (Sunday to Saturday)
+      const grouped = {};
+      
+      purchases.forEach(purchase => {
+        const date = new Date(purchase.createdAt);
+        const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
+        const sunday = new Date(date);
+        sunday.setDate(date.getDate() - dayOfWeek);
+        const weekStart = sunday.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        if (!grouped[weekStart]) {
+          grouped[weekStart] = {
+            weekStart,
+            sales: 0,
+            orders: 0,
+            dataSold: 0
+          };
+        }
+        
+        grouped[weekStart].sales += purchase.price;
+        grouped[weekStart].orders += 1;
+        
+        // Add data sold in GB
+        const gbValue = purchase.capacity >= 1000 ? purchase.capacity / 1000 : purchase.capacity;
+        grouped[weekStart].dataSold += gbValue;
+      });
+      
+      groupedData = Object.values(grouped);
+      
+    } else if (groupBy === 'month') {
+      // Group by month
+      const grouped = {};
+      
+      purchases.forEach(purchase => {
+        const date = new Date(purchase.createdAt);
+        const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM format
+        
+        if (!grouped[yearMonth]) {
+          grouped[yearMonth] = {
+            month: yearMonth,
+            sales: 0,
+            orders: 0,
+            dataSold: 0
+          };
+        }
+        
+        grouped[yearMonth].sales += purchase.price;
+        grouped[yearMonth].orders += 1;
+        
+        // Add data sold in GB
+        const gbValue = purchase.capacity >= 1000 ? purchase.capacity / 1000 : purchase.capacity;
+        grouped[yearMonth].dataSold += gbValue;
+      });
+      
+      groupedData = Object.values(grouped);
+    }
+
+    // Calculate network distribution
+    const networkDistribution = {};
+    purchases.forEach(purchase => {
+      if (!networkDistribution[purchase.network]) {
+        networkDistribution[purchase.network] = {
+          count: 0,
+          revenue: 0,
+          dataSold: 0
+        };
+      }
+      
+      networkDistribution[purchase.network].count += 1;
+      networkDistribution[purchase.network].revenue += purchase.price;
+      
+      // Add data sold in GB
+      const gbValue = purchase.capacity >= 1000 ? purchase.capacity / 1000 : purchase.capacity;
+      networkDistribution[purchase.network].dataSold += gbValue;
+    });
+
+    // Format the response based on requested format
+    if (format === 'csv') {
+      // Generate CSV
+      let csv = 'Date,Orders,Sales,Data Sold (GB)\n';
+      
+      groupedData.forEach(data => {
+        const dateField = data.date || data.weekStart || data.month;
+        csv += `${dateField},${data.orders},${data.sales.toFixed(2)},${data.dataSold.toFixed(2)}\n`;
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=sales_report_${userId}_${new Date().toISOString().split('T')[0]}.csv`);
+      return res.send(csv);
+    } else {
+      // Return JSON
+      res.json({
+        status: 'success',
+        data: {
+          summary: {
+            totalSales,
+            totalOrders,
+            totalDataSold: parseFloat(totalDataSold.toFixed(2)),
+            startDate: dateFilter.createdAt?.$gte || null,
+            endDate: dateFilter.createdAt?.$lte || null,
+            user: {
+              id: user._id,
+              name: user.name,
+              email: user.email
+            }
+          },
+          details: groupedData.map(item => ({
+            ...item,
+            sales: parseFloat(item.sales.toFixed(2)),
+            dataSold: parseFloat(item.dataSold.toFixed(2))
+          })),
+          networkDistribution: Object.entries(networkDistribution).map(([network, data]) => ({
+            network,
+            count: data.count,
+            revenue: parseFloat(data.revenue.toFixed(2)),
+            dataSold: parseFloat(data.dataSold.toFixed(2)),
+            percentage: parseFloat((data.count / totalOrders * 100).toFixed(2))
+          }))
+        }
+      });
+    }
+  } catch (error) {
+    logOperation('SALES_REPORT_ERROR', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to generate sales report',
       details: error.message
     });
   }
