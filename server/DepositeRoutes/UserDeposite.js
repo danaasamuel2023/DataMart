@@ -9,6 +9,7 @@ const PAYSTACK_SECRET_KEY = 'sk_live_0fba72fb9c4fc71200d2e0cdbb4f2b37c1de396c';
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 // Initiate Deposit
+// Initiate Deposit
 router.post('/deposit', async (req, res) => {
   try {
     const { userId, amount, totalAmountWithFee, email } = req.body;
@@ -40,15 +41,16 @@ router.post('/deposit', async (req, res) => {
     await transaction.save();
 
     // Initiate Paystack payment with the total amount including fee
+    // Fixed: Parse amount to float, multiply by 100, then round to integer
     const paystackAmount = totalAmountWithFee ? 
-      parseFloat(totalAmountWithFee) * 100 : // If provided, use total with fee
-      parseFloat(amount) * 100; // Fallback to base amount if no total provided
+      Math.round(parseFloat(totalAmountWithFee) * 100) : // If provided, use total with fee
+      Math.round(parseFloat(amount) * 100); // Fallback to base amount if no total provided
     
     const paystackResponse = await axios.post(
       `${PAYSTACK_BASE_URL}/transaction/initialize`,
       {
         email: email || user.email,
-        amount: paystackAmount, // Convert to kobo (smallest currency unit)
+        amount: paystackAmount, // Convert to pesewas (smallest currency unit for GHS)
         currency: 'GHS',
         reference,
         callback_url: `https://www.datamartgh.shop/payment/callback?reference=${reference}`
@@ -73,7 +75,6 @@ router.post('/deposit', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // Handle Paystack Webhook (Payment Confirmation)
 router.post('/paystack/webhook', async (req, res) => {
   try {
