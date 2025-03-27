@@ -98,10 +98,8 @@ const Footer = () => {
             <ul className="space-y-3">
               {[
                 { name: 'Home', path: '/' },
-                { name: 'Dashboard', path: '/dashboard' },
-                { name: 'About Us', path: '/about' },
-                { name: 'FAQs', path: '/faq' },
-                { name: 'Contact Us', path: '/contact' }
+                { name: 'Dashboard', path: '/' },
+               
               ].map((link) => (
                 <li key={link.name}>
                   <Link 
@@ -129,7 +127,7 @@ const Footer = () => {
               {[
                 { name: 'MTN UP2U Bundle', path: '/mtnup2u' },
                 { name: 'AIRTEL TIGO iShare', path: '/at-ishare' },
-                { name: 'AT Big Time Bundle', path: '/services/at-bigtime' },
+                // { name: 'AT Big Time Bundle', path: '/services/at-bigtime' },
                 { name: 'TELECEL Bundle', path: '/TELECEL', isNew: true }
               ].map((bundle) => (
                 <li key={bundle.name}>
