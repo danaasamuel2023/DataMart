@@ -96,15 +96,6 @@ const Navbar = () => {
     }
   }, [isMobileMenuOpen]);
 
-  // Function to handle navigation and close mobile menu
-  const handleNavigation = (path, section) => {
-    router.push(path);
-    setIsMobileMenuOpen(false);
-    if (section) {
-      setActiveSection(section);
-    }
-  };
-
   // Prevent scrolling when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -163,6 +154,140 @@ const Navbar = () => {
       <circle cx="185" cy="30" r="3" fill="#3182ce" opacity="0.7"/>
     </svg>
   );
+
+// Desktop Navigation Item Component with Tooltip
+const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false, isCollapsed = false }) => {
+  const navContent = (
+    <div 
+      className={`
+        ${isCollapsed ? 'px-0 py-4 justify-center relative group' : 'px-4 py-2'} 
+        hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer 
+        ${isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium' : ''} 
+        transition-colors duration-200 relative
+      `}
+      title={text}
+    >
+      <div className={`${isCollapsed ? "flex justify-center w-full" : ""} relative group`}>
+        {icon}
+        
+        {/* Tooltip for non-collapsed sidebar */}
+        {!isCollapsed && (
+          <div className="
+            absolute z-50 left-0 top-full ml-4 mt-2 bg-gray-800 text-white text-xs 
+            px-3 py-2 rounded shadow-lg opacity-0 group-hover:opacity-100 
+            transition-opacity duration-200 pointer-events-none whitespace-nowrap
+          ">
+            {text}
+            {isNew && (
+              <span className="ml-2 bg-green-500 text-white text-[0.6rem] px-1.5 py-0.5 rounded-full">
+                New
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {!isCollapsed && (
+        <div className="flex items-center ml-3 w-full">
+          <span className="flex-grow">{text}</span>
+          {isNew && (
+            <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+              New
+            </span>
+          )}
+          {isHighlighted && (
+            <span className="ml-auto text-blue-600 dark:text-blue-400">
+              →
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  // If there's an onClick handler, use a div
+  if (onClick) {
+    return (
+      <div onClick={onClick}>
+        {navContent}
+      </div>
+    );
+  }
+
+  // Otherwise use a Link
+  return (
+    <Link href={path} onClick={() => setIsMobileMenuOpen(false)}>
+      {navContent}
+    </Link>
+  );
+};
+
+  // Mobile Navigation Item Component
+  const MobileNavItem = ({ icon, text, path, onClick, isNew = false, isSpecial = false, description = "" }) => {
+    const navContent = (
+      <div 
+        className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
+          isSpecial 
+            ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
+            : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
+        } transition-all duration-200`}
+      >
+        <div className="flex items-center">
+          <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
+            {icon}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center">
+              <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
+                {text}
+              </span>
+              {isNew && (
+                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
+                  New
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+            )}
+          </div>
+          <div className="ml-2">
+            <span className={`rounded-full p-1 ${
+              isSpecial 
+                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+                : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
+            }`}>
+              <ArrowUpRight size={14} />
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+
+    // If there's an onClick handler, use a div with onClick
+    if (onClick) {
+      return (
+        <div 
+          onClick={() => {
+            onClick();
+            setIsMobileMenuOpen(false);
+          }}
+        >
+          {navContent}
+        </div>
+      );
+    }
+
+    // Otherwise use a Link
+    return (
+      <Link 
+        href={path} 
+        onClick={() => setIsMobileMenuOpen(false)}
+      >
+        {navContent}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -249,7 +374,6 @@ const Navbar = () => {
               path="/mtnup2u" 
               isCollapsed={isCollapsed}
             />
-           
            
             <NavItem 
               icon={<Phone />} 
@@ -400,6 +524,7 @@ const Navbar = () => {
               <div className="p-4 animate-fadeIn">
                 <Link 
                   href="/topup"
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg flex items-center justify-center font-medium shadow-md transition-all transform hover:translate-y-1 hover:shadow-lg"
                 >
                   <CreditCard className="mr-2" /> Top Up Account
@@ -440,7 +565,6 @@ const Navbar = () => {
                     description="Customized bundle options"
                   />
                  
-                
                   <MobileNavItem 
                     icon={<Phone className="text-yellow-500" />} 
                     text="Telecel" 
@@ -549,150 +673,4 @@ const Navbar = () => {
   );
 };
 
-// Desktop Navigation Item Component - Changed to use Link
-const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false, isCollapsed = false }) => {
-  // If there's an onClick handler, use a div with onClick
-  if (onClick) {
-    return (
-      <div 
-        className={`${isCollapsed ? 'px-0 py-4 justify-center' : 'px-4 py-2'} hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer ${
-          isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium' : ''
-        } transition-colors duration-200`}
-        onClick={onClick}
-        title={isCollapsed ? text : ""}
-      >
-        <div className={isCollapsed ? "flex justify-center w-full" : ""}>
-          {icon}
-        </div>
-        {!isCollapsed && <span className="ml-3">{text}</span>}
-        {!isCollapsed && isNew && (
-          <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-            New
-          </span>
-        )}
-        {!isCollapsed && isHighlighted && (
-          <span className="ml-auto text-blue-600 dark:text-blue-400">
-            →
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  // Otherwise use a Link
-  return (
-    <Link href={path}>
-      <div 
-        className={`${isCollapsed ? 'px-0 py-4 justify-center' : 'px-4 py-2'} hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center cursor-pointer ${
-          isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium' : ''
-        } transition-colors duration-200`}
-        title={isCollapsed ? text : ""}
-      >
-        <div className={isCollapsed ? "flex justify-center w-full" : ""}>
-          {icon}
-        </div>
-        {!isCollapsed && <span className="ml-3">{text}</span>}
-        {!isCollapsed && isNew && (
-          <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-            New
-          </span>
-        )}
-        {!isCollapsed && isHighlighted && (
-          <span className="ml-auto text-blue-600 dark:text-blue-400">
-            →
-          </span>
-        )}
-      </div>
-    </Link>
-  );
-};
-
-// Enhanced Mobile Navigation Item Component - Changed to use Link
-const MobileNavItem = ({ icon, text, path, onClick, isNew = false, isSpecial = false, description = "" }) => {
-  // If there's an onClick handler, use a div with onClick
-  if (onClick) {
-    return (
-      <div 
-        className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
-          isSpecial 
-            ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
-            : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
-        } transition-all duration-200`}
-        onClick={onClick}
-      >
-        <div className="flex items-center">
-          <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
-            {icon}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center">
-              <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
-                {text}
-              </span>
-              {isNew && (
-                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
-                  New
-                </span>
-              )}
-            </div>
-            {description && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
-            )}
-          </div>
-          <div className="ml-2">
-            <span className={`rounded-full p-1 ${
-              isSpecial 
-                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
-                : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
-            }`}>
-              <ArrowUpRight size={14} />
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Otherwise use a Link
-  return (
-    <Link href={path}>
-      <div 
-        className={`p-4 border-b border-gray-200 dark:border-gray-700 active:scale-98 transform ${
-          isSpecial 
-            ? 'bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' 
-            : 'hover:bg-gray-200/70 dark:hover:bg-gray-800/70'
-        } transition-all duration-200`}
-      >
-        <div className="flex items-center">
-          <div className={`p-2 rounded-full ${isSpecial ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-200/70 dark:bg-gray-700/70'} mr-3`}>
-            {icon}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center">
-              <span className={`font-medium ${isSpecial ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
-                {text}
-              </span>
-              {isNew && (
-                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
-                  New
-                </span>
-              )}
-            </div>
-            {description && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
-            )}
-          </div>
-          <div className="ml-2">
-            <span className={`rounded-full p-1 ${
-              isSpecial 
-                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
-                : 'bg-gray-200 dark:bg-gray-700/70 text-gray-600 dark:text-gray-400'
-            }`}>
-              <ArrowUpRight size={14} />
-            </span>
-          </div>
-        </div>
-      </div>
-    </Link>
-  )};
-  export default Navbar;
+export default Navbar;
