@@ -419,7 +419,7 @@ const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = fal
             <NavItem 
               icon={<FileText />} 
               text="API Documentation" 
-              path="/api-docs" 
+              path="/api-doc" 
               isCollapsed={isCollapsed}
             />
           </div>
