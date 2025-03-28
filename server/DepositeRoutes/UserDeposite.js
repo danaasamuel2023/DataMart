@@ -75,9 +75,15 @@ router.post('/deposit', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-// Handle Paystack Webhook (Payment Confirmation)
 router.post('/paystack/webhook', async (req, res) => {
   try {
+    // Log incoming webhook
+    console.log('Webhook received:', JSON.stringify({
+      headers: req.headers['x-paystack-signature'],
+      event: req.body.event,
+      reference: req.body.data?.reference
+    }));
+
     const secret = PAYSTACK_SECRET_KEY;
     const hash = crypto
       .createHmac('sha512', secret)
@@ -86,6 +92,7 @@ router.post('/paystack/webhook', async (req, res) => {
 
     // Verify Paystack signature
     if (hash !== req.headers['x-paystack-signature']) {
+      console.error('Invalid webhook signature');
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
@@ -94,29 +101,41 @@ router.post('/paystack/webhook', async (req, res) => {
     // Handle successful charge
     if (event.event === 'charge.success') {
       const { reference } = event.data;
+      console.log(`Processing successful payment for reference: ${reference}`);
 
       // Find transaction by reference
       const transaction = await Transaction.findOne({ reference });
 
-      if (!transaction || transaction.status !== 'pending') {
-        return res.status(400).json({ error: 'Transaction not found or already processed' });
+      if (!transaction) {
+        console.error(`Transaction not found for reference: ${reference}`);
+        return res.status(400).json({ error: 'Transaction not found' });
+      }
+
+      if (transaction.status !== 'pending') {
+        console.log(`Transaction ${reference} already processed, status: ${transaction.status}`);
+        return res.json({ message: 'Transaction already processed' });
       }
 
       // Mark transaction as completed
       transaction.status = 'completed';
       await transaction.save();
+      console.log(`Transaction ${reference} marked as completed`);
 
       // Update user's wallet balance with the original amount (without fee)
       const user = await User.findById(transaction.userId);
       if (user) {
         user.walletBalance += transaction.amount; 
         await user.save();
+        console.log(`User ${user._id} wallet updated, new balance: ${user.walletBalance}`);
+      } else {
+        console.error(`User not found for transaction ${reference}`);
       }
 
       return res.json({ message: 'Deposit successful' });
+    } else {
+      console.log(`Unhandled event type: ${event.event}`);
+      return res.json({ message: 'Event received' });
     }
-
-    return res.status(400).json({ error: 'Unhandled event' });
 
   } catch (error) {
     console.error('Webhook Error:', error);
