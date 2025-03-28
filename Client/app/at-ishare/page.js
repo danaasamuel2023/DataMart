@@ -30,12 +30,12 @@ const HubnetBundleCards = () => {
     { capacity: '6', mb: '6000', price: '23.50', network: 'at' },
     { capacity: '8', mb: '8000', price: '30.50', network: 'at' },
     { capacity: '10', mb: '10000', price: '38.50', network: 'at' },
-    { capacity: '12', mb: '12000', price: '43.50', network: 'at' },
-    { capacity: '15', mb: '15000', price: '55.50', network: 'at' },
-    { capacity: '25', mb: '25000', price: '87.00', network: 'at' },
-    { capacity: '30', mb: '30000', price: '110.00', network: 'at' },
-    { capacity: '40', mb: '40000', price: '145.00', network: 'at' },
-    { capacity: '50', mb: '50000', price: '180.00', network: 'at' }
+    { capacity: '12', mb: '12000', price: '45.50', network: 'at' },
+    { capacity: '15', mb: '15000', price: '57.50', network: 'at' },
+    { capacity: '25', mb: '25000', price: '95.00', network: 'at' },
+    { capacity: '30', mb: '30000', price: '115.00', network: 'at' },
+    { capacity: '40', mb: '40000', price: '151.00', network: 'at' },
+    { capacity: '50', mb: '50000', price: '190.00', network: 'at' }
   ];
 
   // Network Logo Component for AirtelTigo
