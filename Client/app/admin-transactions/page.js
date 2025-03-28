@@ -46,6 +46,28 @@ const IconX = () => (
   </svg>
 );
 
+const IconSearch = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8"></circle>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+  </svg>
+);
+
+const IconPhone = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+  </svg>
+);
+
+const IconHash = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="9" x2="20" y2="9"></line>
+    <line x1="4" y1="15" x2="20" y2="15"></line>
+    <line x1="10" y1="3" x2="8" y2="21"></line>
+    <line x1="16" y1="3" x2="14" y2="21"></line>
+  </svg>
+);
+
 // Define API base URL - replace with your actual API URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com/api';
 
@@ -65,7 +87,8 @@ export default function AdminTransactions() {
     gateway: '',
     startDate: '',
     endDate: '',
-    search: ''
+    search: '',
+    searchType: 'reference' // Default search type (reference or phone)
   });
   const [showFilters, setShowFilters] = useState(false);
   const [verifyingReference, setVerifyingReference] = useState(null);
@@ -83,45 +106,66 @@ export default function AdminTransactions() {
     fetchTransactions();
   }, [pagination.currentPage, filters]);
 
-  const fetchTransactions = async () => {
-    setLoading(true);
+ // Replace the fetchTransactions function in your React component with this updated version
+const fetchTransactions = async () => {
+  setLoading(true);
+  
+  try {
+    // Get token from localStorage
+    const authToken = localStorage.getItem('authToken');
     
-    try {
-      // Get token from localStorage
-      const authToken = localStorage.getItem('authToken');
-      
-      if (!authToken) {
-        // Redirect to login if no token
-        router.push('/admin/login');
-        return;
-      }
-
-      // Build query params
-      const params = new URLSearchParams({
-        page: pagination.currentPage,
-        limit: 10,
-        ...filters
-      });
-
-      const response = await axios.get(`${API_BASE_URL}/transactions?${params}`, {
-        headers: {
-          'x-auth-token': authToken
-        }
-      });
-
-      setTransactions(response.data.transactions);
-      setPagination({
-        currentPage: response.data.currentPage,
-        totalPages: response.data.totalPages,
-        totalTransactions: response.data.totalTransactions
-      });
-      setAmountByType(response.data.amountByType || {});
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      setLoading(false);
+    if (!authToken) {
+      // Redirect to login if no token
+      router.push('/admin/login');
+      return;
     }
-  };
+
+    // Create a clean query params object
+    let queryParams = {
+      page: pagination.currentPage,
+      limit: 10
+    };
+    
+    // Add filters if they exist
+    if (filters.status) queryParams.status = filters.status;
+    if (filters.type) queryParams.type = filters.type;
+    if (filters.gateway) queryParams.gateway = filters.gateway;
+    if (filters.startDate) queryParams.startDate = filters.startDate;
+    if (filters.endDate) queryParams.endDate = filters.endDate;
+    
+    // Add search parameters based on the search type
+    if (filters.search) {
+      if (filters.searchType === 'phone') {
+        // Use phoneNumber parameter for phone searches
+        queryParams.phoneNumber = filters.search;
+      } else {
+        // Use search parameter for reference searches
+        queryParams.search = filters.search;
+      }
+    }
+
+    // Convert to URLSearchParams
+    const params = new URLSearchParams(queryParams);
+
+    const response = await axios.get(`${API_BASE_URL}/transactions?${params}`, {
+      headers: {
+        'x-auth-token': authToken
+      }
+    });
+
+    setTransactions(response.data.transactions);
+    setPagination({
+      currentPage: response.data.currentPage,
+      totalPages: response.data.totalPages,
+      totalTransactions: response.data.totalTransactions
+    });
+    setAmountByType(response.data.amountByType || {});
+  } catch (error) {
+    handleApiError(error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const verifyPaystackTransaction = async (reference) => {
     setVerifyingReference(reference);
@@ -253,6 +297,17 @@ export default function AdminTransactions() {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSearchTypeChange = (type) => {
+    setFilters(prev => ({ ...prev, searchType: type }));
+  };
+
+  const handleSearch = (e) => {
+    if (e.key === 'Enter') {
+      // Reset to first page when searching
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
+    }
+  };
+
   const applyFilters = (e) => {
     e.preventDefault();
     // Reset to first page when applying new filters
@@ -266,8 +321,15 @@ export default function AdminTransactions() {
       gateway: '',
       startDate: '',
       endDate: '',
-      search: ''
+      search: '',
+      searchType: 'reference'
     });
+  };
+
+  const clearSearch = () => {
+    setFilters(prev => ({ ...prev, search: '' }));
+    // Reset to first page when clearing search
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
   const exportToCSV = async () => {
@@ -283,7 +345,12 @@ export default function AdminTransactions() {
       // Build query params without pagination
       const params = new URLSearchParams({
         limit: 1000, // Higher limit for export
-        ...filters
+        ...filters,
+        // Replace 'search' with appropriate param based on searchType
+        ...(filters.search && {
+          [filters.searchType === 'phone' ? 'phoneNumber' : 'reference']: filters.search,
+          search: undefined // Remove the generic search parameter
+        })
       });
 
       setLoading(true);
@@ -297,7 +364,7 @@ export default function AdminTransactions() {
       const transactions = response.data.transactions;
       const headers = [
         'ID', 'Type', 'Amount', 'Status', 'Reference', 
-        'Gateway', 'User', 'Email', 'Created At'
+        'Gateway', 'User', 'Email', 'Phone', 'Created At'
       ];
 
       const csvRows = [
@@ -311,6 +378,7 @@ export default function AdminTransactions() {
           tx.gateway,
           tx.userId?.name || 'Unknown',
           tx.userId?.email || 'Unknown',
+          tx.userId?.phoneNumber || 'Unknown',
           new Date(tx.createdAt).toLocaleString()
         ].join(','))
       ];
@@ -356,7 +424,7 @@ export default function AdminTransactions() {
       </div>
       
       {/* Actions row */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="flex items-center space-x-2">
           <button 
             onClick={() => fetchTransactions()}
@@ -372,23 +440,57 @@ export default function AdminTransactions() {
           </button>
         </div>
         
-        <div className="flex items-center">
-          <div className="mr-2">
-            <input
-              type="text"
-              name="search"
-              value={filters.search}
-              onChange={handleFilterChange}
-              placeholder="Search reference..."
-              className="px-3 py-2 border rounded w-48"
-            />
+        <div className="w-full md:w-auto">
+          <div className="flex items-center">
+            {/* Enhanced search input with type selector */}
+            <div className="flex-1 md:w-64 relative">
+              <div className="flex rounded-md shadow-sm">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                  <button 
+                    onClick={() => handleSearchTypeChange('reference')}
+                    className={`p-1 rounded-md ${filters.searchType === 'reference' ? 'bg-blue-100 text-blue-700' : 'text-gray-400'}`}
+                    title="Search by Reference"
+                  >
+                    <IconHash />
+                  </button>
+                  <button 
+                    onClick={() => handleSearchTypeChange('phone')}
+                    className={`p-1 rounded-md ml-1 ${filters.searchType === 'phone' ? 'bg-blue-100 text-blue-700' : 'text-gray-400'}`}
+                    title="Search by Phone"
+                  >
+                    <IconPhone />
+                  </button>
+                </span>
+                <input
+                  type="text"
+                  name="search"
+                  value={filters.search}
+                  onChange={handleFilterChange}
+                  onKeyDown={handleSearch}
+                  placeholder={filters.searchType === 'phone' ? "Search by phone..." : "Search by reference..."}
+                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                />
+                {filters.search && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <IconX width={16} height={16} />
+                  </button>
+                )}
+              </div>
+              <div className="mt-1 text-xs text-gray-500">
+                {filters.searchType === 'phone' ? 'Enter full phone number' : 'Enter transaction reference'}
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="ml-2 px-4 py-2 bg-gray-200 text-gray-700 rounded flex items-center"
+            >
+              <IconFilter /> <span className="ml-2">Filters</span>
+            </button>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded flex items-center"
-          >
-            <IconFilter /> <span className="ml-2">Filters</span>
-          </button>
         </div>
       </div>
       
@@ -496,6 +598,7 @@ export default function AdminTransactions() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gateway</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Phone</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
@@ -503,11 +606,11 @@ export default function AdminTransactions() {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading && pagination.currentPage === 1 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-4 text-center">Loading...</td>
+                <td colSpan="9" className="px-6 py-4 text-center">Loading...</td>
               </tr>
             ) : transactions.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-4 text-center">No transactions found</td>
+                <td colSpan="9" className="px-6 py-4 text-center">No transactions found</td>
               </tr>
             ) : (
               transactions.map(transaction => (
@@ -535,6 +638,9 @@ export default function AdminTransactions() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {transaction.userId?.name || 'Unknown'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                    {transaction.userId?.phoneNumber || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(transaction.createdAt).toLocaleString()}

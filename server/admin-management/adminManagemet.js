@@ -644,15 +644,16 @@ router.get('/check-availability', async (req, res) => {
  */
 router.get('/transactions', auth, adminAuth, async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 100, 
+    const {
+      page = 1,
+      limit = 100,
       type = '',
       status = '',
       gateway = '',
       startDate = '',
       endDate = '',
-      search = ''
+      search = '',
+      phoneNumber = '' // Add phoneNumber parameter
     } = req.query;
     
     // Build filter
@@ -668,6 +669,29 @@ router.get('/transactions', auth, adminAuth, async (req, res) => {
         filter.userId = search;
       } else {
         filter.reference = { $regex: search, $options: 'i' };
+      }
+    }
+
+    // Phone number search - use aggregation to find users by phone
+    let userIdsByPhone = [];
+    if (phoneNumber) {
+      const users = await User.find({
+        phoneNumber: { $regex: phoneNumber, $options: 'i' }
+      }).select('_id');
+      
+      userIdsByPhone = users.map(user => user._id);
+      
+      if (userIdsByPhone.length > 0) {
+        filter.userId = { $in: userIdsByPhone };
+      } else {
+        // No users with this phone number, return empty result
+        return res.json({
+          transactions: [],
+          totalPages: 0,
+          currentPage: parseInt(page),
+          totalTransactions: 0,
+          amountByType: {}
+        });
       }
     }
     
@@ -694,11 +718,11 @@ router.get('/transactions', auth, adminAuth, async (req, res) => {
     const totalAmount = await Transaction.aggregate([
       { $match: filter },
       { $match: { status: 'completed' } },
-      { 
-        $group: { 
-          _id: '$type', 
-          total: { $sum: '$amount' } 
-        } 
+      {
+        $group: {
+          _id: '$type',
+          total: { $sum: '$amount' }
+        }
       }
     ]);
     
@@ -720,7 +744,6 @@ router.get('/transactions', auth, adminAuth, async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
-
 /**
  * @route   GET /api/admin/transactions/:id
  * @desc    Get transaction details by ID
