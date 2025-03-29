@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { AnimatedCounter, CurrencyCounter } from './Animation'; // Adjust the import path as necessary'
 
 const DashboardPage = () => {
   const router = useRouter();
@@ -14,6 +15,9 @@ const DashboardPage = () => {
     todayRevenue: 0,
     recentTransactions: []
   });
+  
+  // Add a state to control animation start
+  const [animateStats, setAnimateStats] = useState(false);
 
   const ViewAll = () => {
     router.push('/orders');
@@ -98,11 +102,18 @@ const DashboardPage = () => {
             network: order.network
           }))
         });
+        
+        // Set loading to false first
+        setLoading(false);
+        
+        // Delay animation start slightly for better UX
+        setTimeout(() => {
+          setAnimateStats(true);
+        }, 300);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       // You might want to show an error message to the user
-    } finally {
       setLoading(false);
     }
   };
@@ -256,7 +267,12 @@ const DashboardPage = () => {
                    style={{ backgroundColor: `${mtnYellow}20` }}>
                 <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
                 <span className="text-xs sm:text-sm font-medium text-gray-600">Balance</span>
-                <span className="text-sm sm:text-xl font-bold text-gray-900 mt-1">{formatCurrency(stats.balance)}</span>
+                <span className="text-sm sm:text-xl font-bold text-gray-900 mt-1">
+                  {animateStats ? 
+                    <CurrencyCounter value={stats.balance} duration={1500} /> : 
+                    formatCurrency(0)
+                  }
+                </span>
                 <button
                   onClick={navigateToTopup}
                   className="mt-1 sm:mt-2 text-xs font-medium px-2 py-0.5 sm:py-1 rounded-full text-white hover:bg-yellow-500 transition-colors duration-300"
@@ -272,7 +288,12 @@ const DashboardPage = () => {
                 <Package className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
                 <span className="text-xs sm:text-sm font-medium text-gray-600">Orders Today</span>
                 <div className="flex items-center mt-1">
-                  <span className="text-sm sm:text-xl font-bold text-gray-900">{stats.todayOrders}</span>
+                  <span className="text-sm sm:text-xl font-bold text-gray-900">
+                    {animateStats ? 
+                      <AnimatedCounter value={stats.todayOrders} duration={1200} /> : 
+                      "0"
+                    }
+                  </span>
                 </div>
               </div>
               
@@ -282,7 +303,12 @@ const DashboardPage = () => {
                 <Database className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
                 <span className="text-xs sm:text-sm font-medium text-gray-600">GB Sold Today</span>
                 <div className="flex items-center mt-1">
-                  <span className="text-sm sm:text-xl font-bold text-gray-900">{stats.todayGbSold} GB</span>
+                  <span className="text-sm sm:text-xl font-bold text-gray-900">
+                    {animateStats ? 
+                      <AnimatedCounter value={stats.todayGbSold} duration={1350} suffix=" GB" decimals={1} /> : 
+                      "0 GB"
+                    }
+                  </span>
                 </div>
               </div>
               
@@ -292,13 +318,19 @@ const DashboardPage = () => {
                 <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
                 <span className="text-xs sm:text-sm font-medium text-gray-600">Revenue Today</span>
                 <div className="flex items-center mt-1">
-                  <span className="text-sm sm:text-xl font-bold text-gray-900">{formatCurrency(stats.todayRevenue)}</span>
+                  <span className="text-sm sm:text-xl font-bold text-gray-900">
+                    {animateStats ? 
+                      <CurrencyCounter value={stats.todayRevenue} duration={1500} /> : 
+                      formatCurrency(0)
+                    }
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         </div>
         
+        {/* Rest of your component remains unchanged */}
         {/* Deposit Notification */}
         <div className="mb-4 bg-white rounded-lg shadow-md overflow-hidden border-l-4 hover:shadow-lg transition-shadow duration-300" style={{ borderLeftColor: "#ffcc00" }}>
           <div className="p-2 sm:p-4 flex items-start">
