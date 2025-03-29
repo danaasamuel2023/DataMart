@@ -9,6 +9,7 @@ const AdminOrders = () => {
   const [capacityFilter, setCapacityFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [phoneSearch, setPhoneSearch] = useState("");
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -185,7 +186,16 @@ const AdminOrders = () => {
   const filteredOrders = orders.filter(order => {
     const capacityMatches = capacityFilter ? order.capacity === parseInt(capacityFilter) : true;
     const dateMatches = isWithinDateRange(order.createdAt);
-    return capacityMatches && dateMatches;
+    
+    // Enhanced phone search (searches both order phone and buyer phone)
+    const phoneMatches = phoneSearch ? (
+      // Search in order phone number
+      (order.phoneNumber && order.phoneNumber.replace(/\D/g, '').includes(phoneSearch.replace(/\D/g, ''))) ||
+      // Search in buyer's phone number (if it exists)
+      (order.userId?.phoneNumber && order.userId.phoneNumber.replace(/\D/g, '').includes(phoneSearch.replace(/\D/g, '')))
+    ) : true;
+      
+    return capacityMatches && dateMatches && phoneMatches;
   });
 
   // Pagination is now handled by the API, but we still need these for local filtering
@@ -216,10 +226,17 @@ const AdminOrders = () => {
     }
   };
 
-  // Handle date filter reset
-  const resetDateFilter = () => {
+  // Handle filter reset
+  const resetFilters = () => {
     setStartDate("");
     setEndDate("");
+    setPhoneSearch("");
+    setCapacityFilter("");
+  };
+  
+  // Quick clear for phone search
+  const clearPhoneSearch = () => {
+    setPhoneSearch("");
   };
 
   // Handle orders per page change
@@ -236,17 +253,40 @@ const AdminOrders = () => {
       {/* Filters and Bulk Actions */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="flex flex-col space-y-4">
-          {/* Capacity Filter */}
+          {/* Filters Row */}
           <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
-            <div className="flex items-center">
-              <label htmlFor="capacityFilter" className="mr-2 text-gray-700">Filter by Capacity:</label>
+            {/* Phone Number Search */}
+            <div className="flex items-center relative">
+              <label htmlFor="phoneSearch" className="mr-2 text-gray-700">Phone Search:</label>
+              <input
+                type="text"
+                id="phoneSearch"
+                value={phoneSearch}
+                onChange={(e) => setPhoneSearch(e.target.value)}
+                placeholder="Search by order or buyer phone"
+                className="border border-gray-300 rounded-md px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {phoneSearch && (
+                <button 
+                  onClick={clearPhoneSearch}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  title="Clear phone search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            
+            {/* Capacity Filter */}
+            <div className="flex items-center ml-4">
+              <label htmlFor="capacityFilter" className="mr-2 text-gray-700">Capacity:</label>
               <select
                 id="capacityFilter"
                 value={capacityFilter}
                 onChange={(e) => setCapacityFilter(e.target.value)}
                 className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">All Capacities</option>
+                <option value="">All</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
@@ -296,10 +336,10 @@ const AdminOrders = () => {
             </div>
             
             <button
-              onClick={resetDateFilter}
+              onClick={resetFilters}
               className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md"
             >
-              Clear Dates
+              Clear All Filters
             </button>
           </div>
           
