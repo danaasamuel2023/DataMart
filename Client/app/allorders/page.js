@@ -11,6 +11,7 @@ const AdminOrders = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // Added status filter state
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -241,8 +242,11 @@ const AdminOrders = () => {
       // Search in buyer's phone number (if it exists)
       (order.userId?.phoneNumber && order.userId.phoneNumber.replace(/\D/g, '').includes(phoneSearch.replace(/\D/g, '')))
     ) : true;
+    
+    // Added status filter
+    const statusMatches = statusFilter ? order.status?.toLowerCase() === statusFilter.toLowerCase() : true;
       
-    return capacityMatches && dateMatches && phoneMatches;
+    return capacityMatches && dateMatches && phoneMatches && statusMatches;
   });
 
   // Pagination is now handled by the API, but we still need these for local filtering
@@ -263,11 +267,15 @@ const AdminOrders = () => {
     switch(status?.toLowerCase()) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
+      case 'processing':
+        return 'bg-purple-100 text-purple-800';
       case 'shipped':
         return 'bg-blue-100 text-blue-800';
       case 'delivered':
       case 'completed':
         return 'bg-green-100 text-green-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -279,6 +287,7 @@ const AdminOrders = () => {
     setEndDate("");
     setPhoneSearch("");
     setCapacityFilter("");
+    setStatusFilter(""); // Clear status filter
   };
   
   // Quick clear for phone search
@@ -325,7 +334,7 @@ const AdminOrders = () => {
             </div>
             
             {/* Capacity Filter */}
-            <div className="flex items-center ml-4">
+            <div className="flex items-center">
               <label htmlFor="capacityFilter" className="mr-2 text-gray-700">Capacity:</label>
               <select
                 id="capacityFilter"
@@ -338,6 +347,27 @@ const AdminOrders = () => {
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
+              </select>
+            </div>
+            
+            {/* Status Filter (Added) */}
+            <div className="flex items-center">
+              <label htmlFor="statusFilter" className="mr-2 text-gray-700">Status:</label>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="waiting">waiting</option>
+
+                <option value="processing">Processing</option>
+                <option value="failed">Failed</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="completed">Completed</option>
               </select>
             </div>
             
@@ -405,11 +435,9 @@ const AdminOrders = () => {
               onChange={(e) => setBulkStatus(e.target.value)}
               className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              
               <option value="">Select Status</option>
               <option value="pending">Pending</option>
-              <option value="processing">processing</option>
-
+              <option value="processing">Processing</option>
               <option value="failed">Failed</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
@@ -540,8 +568,7 @@ const AdminOrders = () => {
                               className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="pending">Pending</option>
-                              <option value="processing">processing</option>
-
+                              <option value="processing">Processing</option>
                               <option value="failed">Failed</option>
                               <option value="shipped">Shipped</option>
                               <option value="delivered">Delivered</option>
