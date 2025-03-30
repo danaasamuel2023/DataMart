@@ -169,7 +169,7 @@ const AdminOrders = () => {
       '     ': '',  // Empty column for spacing
       'CapacityinGb': order.capacity,
       '          ': '',  // Empty column for spacing
-      'Capacityinmb': order.capacity * 1024, // Convert GB to MB for display
+      
       '               ': '',  // Empty column for spacing
       // 'Price': `GH₵ ${order.price.toFixed(2)}`,
       '                    ': '',  // Empty column for spacing
