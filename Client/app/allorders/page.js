@@ -167,9 +167,9 @@ const AdminOrders = () => {
     const dataToExport = filteredOrders.map(order => ({
       'Phone Number': order.phoneNumber,
       '     ': '',  // Empty column for spacing
-      'Capacity': order.capacity,
+      'CapacityinGb': order.capacity,
       '          ': '',  // Empty column for spacing
-      // 'Network': order.network,
+      'Capacityinmb': order.capacity * 1024, // Convert GB to MB for display
       '               ': '',  // Empty column for spacing
       // 'Price': `GH₵ ${order.price.toFixed(2)}`,
       '                    ': '',  // Empty column for spacing
