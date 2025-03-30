@@ -69,7 +69,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -120,7 +120,7 @@ const AdminOrders = () => {
     try {
       // Fixed: Use the actual orderId or geonetReference consistently
       const updatePromises = selectedOrders.map(orderId => 
-        fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+        fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -164,14 +164,10 @@ const AdminOrders = () => {
   const exportToExcel = () => {
     // Create data to export (use filtered orders)
     const dataToExport = filteredOrders.map(order => ({
-      'Order Number': order.geonetReference || order.id,
+      
       'Phone Number': order.phoneNumber,
       'Amount': order.price.toFixed(2),
-      'Network': order.network,
-      'Status': order.status,
-      'Date': new Date(order.createdAt).toLocaleString(),
-      'Capacity': order.capacity,
-      'Customer Name': order.userId?.name || 'Unknown'
+     
     }));
     
     // Create worksheet from data
