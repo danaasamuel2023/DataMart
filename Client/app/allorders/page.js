@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import * as XLSX from 'xlsx';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -27,7 +28,7 @@ const AdminOrders = () => {
 
       try {
         // Update API call to include pagination params
-        const res = await fetch(`http://localhost:5000/api/orders?page=${currentPage}&limit=${ordersPerPage}`, {
+        const res = await fetch(`https://datamartbackened.onrender.com/api/orders?page=${currentPage}&limit=${ordersPerPage}`, {
           headers: {
             'x-auth-token': authToken
           }
@@ -117,13 +118,13 @@ const AdminOrders = () => {
     }
 
     try {
-      // Create an array of promises for each order update
+      // Fixed: Use the actual orderId or geonetReference consistently
       const updatePromises = selectedOrders.map(orderId => 
-        fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
+        fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-             'x-auth-token': authToken
+            'x-auth-token': authToken
           },
           body: JSON.stringify({ status: bulkStatus }),
         })
@@ -139,7 +140,7 @@ const AdminOrders = () => {
         // Update the local state
         setOrders(prevOrders => 
           prevOrders.map(order => 
-            selectedOrders.includes(order.geonetReference) 
+            selectedOrders.includes(order.geonetReference || order.id) 
               ? { ...order, status: bulkStatus } 
               : order
           )
@@ -157,6 +158,32 @@ const AdminOrders = () => {
       console.error("Error performing bulk update:", error);
       alert("Error updating orders. Please try again.");
     }
+  };
+
+  // Export to Excel functionality
+  const exportToExcel = () => {
+    // Create data to export (use filtered orders)
+    const dataToExport = filteredOrders.map(order => ({
+      'Order Number': order.geonetReference || order.id,
+      'Phone Number': order.phoneNumber,
+      'Amount': order.price.toFixed(2),
+      'Network': order.network,
+      'Status': order.status,
+      'Date': new Date(order.createdAt).toLocaleString(),
+      'Capacity': order.capacity,
+      'Customer Name': order.userId?.name || 'Unknown'
+    }));
+    
+    // Create worksheet from data
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // Create workbook and add the worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    
+    // Generate Excel file and trigger download
+    const fileName = `orders_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
   };
 
   // Date filter function
@@ -341,6 +368,14 @@ const AdminOrders = () => {
             >
               Clear All Filters
             </button>
+            
+            {/* Excel Export Button */}
+            <button
+              onClick={exportToExcel}
+              className="px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md ml-auto"
+            >
+              Export to Excel
+            </button>
           </div>
           
           {/* Bulk Actions */}
@@ -350,9 +385,12 @@ const AdminOrders = () => {
               onChange={(e) => setBulkStatus(e.target.value)}
               className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-             
+              
               <option value="">Select Status</option>
-              <option value="failed">failed</option>
+              <option value="pending">Pending</option>
+              <option value="processing">processing</option>
+
+              <option value="failed">Failed</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
               <option value="completed">Completed</option>
@@ -399,7 +437,7 @@ const AdminOrders = () => {
                           type="checkbox"
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedOrders(filteredOrders.map(order => order.geonetReference));
+                              setSelectedOrders(filteredOrders.map(order => order.geonetReference || order.id));
                             } else {
                               setSelectedOrders([]);
                             }
@@ -443,8 +481,8 @@ const AdminOrders = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
-                            checked={selectedOrders.includes(order.geonetReference)}
-                            onChange={() => toggleOrderSelection(order.geonetReference)}
+                            checked={selectedOrders.includes(order.geonetReference || order.id)}
+                            onChange={() => toggleOrderSelection(order.geonetReference || order.id)}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                         </td>
@@ -478,16 +516,19 @@ const AdminOrders = () => {
                           <div className="flex items-center space-x-2">
                             <select
                               value={order.status || ""}
-                              onChange={(e) => updateOrderStatus(order.geonetReference, e.target.value)}
+                              onChange={(e) => updateOrderStatus(order.geonetReference || order.id, e.target.value)}
                               className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="pending">Pending</option>
-                              <option value="failed">failed</option>
+                              <option value="processing">processing</option>
+
+                              <option value="failed">Failed</option>
+                              <option value="shipped">Shipped</option>
                               <option value="delivered">Delivered</option>
                               <option value="completed">Completed</option>
                             </select>
                             <button
-                              onClick={() => updateOrderStatus(order.geonetReference, order.status)}
+                              onClick={() => updateOrderStatus(order.geonetReference || order.id, order.status)}
                               className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-md text-sm"
                             >
                               Update

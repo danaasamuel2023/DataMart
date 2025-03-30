@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
-const { User, DataPurchase, Transaction } = require('../schema/schema');
+const { User, DataPurchase, Transaction,DataInventory} = require('../schema/schema');
 
 // Geonettech API Configuration
 const GEONETTECH_BASE_URL = 'https://posapi.geonettech.com/api/v1';
@@ -57,7 +57,7 @@ router.get('/agent-balance', async (req, res) => {
   }
 });
 
-// Purchase Data Bundle
+// Purchase Data Bundle with Inventory Check
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -128,7 +128,93 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
-    // Check agent wallet balance
+    // Check if the network is in stock
+    const inventory = await DataInventory.findOne({ network }).session(session);
+    
+    logOperation('DATA_INVENTORY_CHECK', {
+      network,
+      inventoryFound: !!inventory,
+      inStock: inventory ? inventory.inStock : false
+    });
+    
+    // Generate unique references
+    const transactionReference = `TRX-${uuidv4()}`;
+    const orderReference = Math.floor(1000 + Math.random() * 900000);
+
+    // If inventory doesn't exist or inStock is false, create order in waiting status
+    if (!inventory || !inventory.inStock) {
+      logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
+        network,
+        skipGeonettech: true
+      });
+      
+      // Create Transaction
+      const transaction = new Transaction({
+        userId,
+        type: 'purchase',
+        amount: price,
+        status: 'completed', // Still complete the transaction
+        reference: transactionReference,
+        gateway: 'wallet'
+      });
+
+      // Create Data Purchase in waiting status
+      const dataPurchase = new DataPurchase({
+        userId,
+        phoneNumber,
+        network,
+        capacity,
+        gateway: 'wallet',
+        method: 'web',
+        price,
+        status: 'waiting', // Set status to waiting
+        geonetReference: orderReference
+      });
+
+      logOperation('DATA_PURCHASE_DOCUMENTS_CREATED_WAITING', {
+        transaction: transaction.toJSON(),
+        dataPurchase: dataPurchase.toJSON()
+      });
+
+      // Update user wallet
+      const previousBalance = user.walletBalance;
+      user.walletBalance -= price;
+
+      logOperation('USER_WALLET_UPDATE', {
+        userId,
+        previousBalance,
+        newBalance: user.walletBalance,
+        deduction: price
+      });
+
+      // Save all documents
+      await transaction.save({ session });
+      await dataPurchase.save({ session });
+      await user.save({ session });
+
+      logOperation('DATA_PURCHASE_DOCUMENTS_SAVED_WAITING', {
+        transaction: transaction._id,
+        dataPurchase: dataPurchase._id,
+        userUpdated: user._id
+      });
+
+      // Commit transaction
+      await session.commitTransaction();
+      logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
+
+      return res.status(201).json({
+        status: 'success',
+        message: 'Data bundle order placed in waiting queue',
+        data: {
+          transaction,
+          dataPurchase,
+          newWalletBalance: user.walletBalance,
+          waitingForInventory: true
+        }
+      });
+    }
+
+    // If inventory is in stock, proceed with Geonettech API
     logOperation('AGENT_BALANCE_CHECK_PRE_PURCHASE', { timestamp: new Date() });
     const agentBalanceResponse = await geonetClient.get('/wallet/balance');
     const agentBalance = parseFloat(agentBalanceResponse.data.data.balance.replace(/,/g, ''));
@@ -150,10 +236,6 @@ router.post('/purchase-data', async (req, res) => {
         message: 'Service provider out of stock'
       });
     }
-
-    // Generate unique references
-    const transactionReference = `TRX-${uuidv4()}`;
-    const orderReference = Math.floor(1000 + Math.random() * 900000);;
 
     logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
       network_key: network,
@@ -282,7 +364,6 @@ router.post('/purchase-data', async (req, res) => {
     logOperation('DATABASE_SESSION_ENDED', { timestamp: new Date() });
   }
 });
-
 // Check Order Status
 router.get('/order-status/:orderId', async (req, res) => {
   try {

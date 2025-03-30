@@ -400,7 +400,7 @@ router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
   try {
     const { status } = req.body;
     
-    if (!['pending', 'completed', 'failed', 'processing', 'refunded'].includes(status)) {
+    if (!['pending', 'completed', 'failed', 'processing', 'refunded','delivered'].includes(status)) {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     

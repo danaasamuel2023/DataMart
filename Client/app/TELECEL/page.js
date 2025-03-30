@@ -6,22 +6,25 @@ const TelecelBundleCards = () => {
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isInventoryLoading, setIsInventoryLoading] = useState(true);
   const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
   const [bundleMessages, setBundleMessages] = useState({});
   const [userData, setUserData] = useState(null);
+  
+  // Manual inventory control - set this to false if you want bundles to be out of stock
+  const inventoryAvailable = true;
+  
   const [bundles, setBundles] = useState([
-    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: true },
-    // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: true },
-    // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: true },
-    { capacity: '10', mb: '10000', price: '35.50', network: 'TELECEL', inStock: true },
-    // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: true },
-    { capacity: '15', mb: '15000', price: '55.50', network: 'TELECEL', inStock: true },
-    { capacity: '20', mb: '20000', price: '75.00', network: 'TELECEL', inStock: true },
-    { capacity: '25', mb: '25000', price: '92.00', network: 'TELECEL', inStock: true },
-    { capacity: '30', mb: '30000', price: '110.00', network: 'TELECEL', inStock: true },
-    { capacity: '40', mb: '40000', price: '145.00', network: 'TELECEL', inStock: true },
-    { capacity: '50', mb: '50000', price: '180.00', network: 'TELECEL', inStock: true }
+    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: inventoryAvailable },
+    // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
+    // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '10', mb: '10000', price: '35.50', network: 'TELECEL', inStock: inventoryAvailable },
+    // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '15', mb: '15000', price: '55.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '20', mb: '20000', price: '75.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '25', mb: '25000', price: '92.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '30', mb: '30000', price: '110.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '40', mb: '40000', price: '145.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '50', mb: '50000', price: '180.00', network: 'TELECEL', inStock: inventoryAvailable }
   ]);
 
   // Get user data from localStorage on component mount
@@ -30,51 +33,7 @@ const TelecelBundleCards = () => {
     if (storedUserData) {
       setUserData(JSON.parse(storedUserData));
     }
-    
-    // Fetch inventory status
-    fetchInventoryStatus();
   }, []);
-
-  // Function to fetch inventory status from the API using the public check-availability endpoint
-  const fetchInventoryStatus = async () => {
-    setIsInventoryLoading(true);
-    try {
-      // Using the public check-availability endpoint that doesn't require auth
-      const response = await axios.get(
-        'https://datamartbackened.onrender.com/api/check-availability',
-        {
-          params: { network: 'TELECEL' }
-        }
-      );
-
-      // Update bundles with the inventory status
-      if (response.data && response.data.available !== undefined) {
-        setBundles(prevBundles => 
-          prevBundles.map(bundle => ({
-            ...bundle,
-            inStock: response.data.available
-          }))
-        );
-        
-        // Show status message
-        setGlobalMessage({ 
-          text: response.data.message,
-          type: response.data.available ? 'success' : 'error' 
-        });
-        
-        // Clear message after 3 seconds
-        setTimeout(() => setGlobalMessage({ text: '', type: '' }), 3000);
-      }
-    } catch (error) {
-      console.error('Failed to fetch inventory status:', error);
-      setGlobalMessage({ 
-        text: 'Failed to check inventory status. Please try again later.',
-        type: 'error' 
-      });
-    } finally {
-      setIsInventoryLoading(false);
-    }
-  };
 
   // Telecel Logo SVG
   const TelecelLogo = () => (
@@ -164,7 +123,7 @@ const TelecelBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
+      const response = await axios.post('http://localhost:5000/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network,
@@ -186,9 +145,6 @@ const TelecelBundleCards = () => {
         
         // Auto-scroll to the top to see the success message
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        // Refresh inventory status after purchase
-        fetchInventoryStatus();
       }
     } catch (error) {
       console.error('Purchase error:', error);
@@ -227,104 +183,86 @@ const TelecelBundleCards = () => {
         </div>
       )}
 
-      {isInventoryLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
-          <span className="ml-3 text-lg">Checking status...</span>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {bundles.map((bundle, index) => (
-            <div key={index} className="flex flex-col relative">
-              {/* Out of stock badge */}
-              {!bundle.inStock && (
-                <div className="absolute top-2 right-2 z-10">
-                  <span className="bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-full shadow-lg">
-                    OUT OF STOCK
-                  </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {bundles.map((bundle, index) => (
+          <div key={index} className="flex flex-col relative">
+            {/* Out of stock badge */}
+            {!bundle.inStock && (
+              <div className="absolute top-2 right-2 z-10">
+                <span className="bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-full shadow-lg">
+                  OUT OF STOCK
+                </span>
+              </div>
+            )}
+            
+            <div 
+              className={`flex bg-gradient-to-tr from-red-700 to-red-500 text-white w-full flex-col justify-between cursor-pointer transition-all duration-300 ${selectedBundleIndex === index ? 'rounded-b-none' : 'rounded-b-lg'}`}
+              onClick={() => handleSelectBundle(index)}
+            >
+              <div className="flex flex-col items-center justify-center w-full p-3 space-y-3">
+                <div className="w-20 h-20 flex justify-center items-center mt-2">
+                  <TelecelLogo />
                 </div>
-              )}
-              
-              <div 
-                className={`flex bg-gradient-to-tr from-red-700 to-red-500 text-white w-full flex-col justify-between cursor-pointer transition-all duration-300 ${selectedBundleIndex === index ? 'rounded-b-none' : 'rounded-b-lg'}`}
-                onClick={() => handleSelectBundle(index)}
-              >
-                <div className="flex flex-col items-center justify-center w-full p-3 space-y-3">
-                  <div className="w-20 h-20 flex justify-center items-center mt-2">
-                    <TelecelLogo />
-                  </div>
-                  <h3 className="text-2xl font-bold">
-                    {bundle.capacity} GB
-                  </h3>
+                <h3 className="text-2xl font-bold">
+                  {bundle.capacity} GB
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 text-white bg-black/80">
+                <div className="flex flex-col items-center justify-center p-3 text-center border-r border-r-red-700">
+                  <p className="text-xl">GH₵ {bundle.price}</p>
+                  <p className="text-sm font-medium">Price</p>
                 </div>
-                <div className="grid grid-cols-2 text-white bg-black/80">
-                  <div className="flex flex-col items-center justify-center p-3 text-center border-r border-r-red-700">
-                    <p className="text-xl">GH₵ {bundle.price}</p>
-                    <p className="text-sm font-medium">Price</p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-3 text-center">
-                    <p className="text-xl">No-Expiry</p>
-                    <p className="text-sm font-medium">Duration</p>
-                  </div>
+                <div className="flex flex-col items-center justify-center p-3 text-center">
+                  <p className="text-xl">No-Expiry</p>
+                  <p className="text-sm font-medium">Duration</p>
                 </div>
               </div>
-              
-              {selectedBundleIndex === index && (
-                <div className="bg-gradient-to-br from-red-600 to-red-700 p-4 rounded-b-lg shadow-md">
-                  {bundleMessages[index] && (
-                    <div className={`mb-3 p-3 rounded-md ${bundleMessages[index].type === 'success' ? 'bg-green-100 text-green-800' : 'bg-white text-red-800 border-l-4 border-yellow-500'}`}>
-                      <div className="flex items-center">
-                        {bundleMessages[index].type === 'error' && (
-                          <svg className="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                        )}
-                        {bundleMessages[index].text}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="mb-4">
-                    <input
-                      type="tel"
-                      className="w-full px-4 py-3 rounded-md bg-white/90 text-red-900 placeholder-red-400 border border-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
-                      placeholder="Enter Telecel number (026, 057, 027)"
-                      value={phoneNumber}
-                      onChange={handlePhoneNumberChange}
-                    />
-                    <p className="mt-1 text-xs text-white">Format: 026/057/027/020 followed by 7 digits</p>
-                  </div>
-                  <button
-                    onClick={() => handlePurchase(bundle, index)}
-                    className="w-full px-4 py-3 bg-red-900 text-white rounded-md hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-red-200 disabled:bg-red-300 disabled:cursor-not-allowed transition-all duration-300"
-                    disabled={isLoading || !bundle.inStock}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : !bundle.inStock ? 'Out of Stock' : 'Purchase Now'}
-                  </button>
-                </div>
-              )}
             </div>
-          ))}
-        </div>
-      )}
-      
-      {/* Refresh inventory button */}
-      <div className="mt-8 text-center">
-        <button 
-          onClick={fetchInventoryStatus}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-red-300 disabled:cursor-not-allowed"
-          disabled={isInventoryLoading}
-        >
-          {isInventoryLoading ? 'Refreshing...' : 'Refresh Inventory Status'}
-        </button>
+            
+            {selectedBundleIndex === index && (
+              <div className="bg-gradient-to-br from-red-600 to-red-700 p-4 rounded-b-lg shadow-md">
+                {bundleMessages[index] && (
+                  <div className={`mb-3 p-3 rounded-md ${bundleMessages[index].type === 'success' ? 'bg-green-100 text-green-800' : 'bg-white text-red-800 border-l-4 border-yellow-500'}`}>
+                    <div className="flex items-center">
+                      {bundleMessages[index].type === 'error' && (
+                        <svg className="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      )}
+                      {bundleMessages[index].text}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mb-4">
+                  <input
+                    type="tel"
+                    className="w-full px-4 py-3 rounded-md bg-white/90 text-red-900 placeholder-red-400 border border-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
+                    placeholder="Enter Telecel number (026, 057, 027)"
+                    value={phoneNumber}
+                    onChange={handlePhoneNumberChange}
+                  />
+                  <p className="mt-1 text-xs text-white">Format: 026/057/027/020 followed by 7 digits</p>
+                </div>
+                <button
+                  onClick={() => handlePurchase(bundle, index)}
+                  className="w-full px-4 py-3 bg-red-900 text-white rounded-md hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-red-200 disabled:bg-red-300 disabled:cursor-not-allowed transition-all duration-300"
+                  disabled={isLoading || !bundle.inStock}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : !bundle.inStock ? 'Out of Stock' : 'Purchase Now'}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
