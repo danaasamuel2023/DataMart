@@ -164,14 +164,38 @@ const AdminOrders = () => {
   const exportToExcel = () => {
     // Create data to export (use filtered orders)
     const dataToExport = filteredOrders.map(order => ({
-      
       'Phone Number': order.phoneNumber,
-      'Amount': order.price.toFixed(2),
-     
+      '     ': '',  // Empty column for spacing
+      'Capacity': order.capacity,
+      '          ': '',  // Empty column for spacing
+      // 'Network': order.network,
+      '               ': '',  // Empty column for spacing
+      // 'Price': `GH₵ ${order.price.toFixed(2)}`,
+      '                    ': '',  // Empty column for spacing
+      // 'Status': order.status,
+      '                         ': '',  // Empty column for spacing
+      // 'Date': formatDate(order.createdAt)
     }));
     
     // Create worksheet from data
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // Set column widths for better readability
+    const cols = [
+      { wch: 15 },  // Phone Number
+      { wch: 5 },   // Spacing
+      { wch: 10 },  // Capacity
+      { wch: 5 },   // Spacing
+      { wch: 10 },  // Network
+      { wch: 5 },   // Spacing
+      { wch: 12 },  // Price
+      { wch: 5 },   // Spacing
+      { wch: 12 },  // Status
+      { wch: 5 },   // Spacing
+      { wch: 20 }   // Date
+    ];
+    
+    worksheet['!cols'] = cols;
     
     // Create workbook and add the worksheet
     const workbook = XLSX.utils.book_new();
