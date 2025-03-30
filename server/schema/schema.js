@@ -23,7 +23,7 @@ const DataPurchaseSchema = new mongoose.Schema({
   method: { type: String, enum: ["web", "api"], required: true }, // Source of purchase
   price: { type: Number, required: true }, // Cost of data package
   geonetReference: { type: String, required: true }, // Unique reference from Geonet
-  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund"], default: "pending" }, // Status
+  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivere","on"], default: "pending" }, // Status
   createdAt: { type: Date, default: Date.now }
 });
 

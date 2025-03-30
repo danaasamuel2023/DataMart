@@ -68,7 +68,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
+      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
