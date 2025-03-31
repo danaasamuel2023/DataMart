@@ -14,8 +14,8 @@ const MTNBundleCards = () => {
   const inventoryAvailable = true;
   
   const [bundles, setBundles] = useState([
-    // { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '2', mb: '2000', price: '10.500', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '5', mb: '5000', price: '22.50', network: 'YELLO', inStock: inventoryAvailable },
