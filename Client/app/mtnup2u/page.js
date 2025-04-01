@@ -130,20 +130,20 @@ const MTNBundleCards = () => {
   const [bundles, setBundles] = useState([
     // { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '2', mb: '2000', price: '10.500', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '5', mb: '5000', price: '22.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '7', mb: '7000', price: '31.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '20', mb: '20000', price: '85.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '30', mb: '30000', price: '128.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '40', mb: '40000', price: '165.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '50', mb: '50000', price: '206.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '100', mb: '100000', price: '406.00', network: 'YELLO', inStock: inventoryAvailable }
+    { capacity: '3', mb: '3000', price: '14.5', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '4', mb: '4000', price: '19.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '5', mb: '5000', price: '23.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '6', mb: '6000', price: '28.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '7', mb: '7000', price: '32.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '8', mb: '8000', price: '36.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '10', mb: '10000', price: '44.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '15', mb: '15000', price: '63.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '20', mb: '20000', price: '86.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '25', mb: '25000', price: '106.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '30', mb: '30000', price: '129.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '40', mb: '40000', price: '166.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '50', mb: '50000', price: '207.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '100', mb: '100000', price: '407.00', network: 'YELLO', inStock: inventoryAvailable }
   ]);
 
   // Get user data from localStorage and detect dark mode on component mount
