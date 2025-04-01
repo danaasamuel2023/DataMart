@@ -176,21 +176,31 @@ const TelecelBundleCards = () => {
   );
 
   // Telecel number validation function
-  const isValidTelecelNumber = (number) => {
-    // Remove any spaces or dashes
-    const cleanedNumber = number.replace(/[\s-]/g, '');
+  const validatePhoneNumber = (number) => {
+    // Trim the number first to remove any whitespace
+    const trimmedNumber = number.trim();
     
-    // Telecel Ghana numbers typically start with 026, 057, or 027
-    const telecelPrefixes = ['026', '057', '027','020','050'];
+    // Specific Telecel Ghana number validation (starts with 020 or 050)
+    // Check both the format and the prefix for Telecel numbers
+    const telecelPattern = /^(020|050)\d{7}$/;
     
-    // Check if the number:
-    // 1. Is exactly 10 digits long
-    // 2. Starts with one of the Telecel prefixes
-    return (
-      cleanedNumber.length === 10 && 
-      telecelPrefixes.some(prefix => cleanedNumber.startsWith(prefix))
-    );
+    return telecelPattern.test(trimmedNumber);
   };
+  
+  // Handle phone number input change with automatic trimming
+  const handlePhoneNumberChange = (e) => {
+    // Automatically trim the input value as it's entered
+    setPhoneNumber(e.target.value.trim());
+  };
+  
+  // Update the error message in handlePurchase function
+  if (!validatePhoneNumber(trimmedPhoneNumber)) {
+    setMessage({ 
+      text: 'Please enter a valid Telecel phone number (must start with 020 or 050 followed by 7 digits)', 
+      type: 'error' 
+    });
+    return;
+  }
 
   const handleSelectBundle = (index) => {
     // Allow selection regardless of stock status
@@ -213,10 +223,7 @@ const TelecelBundleCards = () => {
     return formatted;
   };
 
-  const handlePhoneNumberChange = (e) => {
-    const formattedNumber = formatPhoneNumber(e.target.value);
-    setPhoneNumber(formattedNumber);
-  };
+  
 
   const handlePurchase = async (bundle, index) => {
     // Clear previous messages
@@ -428,7 +435,7 @@ const TelecelBundleCards = () => {
                     value={phoneNumber}
                     onChange={handlePhoneNumberChange}
                   />
-                  <p className="mt-1 text-xs text-white">Format: 026/057/027/020/050 followed by remaining digits</p>
+                  <p className="mt-1 text-xs text-white">Format: 020/050/020/050 followed by remaining digits</p>
                 </div>
                 <button
                   onClick={() => handlePurchase(bundle, index)}
