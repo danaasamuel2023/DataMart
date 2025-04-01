@@ -68,7 +68,7 @@ export default function Leaderboard() {
     fetchLeaderboardData();
     
     // Set up WebSocket connection
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com');
     
     socket.on('connect', () => {
       console.log('WebSocket connected');
@@ -91,7 +91,7 @@ export default function Leaderboard() {
   const fetchLeaderboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/v1/data/users-leaderboard?limit=${limit}`);
+      const response = await fetch(`https://datamartbackened.onrender.com/api/v1/data/users-leaderboard?limit=${limit}`);
       const data = await response.json();
       
       if (data.status === 'success') {
