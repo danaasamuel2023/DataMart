@@ -971,4 +971,246 @@ router.get('/sales-report/:userId', async (req, res) => {
   }
 });
 
+router.get('/users-leaderboard', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    
+    logOperation('REALTIME_LEADERBOARD_REQUEST', {
+      limit,
+      timestamp: new Date()
+    });
+
+    // Get current timestamp for real-time reference
+    const currentTime = new Date();
+    
+    // Aggregate pipeline for leaderboard
+    const leaderboard = await DataPurchase.aggregate([
+      // Group by userId
+      {
+        $group: {
+          _id: '$userId',
+          orderCount: { $sum: 1 },
+          totalSpent: { $sum: '$price' },
+          lastOrderDate: { $max: '$createdAt' },
+          // Store most recent orders (up to 5)
+          recentOrders: { 
+            $push: {
+              createdAt: '$createdAt',
+              price: '$price',
+              phoneNumber: '$phoneNumber',
+              network: '$network',
+              capacity: '$capacity'
+            }
+          }
+        }
+      },
+      // Sort primarily by order count (descending)
+      {
+        $sort: { 
+          orderCount: -1,  // Primary sort: highest order count first
+          lastOrderDate: -1  // Secondary sort: most recent orders first (for tiebreakers)
+        }
+      },
+      // Limit to specified number of top users
+      {
+        $limit: parseInt(limit)
+      },
+      // Add user details
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      // Unwind the userDetails array
+      {
+        $unwind: '$userDetails'
+      },
+      // Sort the recent orders and limit to most recent 5
+      {
+        $addFields: {
+          recentOrders: {
+            $slice: [
+              { $sortArray: { input: '$recentOrders', sortBy: { createdAt: -1 } } },
+              5
+            ]
+          }
+        }
+      },
+      // Format response
+      {
+        $project: {
+          _id: 0,
+          userId: '$_id',
+          name: '$userDetails.name',
+          email: '$userDetails.email',
+          phoneNumber: '$userDetails.phoneNumber',
+          orderCount: 1,
+          totalSpent: 1,
+          lastOrderDate: 1,
+          recentOrders: 1,
+          // Time since last order in minutes
+          minutesSinceLastOrder: {
+            $divide: [
+              { $subtract: [currentTime, '$lastOrderDate'] },
+              1000 * 60  // Convert ms to minutes
+            ]
+          },
+          // Average order value
+          averageOrderValue: { $divide: ['$totalSpent', '$orderCount'] }
+        }
+      }
+    ]);
+
+    logOperation('REALTIME_LEADERBOARD_RESULTS', {
+      count: leaderboard.length,
+      timestamp: currentTime
+    });
+
+    // Format and add ranking
+    const formattedLeaderboard = leaderboard.map((user, index) => {
+      // Format time since last order
+      let timeSinceLastOrder;
+      const minutes = Math.floor(user.minutesSinceLastOrder);
+      
+      if (minutes < 1) {
+        timeSinceLastOrder = 'Just now';
+      } else if (minutes < 60) {
+        timeSinceLastOrder = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+      } else if (minutes < 1440) { // Less than a day
+        const hours = Math.floor(minutes / 60);
+        timeSinceLastOrder = `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+      } else {
+        const days = Math.floor(minutes / 1440);
+        timeSinceLastOrder = `${days} ${days === 1 ? 'day' : 'days'} ago`;
+      }
+      
+      // Return formatted user object with rank
+      return {
+        rank: index + 1,
+        userId: user.userId,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        orderCount: user.orderCount,
+        totalSpent: parseFloat(user.totalSpent.toFixed(2)),
+        averageOrderValue: parseFloat(user.averageOrderValue.toFixed(2)),
+        lastOrderDate: user.lastOrderDate,
+        timeSinceLastOrder,
+        // Format recent orders
+        recentOrders: user.recentOrders.map(order => ({
+          ...order,
+          price: parseFloat(order.price.toFixed(2)),
+          createdAt: order.createdAt,
+          formattedDate: new Date(order.createdAt).toLocaleString()
+        }))
+      };
+    });
+
+    // Add live update information
+    res.json({
+      status: 'success',
+      data: {
+        leaderboard: formattedLeaderboard,
+        lastUpdated: currentTime,
+        updateMessage: 'Leaderboard is live. Data refreshes automatically.',
+        serverTime: currentTime
+      }
+    });
+
+  } catch (error) {
+    logOperation('REALTIME_LEADERBOARD_ERROR', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch real-time users leaderboard',
+      details: error.message
+    });
+  }
+});
+
+// Websocket real-time leaderboard (add this if you're using Socket.io)
+// This function can be called periodically to emit updates to connected clients
+const emitLeaderboardUpdate = async (io) => {
+  try {
+    logOperation('SOCKET_LEADERBOARD_UPDATE', {
+      timestamp: new Date()
+    });
+
+    const currentTime = new Date();
+    
+    // Same aggregation pipeline as the HTTP endpoint
+    const leaderboard = await DataPurchase.aggregate([
+      {
+        $group: {
+          _id: '$userId',
+          orderCount: { $sum: 1 },
+          totalSpent: { $sum: '$price' },
+          lastOrderDate: { $max: '$createdAt' }
+        }
+      },
+      {
+        $sort: { 
+          orderCount: -1,
+          lastOrderDate: -1
+        }
+      },
+      { $limit: 20 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      { $unwind: '$userDetails' },
+      {
+        $project: {
+          _id: 0,
+          userId: '$_id',
+          name: '$userDetails.name',
+          email: '$userDetails.email',
+          orderCount: 1,
+          totalSpent: 1,
+          lastOrderDate: 1
+        }
+      }
+    ]);
+
+    // Format the leaderboard
+    const formattedLeaderboard = leaderboard.map((user, index) => ({
+      rank: index + 1,
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      orderCount: user.orderCount,
+      totalSpent: parseFloat(user.totalSpent.toFixed(2)),
+      lastOrderDate: user.lastOrderDate
+    }));
+
+    // Emit the updated leaderboard to all connected clients
+    io.emit('leaderboardUpdate', {
+      leaderboard: formattedLeaderboard,
+      lastUpdated: currentTime
+    });
+
+    logOperation('SOCKET_LEADERBOARD_EMITTED', {
+      usersCount: formattedLeaderboard.length,
+      timestamp: currentTime
+    });
+    
+  } catch (error) {
+    logOperation('SOCKET_LEADERBOARD_ERROR', {
+      message: error.message,
+      stack: error.stack
+    });
+  }
+};
+
 module.exports = router;
