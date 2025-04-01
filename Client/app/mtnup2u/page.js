@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 // Service Information Modal Component
+// Service Information Modal Component with improved mobile responsiveness
 const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -20,34 +21,34 @@ const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'} rounded-lg max-w-md w-full mx-4 overflow-hidden shadow-xl`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'} rounded-lg w-full max-w-md mx-auto overflow-hidden shadow-xl`}>
         {/* Modal header */}
-        <div className="bg-yellow-400 px-6 py-4 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-black flex items-center">
-            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <div className="bg-yellow-400 px-4 py-3 flex justify-between items-center">
+          <h3 className="text-lg md:text-xl font-bold text-black flex items-center">
+            <svg className="w-5 h-5 md:w-6 md:h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Important Service Notice
           </h3>
           <button onClick={onClose} className="text-black hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
         
         {/* Modal content */}
-        <div className="px-6 py-4">
+        <div className="px-4 py-3 md:px-6 md:py-4 max-h-[60vh] md:max-h-[70vh] overflow-y-auto">
           <div className="flex items-start mb-4">
-            <div className="mt-1 mr-3 flex-shrink-0">
-              <svg className="h-6 w-6 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <div className="mt-1 mr-2 md:mr-3 flex-shrink-0">
+              <svg className="h-5 w-5 md:h-6 md:w-6 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-2">Please Note Before Proceeding:</h4>
-              <ul className={`space-y-2 list-disc pl-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <h4 className="text-base md:text-lg font-semibold mb-2">Please Note Before Proceeding:</h4>
+              <ul className={`space-y-2 list-disc pl-4 md:pl-5 text-sm md:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 <li>This is <strong>not an instant service</strong>. Data delivery times vary between customers.</li>
                 <li>We are working diligently to process all orders, but there may be delays.</li>
                 <li>If you need immediate data for urgent matters, please dial <strong>*138#</strong> on your MTN line instead.</li>
@@ -60,12 +61,12 @@ const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
           <div className={`${isDarkMode ? 'bg-blue-900 border-blue-700' : 'bg-blue-50 border-blue-200'} p-3 rounded-lg border mt-4`}>
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className={`h-5 w-5 ${isDarkMode ? 'text-blue-300' : 'text-blue-500'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className={`h-4 w-4 md:h-5 md:w-5 ${isDarkMode ? 'text-blue-300' : 'text-blue-500'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <p className={`text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                <p className={`text-xs md:text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
                   We value your business and are committed to delivering quality service. Thank you for your understanding and patience.
                 </p>
               </div>
@@ -74,16 +75,16 @@ const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
         </div>
         
         {/* Modal footer */}
-        <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} px-6 py-4 flex justify-end`}>
+        <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} px-4 py-3 md:px-6 md:py-4 flex justify-end`}>
           <button
             onClick={onClose}
-            className={`mr-2 px-4 py-2 ${isDarkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} rounded focus:outline-none`}
+            className={`mr-2 px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base ${isDarkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} rounded focus:outline-none`}
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 focus:outline-none"
+            className="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-yellow-500 text-white rounded hover:bg-yellow-600 focus:outline-none"
           >
             I Understand, Continue
           </button>
