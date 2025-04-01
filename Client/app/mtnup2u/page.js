@@ -125,7 +125,7 @@ const MTNBundleCards = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = true;
+  const inventoryAvailable = false;
   
   const [bundles, setBundles] = useState([
      { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: inventoryAvailable },
