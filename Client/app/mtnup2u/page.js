@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// Service Information Modal Component
-// Service Information Modal Component with improved mobile responsiveness
+// Service Information Modal Component - Fully Responsive
 const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -94,6 +93,26 @@ const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
   );
 };
 
+// Global Loading Overlay Component
+const LoadingOverlay = ({ isLoading }) => {
+  if (!isLoading) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto text-center">
+        <div className="flex justify-center mb-4">
+          <svg className="animate-spin h-16 w-16 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <h4 className="text-xl font-bold text-green-600 mb-2">Processing Your Order...</h4>
+        <p className="text-gray-700">Your data bundle request is being processed. Please do not close this page.</p>
+      </div>
+    </div>
+  );
+};
+
 const MTNBundleCards = () => {
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -106,7 +125,7 @@ const MTNBundleCards = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = false;
+  const inventoryAvailable = true;
   
   const [bundles, setBundles] = useState([
     // { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: inventoryAvailable },
@@ -255,7 +274,7 @@ const MTNBundleCards = () => {
     if (!pendingPurchase) return;
     
     const { bundle, index } = pendingPurchase;
-    setIsLoading(true);
+    setIsLoading(true); // Show the global loading overlay
 
     try {
       const token = localStorage.getItem('authToken');
@@ -292,7 +311,7 @@ const MTNBundleCards = () => {
         } 
       }));
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Hide the global loading overlay
       setPendingPurchase(null);
     }
   };
@@ -306,6 +325,9 @@ const MTNBundleCards = () => {
 
   return (
     <div className={`${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'} min-h-screen transition-colors duration-200`}>
+      {/* Global Loading Overlay */}
+      <LoadingOverlay isLoading={isLoading} />
+      
       <div className="container mx-auto px-4 py-8">
         <ServiceInfoModal 
           isOpen={isModalOpen}
@@ -456,26 +478,13 @@ const MTNBundleCards = () => {
                     <p className="mt-1 text-xs text-black">Format: 0 followed by 9 digits (10 digits total)</p>
                   </div>
                   
-                  {isLoading ? (
-                    <div className="w-full flex flex-col items-center justify-center py-3">
-                      <div className="w-16 h-16 mb-4">
-                        <svg className="animate-spin h-16 w-16 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      </div>
-                      <h4 className="text-xl font-bold text-green-600 mb-2">Processing Your Order...</h4>
-                      <p className="text-black">Your data bundle request is being processed.</p>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handlePurchase(bundle, index)}
-                      className={`w-full px-4 py-2 ${isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed`}
-                      disabled={!bundle.inStock}
-                    >
-                      {!bundle.inStock ? 'Out of Stock' : 'Purchase'}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handlePurchase(bundle, index)}
+                    className={`w-full px-4 py-2 ${isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed`}
+                    disabled={!bundle.inStock}
+                  >
+                    {!bundle.inStock ? 'Out of Stock' : 'Purchase'}
+                  </button>
                 </div>
               )}
             </div>
