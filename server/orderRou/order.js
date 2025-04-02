@@ -111,6 +111,31 @@ router.post('/purchase-data', async (req, res) => {
       requestedPurchaseAmount: price
     });
 
+    // Check if user has purchased data for this phone number in the last 30 minutes
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    
+    const recentPurchase = await DataPurchase.findOne({
+      userId: userId,
+      phoneNumber: phoneNumber,
+      createdAt: { $gte: thirtyMinutesAgo }
+    }).session(session);
+    
+    if (recentPurchase) {
+      logOperation('DATA_PURCHASE_TOO_FREQUENT', {
+        userId,
+        phoneNumber,
+        lastPurchaseTime: recentPurchase.createdAt,
+        timeSinceLastPurchase: Date.now() - recentPurchase.createdAt.getTime()
+      });
+      
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot purchase data for the same number within 30 minutes',
+        lastPurchaseTime: recentPurchase.createdAt,
+        canPurchaseAfter: new Date(recentPurchase.createdAt.getTime() + 30 * 60 * 1000)
+      });
+    }
+
     // Check user wallet balance
     if (user.walletBalance < price) {
       logOperation('DATA_PURCHASE_INSUFFICIENT_BALANCE', {
@@ -364,6 +389,7 @@ router.post('/purchase-data', async (req, res) => {
     logOperation('DATABASE_SESSION_ENDED', { timestamp: new Date() });
   }
 });
+
 // Check Order Status
 router.get('/order-status/:orderId', async (req, res) => {
   try {
