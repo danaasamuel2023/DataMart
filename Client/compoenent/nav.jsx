@@ -47,14 +47,27 @@ const Navbar = () => {
     }
   }, []);
 
-  // Logout function
+  // Improved Logout function
   const handleLogout = () => {
-    // Remove auth token and user data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
+    console.log("Logout initiated");
     
-    // Redirect to login page
-    router.push('/login');
+    try {
+      // Clear auth data
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      
+      // Use direct window location for reliable navigation
+      window.location.href = '/Signin';
+      
+      // Use router as fallback
+      setTimeout(() => {
+        router.push('/login');
+      }, 100);
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Emergency fallback
+      window.location.href = '/login';
+    }
   };
 
   // Toggle dark mode
@@ -84,6 +97,13 @@ const Navbar = () => {
     if (isMobileMenuOpen) {
       setAnimationComplete(false);
     }
+  };
+
+  // Handle profile navigation
+  const handleNavigateToProfile = () => {
+    console.log("Navigating to user profile");
+    setIsMobileMenuOpen(false); // Close mobile menu
+    router.push('/profile'); // Navigate to profile page
   };
 
   // Set animation complete after menu opens
@@ -131,6 +151,7 @@ const Navbar = () => {
       height={height} 
       onClick={onClick}
       className="cursor-pointer hover:opacity-80 transition-opacity duration-200"
+      style={{ display: 'block' }} // Ensure the SVG is displayed as a block element
     >
       {/* Background shape */}
       <rect x="10" y="10" width="180" height="40" rx="8" fill={isDarkMode ? "#1e293b" : "#f0f8ff"} stroke={isDarkMode ? "#3182ce" : "#2c5282"} strokeWidth="2"/>
@@ -208,7 +229,10 @@ const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = fal
   // If there's an onClick handler, use a div
   if (onClick) {
     return (
-      <div onClick={onClick}>
+      <div onClick={(e) => {
+        e.stopPropagation(); // Prevent event bubbling
+        onClick();
+      }}>
         {navContent}
       </div>
     );
@@ -268,7 +292,8 @@ const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = fal
     if (onClick) {
       return (
         <div 
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent event bubbling
             onClick();
             setIsMobileMenuOpen(false);
           }}
@@ -433,7 +458,7 @@ const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = fal
             )}
             {isCollapsed && <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-4"></div>}
             <NavItem 
-              icon={<LogOut />} 
+              icon={<LogOut size={20} className="text-red-500" />} 
               text="Logout" 
               onClick={handleLogout} 
               isCollapsed={isCollapsed}
@@ -611,23 +636,48 @@ const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = fal
                   />
                 </div>
               )}
+
+              {/* Additional standalone logout button for mobile */}
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 py-3 rounded-lg font-medium transition-colors"
+                >
+                  <LogOut size={18} />
+                  Sign Out of Account
+                </button>
+              </div>
             </div>
             
             {/* Bottom profile/account section with logout */}
             <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-gray-100 to-transparent dark:from-gray-900 p-4 pt-8">
               <div className="flex items-center p-3 rounded-lg bg-white dark:bg-gray-800 shadow-md">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                  U
-                </div>
-                <div className="ml-3">
-                  <div className="font-medium text-sm">User Account</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Manage settings</div>
+                {/* Make the user profile section clickable */}
+                <div 
+                  className="flex items-center flex-grow cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1 transition-colors"
+                  onClick={handleNavigateToProfile}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                    U
+                  </div>
+                  <div className="ml-3">
+                    <div className="font-medium text-sm">User Account</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Manage settings</div>
+                  </div>
                 </div>
                 <button 
-                  className="ml-auto bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-2 rounded-full hover:bg-red-200 dark:hover:bg-red-800/30 transition-colors"
-                  onClick={handleLogout}
+                  className="ml-2 bg-red-200 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2.5 rounded-full hover:bg-red-300 dark:hover:bg-red-800/40 transition-colors shadow-md"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent event bubbling
+                    e.preventDefault();   // Prevent default behavior
+                    handleLogout();
+                  }}
+                  style={{ minWidth: '36px', minHeight: '36px' }} // Ensure minimum size
                 >
-                  <LogOut size={16} />
+                  <LogOut size={18} />
                 </button>
               </div>
             </div>
