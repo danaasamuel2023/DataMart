@@ -256,7 +256,7 @@ const DailySalesChart = ({ userId = getUserIdFromLocalStorage() }) => {
               explanation="The average amount spent each time a customer places an order. Calculated by dividing total revenue by number of orders." 
             />
           </p>
-          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">${metrics.periodAverageOrderValue?.toLocaleString() || 0}</p>
+          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">GHS{metrics.periodAverageOrderValue?.toLocaleString() || 0}</p>
         </div>
       </div>
 
@@ -276,7 +276,7 @@ const DailySalesChart = ({ userId = getUserIdFromLocalStorage() }) => {
             </div>
             <div>
               <span className="text-sm text-yellow-700 dark:text-yellow-400">Revenue:</span>
-              <span className="ml-2 font-medium text-gray-800 dark:text-gray-200">${metrics.bestPerformingDay.revenue.toLocaleString()}</span>
+              <span className="ml-2 font-medium text-gray-800 dark:text-gray-200">GHS{metrics.bestPerformingDay.revenue.toLocaleString()}</span>
             </div>
             <div>
               <span className="text-sm text-yellow-700 dark:text-yellow-400">Orders:</span>
@@ -368,7 +368,7 @@ const DailySalesChart = ({ userId = getUserIdFromLocalStorage() }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{day.orders}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${day.revenue.toLocaleString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      ${day.averageOrderValue ? day.averageOrderValue.toLocaleString() : '0'}
+                    GHS{day.averageOrderValue ? day.averageOrderValue.toLocaleString() : '0'}
                     </td>
                   </tr>
                 );
