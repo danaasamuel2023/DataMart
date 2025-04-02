@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 
 // User Schema
+
+
+// User Schema with password reset fields
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -10,9 +13,18 @@ const UserSchema = new mongoose.Schema({
   walletBalance: { type: Number, default: 0 }, // User's wallet balance
   referralCode: { type: String, unique: true }, // User's unique referral code
   referredBy: { type: String, default: null }, // Who referred this user
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  
+  // Password reset fields
+  resetPasswordOTP: { type: String, select: false }, // OTP for password reset
+  resetPasswordOTPExpiry: { type: Date, select: false }, // OTP expiration time
+  lastPasswordReset: { type: Date }, // When password was last reset
+  
+  // Account status fields
+  isDisabled: { type: Boolean, default: false }, // If account is disabled
+  disableReason: { type: String }, // Why account was disabled
+  disabledAt: { type: Date } // When account was disabled
 });
-
 // Data Purchase Schema
 const DataPurchaseSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Buyer ID

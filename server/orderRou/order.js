@@ -1212,5 +1212,205 @@ const emitLeaderboardUpdate = async (io) => {
     });
   }
 };
+// Daily Sales Route - GET endpoint (Fixed for String Dates)
+router.get('/daily-sales', async (req, res) => {
+  try {
+    const { userId, days = 7 } = req.query;
+    
+    // Log the operation
+    logOperation('DAILY_SALES_REQUEST', {
+      userId: userId || 'all',
+      days,
+      timestamp: new Date()
+    });
 
+    // Calculate date range (for the past X days)
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999); // End of current day
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (parseInt(days) - 1));
+    startDate.setHours(0, 0, 0, 0); // Start of first day
+    
+    // Format dates as strings for comparison (YYYY-MM-DD format)
+    const endDateStr = endDate.toISOString().split('T')[0];
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    console.log('Date range for query:', { startDateStr, endDateStr });
+    
+    // Build query object
+    const query = {};
+    if (userId) {
+      try {
+        // Try to convert to ObjectId if it's in that format
+        const { ObjectId } = require('mongodb');
+        query.userId = new ObjectId(userId);
+      } catch (err) {
+        // If conversion fails, use as a string
+        console.log('Using userId as string:', userId);
+        query.userId = userId;
+      }
+    }
+    
+    // Get a sample record to check the data structure
+    const sampleRecords = await DataPurchase.find().limit(2).lean();
+    console.log('Sample records:', JSON.stringify(sampleRecords, null, 2));
+    
+    // First approach: Try to use $expr with $substr if dates are stored as strings
+    // This handles the case where createdAt is stored as a string like "2025-04-01T12:34:56.789Z"
+    const dailySales = await DataPurchase.aggregate([
+      // Initial match to reduce dataset size
+      {
+        $match: userId ? { userId: query.userId } : {}
+      },
+      
+      // Add a day field by extracting just the date part of the createdAt string
+      {
+        $addFields: {
+          // Extract YYYY-MM-DD from the date string
+          dayStr: {
+            $substr: ["$createdAt", 0, 10]  // First 10 chars of ISO date string
+          }
+        }
+      },
+      
+      // Now filter by the date range using the extracted day string
+      {
+        $match: {
+          dayStr: { $gte: startDateStr, $lte: endDateStr }
+        }
+      },
+      
+      // Group by day
+      {
+        $group: {
+          _id: "$dayStr",
+          // We'll format this later since we can't use date operations on strings
+          orderCount: { $sum: 1 },
+          revenue: { $sum: "$price" },
+          orders: {
+            $push: {
+              id: "$_id",
+              phoneNumber: "$phoneNumber",
+              price: "$price",
+              network: "$network",
+              capacity: "$capacity",
+              createdAt: "$createdAt" 
+            }
+          }
+        }
+      },
+      
+      // Sort by date string
+      { $sort: { _id: 1 } }
+    ]);
+    
+    console.log('Query results count:', dailySales.length);
+    
+    // Generate a complete date range (including days with no sales)
+    const completeDateRange = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const formattedDay = currentDate.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      
+      // Check if we have data for this day
+      const existingData = dailySales.find(day => day._id === dateString);
+      
+      if (existingData) {
+        completeDateRange.push({
+          date: new Date(dateString), // Convert back to Date object
+          dayString: dateString,
+          dayFormatted: formattedDay,
+          orderCount: existingData.orderCount,
+          revenue: Math.round(existingData.revenue * 100) / 100, // Round to 2 decimal places
+          averageOrderValue: existingData.orderCount > 0 
+            ? Math.round((existingData.revenue / existingData.orderCount) * 100) / 100
+            : 0,
+          topOrders: existingData.orders.slice(0, 5) // Take top 5 orders
+        });
+      } else {
+        // Add empty data for days with no sales
+        completeDateRange.push({
+          date: new Date(dateString),
+          dayString: dateString,
+          dayFormatted: formattedDay,
+          orderCount: 0,
+          revenue: 0,
+          averageOrderValue: 0,
+          topOrders: []
+        });
+      }
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Format data for chart consumption
+    const chartData = {
+      labels: completeDateRange.map(day => day.dayFormatted),
+      revenue: completeDateRange.map(day => day.revenue),
+      orders: completeDateRange.map(day => day.orderCount)
+    };
+
+    // Calculate period totals and metrics
+    const totalOrders = completeDateRange.reduce((sum, day) => sum + day.orderCount, 0);
+    const totalRevenue = completeDateRange.reduce((sum, day) => sum + day.revenue, 0);
+    const periodAverageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    
+    // Identify best performing day
+    let bestDay = null;
+    let bestDayRevenue = -1;
+    
+    completeDateRange.forEach(day => {
+      if (day.revenue > bestDayRevenue) {
+        bestDayRevenue = day.revenue;
+        bestDay = day;
+      }
+    });
+
+    // Respond with formatted data
+    res.json({
+      status: 'success',
+      data: {
+        dailySales: completeDateRange,
+        metrics: {
+          totalPeriodOrders: totalOrders,
+          totalPeriodRevenue: parseFloat(totalRevenue.toFixed(2)),
+          periodAverageOrderValue: parseFloat(periodAverageOrderValue.toFixed(2)),
+          bestPerformingDay: bestDay ? {
+            date: bestDay.dayFormatted,
+            revenue: bestDay.revenue,
+            orderCount: bestDay.orderCount
+          } : null
+        },
+        chartData,
+        timeRange: {
+          start: startDate,
+          end: endDate,
+          days: parseInt(days)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Daily sales error:', error);
+    
+    logOperation('DAILY_SALES_ERROR', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch daily sales data',
+      details: error.message
+    });
+  }
+});
 module.exports = router;

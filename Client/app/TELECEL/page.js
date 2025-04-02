@@ -65,9 +65,9 @@ const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
                 </svg>
               </div>
               <div className="ml-3">
-                <p className={`text-xs md:text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                <span className={`text-xs md:text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
                   We value your business and are committed to delivering quality service. Thank you for your understanding and patience.
-                </p>
+                </span>
               </div>
             </div>
           </div>
@@ -192,15 +192,6 @@ const TelecelBundleCards = () => {
     // Automatically trim the input value as it's entered
     setPhoneNumber(e.target.value.trim());
   };
-  
-  // Update the error message in handlePurchase function
-  if (!validatePhoneNumber(trimmedPhoneNumber)) {
-    setMessage({ 
-      text: 'Please enter a valid Telecel phone number (must start with 020 or 050 followed by 7 digits)', 
-      type: 'error' 
-    });
-    return;
-  }
 
   const handleSelectBundle = (index) => {
     // Allow selection regardless of stock status
@@ -223,8 +214,6 @@ const TelecelBundleCards = () => {
     return formatted;
   };
 
-  
-
   const handlePurchase = async (bundle, index) => {
     // Clear previous messages
     setBundleMessages(prev => ({ ...prev, [index]: null }));
@@ -240,11 +229,11 @@ const TelecelBundleCards = () => {
     }
     
     // Validate Telecel number specifically
-    if (!isValidTelecelNumber(phoneNumber)) {
+    if (!validatePhoneNumber(phoneNumber)) {
       setBundleMessages(prev => ({ 
         ...prev, 
         [index]: { 
-          text: 'Please enter a valid Telecel number (starting with 026, 057, or 027)', 
+          text: 'Please enter a valid Telecel number (starting with 020 or 050)', 
           type: 'error' 
         } 
       }));
@@ -349,9 +338,9 @@ const TelecelBundleCards = () => {
           <div className="ml-3">
             <h3 className="text-lg font-bold text-red-800">Important Notice</h3>
             <div className="mt-2 text-sm text-red-700">
-              <p className="mb-1">• Data bundle delivery is not instant. Some numbers may receive data faster while others take some time.</p>
-              <p className="mb-1">• No refunds will be issued for wrong transactions or incorrect phone numbers.</p>
-              <p>• Please verify your phone number carefully before making a purchase.</p>
+              <div className="mb-1">• Data bundle delivery is not instant. Some numbers may receive data faster while others take some time.</div>
+              <div className="mb-1">• No refunds will be issued for wrong transactions or incorrect phone numbers.</div>
+              <div>• Please verify your phone number carefully before making a purchase.</div>
             </div>
           </div>
         </div>
@@ -422,7 +411,7 @@ const TelecelBundleCards = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                       )}
-                      {bundleMessages[index].text}
+                      <span>{bundleMessages[index].text}</span>
                     </div>
                   </div>
                 )}
@@ -431,11 +420,11 @@ const TelecelBundleCards = () => {
                   <input
                     type="tel"
                     className="w-full px-4 py-3 rounded-md bg-white/90 text-red-900 placeholder-red-400 border border-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
-                    placeholder="Enter Telecel number (026, 057, 027)"
+                    placeholder="Enter Telecel number (020, 050)"
                     value={phoneNumber}
                     onChange={handlePhoneNumberChange}
                   />
-                  <p className="mt-1 text-xs text-white">Format: 020/050/020/050 followed by remaining digits</p>
+                  <div className="mt-1 text-xs text-white">Format: 020/050 followed by remaining digits</div>
                 </div>
                 <button
                   onClick={() => handlePurchase(bundle, index)}
