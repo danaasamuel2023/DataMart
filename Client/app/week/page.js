@@ -109,7 +109,7 @@ const DailySalesChart = ({ userId = getUserIdFromLocalStorage() }) => {
       });
       
       // Adjust the URL to match your actual API endpoint
-      const apiUrl = `http://localhost:5000/api/v1/data/daily-sales?${queryParams.toString()}`;
+      const apiUrl = `https://datamartbackened.onrender.com/api/v1/data/daily-sales?${queryParams.toString()}`;
       console.log('API URL:', apiUrl);
       
       const response = await fetch(apiUrl, {
