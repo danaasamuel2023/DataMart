@@ -1,17 +1,15 @@
 'use client'
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from 'axios';
 import OtpInput from '@/component/optinput';
 import AuthGuard from '@/component/AuthGuide';
 
-export default function VerifyAndReset() {
+// Create a client component that safely uses useSearchParams
+const VerifyAndResetContent = ({ initialPhone }) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const phone = searchParams.get('phone');
-  
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(initialPhone || '');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,12 +22,6 @@ export default function VerifyAndReset() {
     score: 0,
     feedback: ''
   });
-
-  useEffect(() => {
-    if (phone) {
-      setPhoneNumber(phone);
-    }
-  }, [phone]);
 
   useEffect(() => {
     if (timeLeft > 0 && !success) {
@@ -290,5 +282,23 @@ export default function VerifyAndReset() {
         </form>
       )}
     </div>
+  );
+};
+
+// This is a wrapper component that gets the search params and passes them to the content component
+const VerifyAndResetWrapper = () => {
+  // This hook needs to be in a Client Component with Suspense
+  const { useSearchParams } = require('next/navigation');
+  const searchParams = useSearchParams();
+  const phone = searchParams.get('phone');
+  
+  return <VerifyAndResetContent initialPhone={phone} />;
+};
+
+export default function VerifyAndReset() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <VerifyAndResetWrapper />
+    </Suspense>
   );
 }
