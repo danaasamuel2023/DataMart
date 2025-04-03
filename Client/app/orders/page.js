@@ -370,7 +370,7 @@ export default function DataPurchases() {
   const formatDataSize = (capacity) => {
     return capacity >= 1000 
       ? `${capacity / 1000}GB` 
-      : `${capacity}MB`;
+      : `${capacity}GB`;
   };
 
   // Get unique networks for filter dropdown
