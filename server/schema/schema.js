@@ -39,6 +39,7 @@ const DataPurchaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+
 // Transaction Schema (Deposits & Purchases)
 const TransactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -109,6 +110,50 @@ const apiKeySchema = new Schema({
 // Create index for faster lookups
 apiKeySchema.index({ key: 1 });
 apiKeySchema.index({ userId: 1 });
+const OrderReportSchema = new mongoose.Schema({
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User", 
+    required: true 
+  },
+  purchaseId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "DataPurchase", 
+    required: true 
+  },
+  reason: { 
+    type: String, 
+    required: true 
+  },
+  status: { 
+    type: String, 
+    enum: ["pending", "investigating", "resolved", "rejected"], 
+    default: "pending" 
+  },
+  adminNotes: { 
+    type: String 
+  },
+  resolution: { 
+    type: String, 
+    enum: ["refund", "resend", "other", null], 
+    default: null 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+});
+
+// Create index for faster lookups
+OrderReportSchema.index({ userId: 1 });
+OrderReportSchema.index({ purchaseId: 1 });
+OrderReportSchema.index({ status: 1 });
+
+const OrderReport = mongoose.model("OrderReport", OrderReportSchema);
 
 
 // Export ApiKey along with your other models
@@ -122,4 +167,4 @@ const ReferralBonus = mongoose.model("ReferralBonus", ReferralBonusSchema);
 const ApiKey = mongoose.model('ApiKey', apiKeySchema);
 const DataInventory = mongoose.model("DataInventory", DataInventorySchema);
 
-module.exports = { User, DataPurchase, Transaction, ReferralBonus,ApiKey,DataInventory };
+module.exports = { User, DataPurchase, Transaction, ReferralBonus,ApiKey,DataInventory,OrderReport };

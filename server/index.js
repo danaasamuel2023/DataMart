@@ -10,6 +10,7 @@ const Developer = require('./ResellerApi/resellerApi.js')
 const HubnetAt = require('./HubnetInteraction/hubnet.js');
 const AdminManagement = require('./admin-management/adminManagemet.js')
 const passreset = require('./ResetPasword/reset.js')
+const Report = require('./Report/report.js')
 dotenv.config();
 
 // Initialize Express app
@@ -30,6 +31,7 @@ app.use('/api/developer', Developer)
 app.use('/api/v1', HubnetAt);
 app.use('/api',AdminManagement)
 app.use('/api/v1', passreset);
+app.use('/api/report', Report);
 
 // Default Route
 app.get('/', (req, res) => {

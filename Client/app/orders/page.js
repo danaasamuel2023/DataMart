@@ -1,12 +1,13 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, AlertTriangle, Search, Filter, X, AlertCircle, FileText } from 'lucide-react';
 
 // API constants
 const GEONETTECH_BASE_URL = 'https://posapi.geonettech.com/api/v1';
 const API_KEY = '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
+const API_BASE_URL = 'https://datamartbackened.onrender.com/api/v1';
 
 // Format currency as GHS
 const formatCurrency = (amount) => {
@@ -35,16 +36,19 @@ const networkColors = {
   'at': 'bg-blue-500'
 };
 
-  // Status badge color mapping - enhanced for dark mode visibility
+// Status badge color mapping - enhanced for dark mode visibility
 const statusColors = {
   'pending': 'bg-yellow-200 text-yellow-900 dark:bg-yellow-500 dark:text-black font-semibold',
   'completed': 'bg-green-200 text-green-900 dark:bg-green-500 dark:text-black font-semibold',
   'failed': 'bg-red-200 text-red-900 dark:bg-red-500 dark:text-black font-semibold',
-  'processing': 'bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-black font-semibold'
+  'processing': 'bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-black font-semibold',
+  'refunded': 'bg-purple-200 text-purple-900 dark:bg-purple-500 dark:text-black font-semibold',
+  'waiting': 'bg-gray-200 text-gray-900 dark:bg-gray-500 dark:text-black font-semibold'
 };
 
 export default function DataPurchases() {
   const [purchases, setPurchases] = useState([]);
+  const [allPurchases, setAllPurchases] = useState([]); // Store all purchases for filtering
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -52,7 +56,22 @@ export default function DataPurchases() {
     currentPage: 1,
     totalPages: 1,
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterNetwork, setFilterNetwork] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Report modal state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   const router = useRouter();
+  const modalRef = useRef(null);
   
   // Get userId from localStorage userData object
   const getUserId = () => {
@@ -70,6 +89,23 @@ export default function DataPurchases() {
     }
   };
 
+  // Handle click outside modal to close it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        // Only close if not in confirmation mode
+        if (!showConfirmation) {
+          setShowReportModal(false);
+        }
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showConfirmation]);
+
   useEffect(() => {
     const userId = getUserId();
     
@@ -81,10 +117,10 @@ export default function DataPurchases() {
     const fetchPurchases = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`https://datamartbackened.onrender.com/api/v1/data/purchase-history/${userId}`, {
+        const response = await axios.get(`${API_BASE_URL}/data/purchase-history/${userId}`, {
           params: {
             page: pagination.currentPage,
-            limit: 10
+            limit: 20 // Increased limit for better filtering options
           }
         });
         
@@ -118,7 +154,7 @@ export default function DataPurchases() {
                 if (geonetStatus === 'completed' && purchase.status !== 'completed') {
                   try {
                     // Update status in our backend (optional)
-                    await axios.post(`https://datamartbackened.onrender.com/api/v1/data/update-status/${purchase._id}`, {
+                    await axios.post(`${API_BASE_URL}/data/update-status/${purchase._id}`, {
                       status: 'completed'
                     });
                   } catch (updateError) {
@@ -138,6 +174,7 @@ export default function DataPurchases() {
             })
           );
           
+          setAllPurchases(purchasesWithUpdatedStatus);
           setPurchases(purchasesWithUpdatedStatus);
           setPagination({
             currentPage: response.data.data.pagination.currentPage,
@@ -164,6 +201,36 @@ export default function DataPurchases() {
     
   }, [pagination.currentPage, router]);
 
+  // Apply filters and search
+  useEffect(() => {
+    if (allPurchases.length > 0) {
+      let filteredPurchases = [...allPurchases];
+      
+      // Apply status filter
+      if (filterStatus !== 'all') {
+        filteredPurchases = filteredPurchases.filter(purchase => purchase.status === filterStatus);
+      }
+      
+      // Apply network filter
+      if (filterNetwork !== 'all') {
+        filteredPurchases = filteredPurchases.filter(purchase => purchase.network === filterNetwork);
+      }
+      
+      // Apply search
+      if (searchTerm.trim() !== '') {
+        const searchLower = searchTerm.toLowerCase();
+        filteredPurchases = filteredPurchases.filter(purchase => 
+          purchase.phoneNumber.toLowerCase().includes(searchLower) ||
+          purchase.geonetReference?.toLowerCase().includes(searchLower) ||
+          networkNames[purchase.network]?.toLowerCase().includes(searchLower) ||
+          purchase.network.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      setPurchases(filteredPurchases);
+    }
+  }, [searchTerm, filterStatus, filterNetwork, allPurchases]);
+
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {
       setPagination(prev => ({
@@ -173,6 +240,14 @@ export default function DataPurchases() {
       // Reset expanded card when changing page
       setExpandedId(null);
     }
+  };
+
+  // Reset filters
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('all');
+    setFilterNetwork('all');
+    setShowFilters(false);
   };
 
   // Format date string
@@ -192,6 +267,77 @@ export default function DataPurchases() {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  // Open report modal for an order
+  const openReportModal = (order) => {
+    setSelectedOrder(order);
+    setReportReason('');
+    setReportSuccess(false);
+    setReportError(null);
+    setShowConfirmation(false);
+    setShowReportModal(true);
+  };
+
+  // View all reports
+  const viewAllReports = () => {
+    router.push('/reports');
+  };
+
+  // Submit report confirmation
+  const confirmReportSubmission = () => {
+    if (reportReason.trim().length < 10) {
+      setReportError("Please provide a detailed reason (at least 10 characters)");
+      return;
+    }
+    setShowConfirmation(true);
+  };
+
+  // Cancel report submission
+  const cancelReportSubmission = () => {
+    setShowConfirmation(false);
+  };
+
+  // Submit report to backend
+  const submitReport = async () => {
+    if (!selectedOrder || !reportReason.trim()) {
+      return;
+    }
+    
+    const userId = getUserId();
+    if (!userId) {
+      setReportError("Authentication required. Please login again.");
+      return;
+    }
+    
+    setSubmittingReport(true);
+    setReportError(null);
+    
+    try {
+      const response = await axios.post(`http://localhost:5000/reports/create`, {
+        userId: userId,
+        purchaseId: selectedOrder._id,
+        reason: reportReason
+      });
+      
+      if (response.data.status === 'success') {
+        setReportSuccess(true);
+        setShowConfirmation(false);
+        
+        // Clear form after successful submission
+        setTimeout(() => {
+          setShowReportModal(false);
+          setReportSuccess(false);
+        }, 3000);
+      } else {
+        throw new Error(response.data.message || 'Failed to submit report');
+      }
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      setReportError(error.response?.data?.message || 'Failed to submit report. Please try again.');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   // Check if user is authenticated
   const userId = getUserId();
   if (!userId && typeof window !== 'undefined') {
@@ -202,7 +348,7 @@ export default function DataPurchases() {
             <div className="text-center">
               <p className="mb-4 dark:text-gray-200">You need to be logged in to view your purchases.</p>
               <button 
-                onClick={() => router.push('/login')}
+                onClick={() => router.push('/SignIn')}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
               >
                 Go to Login
@@ -224,15 +370,248 @@ export default function DataPurchases() {
   const formatDataSize = (capacity) => {
     return capacity >= 1000 
       ? `${capacity / 1000}GB` 
-      : `${capacity}GB`;
+      : `${capacity}MB`;
+  };
+
+  // Get unique networks for filter dropdown
+  const getUniqueNetworks = () => {
+    if (!allPurchases.length) return [];
+    const networks = [...new Set(allPurchases.map(purchase => purchase.network))];
+    return networks.sort();
+  };
+
+  // Get unique statuses for filter dropdown
+  const getUniqueStatuses = () => {
+    if (!allPurchases.length) return [];
+    const statuses = [...new Set(allPurchases.map(purchase => purchase.status))];
+    return statuses.sort();
   };
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-3xl">
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div 
+            ref={modalRef}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden border border-gray-200 dark:border-gray-600"
+          >
+            {/* Modal Header */}
+            <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gradient-to-r from-red-500 to-red-600">
+              <h3 className="text-xl font-bold text-white drop-shadow-md flex items-center">
+                <AlertCircle className="mr-2 h-5 w-5" /> Report Order Not Received
+              </h3>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-6">
+              {reportSuccess ? (
+                <div className="text-center py-6">
+                  <div className="bg-green-100 dark:bg-green-800 p-4 rounded-md text-green-800 dark:text-green-200 mb-4">
+                    Your report has been submitted successfully. Our team will investigate and get back to you.
+                  </div>
+                </div>
+              ) : showConfirmation ? (
+                <div>
+                  <div className="bg-yellow-100 dark:bg-yellow-800/30 p-4 rounded-md text-yellow-800 dark:text-yellow-200 mb-6 flex items-start">
+                    <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                    <p>
+                      <strong>Warning:</strong> Submitting false reports may result in account penalties or suspension. Please confirm that you have not received the data bundle you purchased.
+                    </p>
+                  </div>
+                  
+                  <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Order Details:</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-6">
+                    <p><span className="font-semibold">Network:</span> {networkNames[selectedOrder.network] || selectedOrder.network}</p>
+                    <p><span className="font-semibold">Phone Number:</span> {selectedOrder.phoneNumber}</p>
+                    <p><span className="font-semibold">Data Size:</span> {formatDataSize(selectedOrder.capacity)}</p>
+                    <p><span className="font-semibold">Order Date:</span> {formatDate(selectedOrder.createdAt)}</p>
+                  </div>
+                  
+                  <div className="flex space-x-3 mt-6">
+                    <button
+                      onClick={cancelReportSubmission}
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white py-2 px-4 rounded-md font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={submitReport}
+                      disabled={submittingReport}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium flex justify-center items-center"
+                    >
+                      {submittingReport ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                          Submitting...
+                        </>
+                      ) : (
+                        "Confirm Report"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="bg-yellow-100 dark:bg-yellow-800/30 p-4 rounded-md text-yellow-800 dark:text-yellow-200 mb-4 flex items-start">
+                    <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                    <p>
+                      Only report if your order status shows "completed" but you have not received the data on your phone.
+                    </p>
+                  </div>
+                  
+                  <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Order Details:</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-4">
+                    <p><span className="font-semibold">Network:</span> {networkNames[selectedOrder.network] || selectedOrder.network}</p>
+                    <p><span className="font-semibold">Phone Number:</span> {selectedOrder.phoneNumber}</p>
+                    <p><span className="font-semibold">Data Size:</span> {formatDataSize(selectedOrder.capacity)}</p>
+                    <p><span className="font-semibold">Order Date:</span> {formatDate(selectedOrder.createdAt)}</p>
+                    <p><span className="font-semibold">Status:</span> {selectedOrder.status}</p>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="reason" className="block text-gray-700 dark:text-gray-200 font-medium mb-2">
+                      Please explain why you believe you did not receive this data bundle:
+                    </label>
+                    <textarea
+                      id="reason"
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows="4"
+                      placeholder="Provide details about the issue (e.g., 'The data bundle never appeared in my account although it shows completed')"
+                    ></textarea>
+                  </div>
+                  
+                  {reportError && (
+                    <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-md text-red-800 dark:text-red-200 text-sm mb-4">
+                      {reportError}
+                    </div>
+                  )}
+                  
+                  <div className="flex space-x-3 mt-6">
+                    <button
+                      onClick={() => setShowReportModal(false)}
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white py-2 px-4 rounded-md font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmReportSubmission}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium"
+                    >
+                      Submit Report
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full overflow-hidden border border-gray-200 dark:border-gray-600">
         <div className="border-b border-gray-200 dark:border-gray-700 p-4 md:p-6 bg-gradient-to-r from-blue-500 to-indigo-600">
-          <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-md">Data Purchase History</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-md">Data Purchase History</h2>
+            {/* View All Reports Button */}
+            <button 
+              onClick={viewAllReports}
+              className="bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-md text-sm font-medium flex items-center"
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              View All Reports
+            </button>
+          </div>
         </div>
+        
+        {/* Search and filter bar */}
+        {!loading && !error && purchases.length > 0 && (
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col md:flex-row gap-3">
+              {/* Search input */}
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by phone number or reference..."
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <X className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Filter button */}
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                <Filter className="h-5 w-5 mr-2" />
+                Filters {showFilters ? '▲' : '▼'}
+              </button>
+              
+              {/* Reset button */}
+              {(searchTerm || filterStatus !== 'all' || filterNetwork !== 'all') && (
+                <button 
+                  onClick={resetFilters}
+                  className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  <X className="h-5 w-5 mr-2" />
+                  Reset
+                </button>
+              )}
+            </div>
+            
+            {/* Expanded filters */}
+            {showFilters && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Status:
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    {getUniqueStatuses().map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Network:
+                  </label>
+                  <select
+                    value={filterNetwork}
+                    onChange={(e) => setFilterNetwork(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Networks</option>
+                    {getUniqueNetworks().map(network => (
+                      <option key={network} value={network}>
+                        {networkNames[network] || network}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Content area */}
         <div className="p-4 md:p-6">
@@ -263,6 +642,14 @@ export default function DataPurchases() {
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No data purchases found.</p>
+              {searchTerm || filterStatus !== 'all' || filterNetwork !== 'all' ? (
+                <button 
+                  onClick={resetFilters}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
+                >
+                  Clear Filters
+                </button>
+              ) : null}
             </div>
           ) : (
             <>
@@ -341,6 +728,22 @@ export default function DataPurchases() {
                             {purchase.geonetReference || '-'}
                           </div>
                         </div>
+                        
+                        {/* Report button - only for completed orders */}
+                        {purchase.status === 'completed' && (
+                          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openReportModal(purchase);
+                              }}
+                              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex items-center justify-center"
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
+                              Report Not Received
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -348,81 +751,116 @@ export default function DataPurchases() {
               </div>
               
               {/* Desktop table view */}
-              <div className="hidden lg:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 rounded-lg overflow-hidden">
-                  <thead className="bg-blue-500 text-white">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Date</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Network</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Phone Number</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Data Size</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Price</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Method</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Reference</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {purchases.map((purchase) => (
-                      <tr key={purchase._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          {formatDate(purchase.createdAt)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-100">
-                          <div className="flex items-center">
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2 ${networkColors[purchase.network] || 'bg-gray-500'}`}>
-                              {getNetworkInitials(purchase.network)}
-                            </div>
-                            {networkNames[purchase.network] || purchase.network}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-100">
-                          {purchase.phoneNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-100 font-medium">
-                          {formatDataSize(purchase.capacity)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-100">
-                          {formatCurrency(purchase.price)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-100 capitalize">
-                          {purchase.method}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
-                            {purchase.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 dark:text-gray-100 truncate max-w-xs">
-                          {purchase.geonetReference || '-'}
-                        </td>
+              <div className="hidden lg:block">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Network
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Data
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Phone
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {purchases.map((purchase) => (
+                        <tr key={purchase._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${networkColors[purchase.network] || 'bg-gray-500'}`}>
+                                {getNetworkInitials(purchase.network)}
+                              </div>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {networkNames[purchase.network] || purchase.network}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              {formatDataSize(purchase.capacity)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {purchase.phoneNumber}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {formatDate(purchase.createdAt)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {formatCurrency(purchase.price)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                              {purchase.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {purchase.status === 'completed' && (
+                              <button
+                                onClick={() => openReportModal(purchase)}
+                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                              >
+                                Report Issue
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
               
-              {/* Pagination - enhanced for mobile and dark mode */}
+              {/* Pagination controls */}
               {pagination.totalPages > 1 && (
-                <div className="flex justify-center items-center gap-3 mt-6">
-                  <button 
+                <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
+                  <button
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                     disabled={pagination.currentPage === 1}
-                    className={`px-4 py-2 rounded-md shadow-sm font-medium ${pagination.currentPage === 1 
-                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'}`}
+                    className={`px-4 py-2 border rounded-md text-sm font-medium ${
+                      pagination.currentPage === 1
+                        ? 'border-gray-200 text-gray-400 cursor-not-allowed dark:border-gray-700 dark:text-gray-500'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                    }`}
                   >
                     Previous
                   </button>
-                  <div className="text-sm font-bold text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-600 px-4 py-2 rounded-md">
+                  
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
                     Page {pagination.currentPage} of {pagination.totalPages}
-                  </div>
-                  <button 
+                  </span>
+                  
+                  <button
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                     disabled={pagination.currentPage === pagination.totalPages}
-                    className={`px-4 py-2 rounded-md shadow-sm font-medium ${pagination.currentPage === pagination.totalPages 
-                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'}`}
+                    className={`px-4 py-2 border rounded-md text-sm font-medium ${
+                      pagination.currentPage === pagination.totalPages
+                        ? 'border-gray-200 text-gray-400 cursor-not-allowed dark:border-gray-700 dark:text-gray-500'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                    }`}
                   >
                     Next
                   </button>

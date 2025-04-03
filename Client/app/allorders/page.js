@@ -259,7 +259,7 @@ const AdminOrders = () => {
     // Create data to export (use filtered orders)
     const dataToExport = filteredOrders.map(order => ({
       'Phone Number': order.phoneNumber,
-      '     ': '',  // Empty column for spacing
+     
       'CapacityinGb': order.capacity,
       '          ': '',  // Empty column for spacing
       'Network': order.network, // Added network column
