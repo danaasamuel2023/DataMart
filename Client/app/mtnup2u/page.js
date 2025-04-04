@@ -129,11 +129,11 @@ const MTNBundleCards = () => {
   
   const [bundles, setBundles] = useState([
     //  { capacity: '1', mb: '1000', price: '4.7', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '2', mb: '2000', price: '9.500', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '4', mb: '4000', price: '18.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '5', mb: '5000', price: '23.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '2', mb: '2000', price: '10.500', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '3', mb: '3000', price: '14.5', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '4', mb: '4000', price: '19.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '5', mb: '5000', price: '24.50', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '6', mb: '6000', price: '28.00', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '7', mb: '7000', price: '33.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '8', mb: '8000', price: '37.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '10', mb: '10000', price: '45.50', network: 'YELLO', inStock: inventoryAvailable },
