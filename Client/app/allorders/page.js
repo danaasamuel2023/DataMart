@@ -11,8 +11,9 @@ const AdminOrders = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
+  const [referenceSearch, setReferenceSearch] = useState(""); // New reference search state
   const [statusFilter, setStatusFilter] = useState("");
-  const [networkFilter, setNetworkFilter] = useState(""); // New network filter
+  const [networkFilter, setNetworkFilter] = useState("");
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,13 +62,20 @@ const AdminOrders = () => {
       (order.userId?.phoneNumber && order.userId.phoneNumber.replace(/\D/g, '').includes(phoneSearch.replace(/\D/g, '')))
     ) : true;
     
+    // New reference search
+    const referenceMatches = referenceSearch ? (
+      // Search in order reference/ID
+      (order.geonetReference && order.geonetReference.toString().toLowerCase().includes(referenceSearch.toLowerCase())) ||
+      (order.id && order.id.toString().toLowerCase().includes(referenceSearch.toLowerCase()))
+    ) : true;
+    
     // Added status filter
     const statusMatches = statusFilter ? order.status?.toLowerCase() === statusFilter.toLowerCase() : true;
     
     // Added network filter
     const networkMatches = networkFilter ? order.network?.toLowerCase() === networkFilter.toLowerCase() : true;
       
-    return capacityMatches && dateMatches && phoneMatches && statusMatches && networkMatches;
+    return capacityMatches && dateMatches && phoneMatches && statusMatches && networkMatches && referenceMatches;
   });
 
   useEffect(() => {
@@ -173,9 +181,10 @@ const AdminOrders = () => {
       });
 
       if (res.ok) {
+        // IMPROVED: Make sure we're updating by exact ID match
         setOrders((prevOrders) =>
           prevOrders.map((order) =>
-            order.id === orderId ? { ...order, status: newStatus } : order
+            (order.id === orderId || order.geonetReference === orderId) ? { ...order, status: newStatus } : order
           )
         );
         alert(`Order ${orderId} updated successfully!`);
@@ -212,41 +221,63 @@ const AdminOrders = () => {
     }
 
     try {
-      // Fixed: Use the actual orderId or geonetReference consistently
-      const updatePromises = selectedOrders.map(orderId => 
-        fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            'x-auth-token': authToken
-          },
-          body: JSON.stringify({ status: bulkStatus }),
-        })
-      );
-
-      // Wait for all updates to complete
-      const results = await Promise.all(updatePromises);
+      // Keep track of successful updates
+      let successfulUpdates = 0;
+      let failedUpdates = 0;
       
-      // Check if all updates were successful
-      const allSuccessful = results.every(res => res.ok);
+      // Process updates one by one to better handle errors
+      for (const orderId of selectedOrders) {
+        try {
+          const res = await fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              'x-auth-token': authToken
+            },
+            body: JSON.stringify({ status: bulkStatus }),
+          });
+          
+          if (res.ok) {
+            successfulUpdates++;
+          } else {
+            failedUpdates++;
+            console.error(`Failed to update order ${orderId}`, await res.text());
+          }
+        } catch (error) {
+          failedUpdates++;
+          console.error(`Error updating order ${orderId}:`, error);
+        }
+      }
       
-      if (allSuccessful) {
-        // Update the local state
+      // Update the local state for ALL orders that match our selected IDs
+      if (successfulUpdates > 0) {
         setOrders(prevOrders => 
-          prevOrders.map(order => 
-            selectedOrders.includes(order.geonetReference || order.id) 
-              ? { ...order, status: bulkStatus } 
-              : order
-          )
+          prevOrders.map(order => {
+            // Check if this order's ID or reference matches any in our selected list
+            if (selectedOrders.includes(order.id) || 
+                selectedOrders.includes(order.geonetReference)) {
+              return { ...order, status: bulkStatus };
+            }
+            return order;
+          })
         );
-        
-        // Clear selections
-        setSelectedOrders([]);
-        setBulkStatus("");
-        
-        alert(`Successfully updated ${selectedOrders.length} orders!`);
+      }
+      
+      // Provide feedback to the user
+      if (failedUpdates === 0) {
+        alert(`Successfully updated all ${successfulUpdates} orders!`);
       } else {
-        alert("Some orders failed to update. Please check and try again.");
+        alert(`Updated ${successfulUpdates} orders. ${failedUpdates} orders failed to update.`);
+      }
+      
+      // Clear selections
+      setSelectedOrders([]);
+      setBulkStatus("");
+      
+      // Refresh the data from server to ensure we have the correct state
+      if (failedUpdates > 0) {
+        setCurrentPage(1);
+        setLoading(true);
       }
     } catch (error) {
       console.error("Error performing bulk update:", error);
@@ -258,17 +289,15 @@ const AdminOrders = () => {
   const exportToExcel = () => {
     // Create data to export (use filtered orders)
     const dataToExport = filteredOrders.map(order => ({
+      'Reference': order.geonetReference || order.id,
       'Phone Number': order.phoneNumber,
-     
       'CapacityinGb': order.capacity,
       '          ': '',  // Empty column for spacing
       'Network': order.network, // Added network column
       '               ': '',  // Empty column for spacing
-      // 'Price': `GH₵ ${order.price.toFixed(2)}`,
-      '                    ': '',  // Empty column for spacing
-      // 'Status': order.status,
+      'Status': order.status,
       '                         ': '',  // Empty column for spacing
-      // 'Date': formatDate(order.createdAt)
+      'Date': formatDate(order.createdAt)
     }));
     
     // Create worksheet from data
@@ -276,13 +305,11 @@ const AdminOrders = () => {
     
     // Set column widths for better readability
     const cols = [
+      { wch: 15 },  // Reference
       { wch: 15 },  // Phone Number
-      { wch: 5 },   // Spacing
       { wch: 10 },  // Capacity
       { wch: 5 },   // Spacing
       { wch: 10 },  // Network
-      { wch: 5 },   // Spacing
-      { wch: 12 },  // Price
       { wch: 5 },   // Spacing
       { wch: 12 },  // Status
       { wch: 5 },   // Spacing
@@ -315,15 +342,20 @@ const AdminOrders = () => {
     setStartDate("");
     setEndDate("");
     setPhoneSearch("");
+    setReferenceSearch(""); // Clear reference search
     setCapacityFilter("");
     setStatusFilter("");
-    setNetworkFilter(""); // Reset network filter
+    setNetworkFilter("");
     setCurrentPage(1); // Reset to first page
   };
   
-  // Quick clear for phone search
+  // Quick clear for search fields
   const clearPhoneSearch = () => {
     setPhoneSearch("");
+  };
+  
+  const clearReferenceSearch = () => {
+    setReferenceSearch("");
   };
 
   // Handle orders per page change
@@ -344,6 +376,8 @@ const AdminOrders = () => {
         return 'bg-yellow-100 text-yellow-800';
       case 'processing':
         return 'bg-purple-100 text-purple-800';
+      case 'waiting':  // Added waiting status
+        return 'bg-orange-100 text-orange-800';
       case 'shipped':
         return 'bg-blue-100 text-blue-800';
       case 'delivered':
@@ -373,7 +407,7 @@ const AdminOrders = () => {
                 id="phoneSearch"
                 value={phoneSearch}
                 onChange={(e) => setPhoneSearch(e.target.value)}
-                placeholder="Search by order or buyer phone"
+                placeholder="Search by phone"
                 className="border border-gray-300 rounded-md px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {phoneSearch && (
@@ -381,6 +415,28 @@ const AdminOrders = () => {
                   onClick={clearPhoneSearch}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   title="Clear phone search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            
+            {/* Reference Search (New) */}
+            <div className="flex items-center relative">
+              <label htmlFor="referenceSearch" className="mr-2 text-gray-700">Reference:</label>
+              <input
+                type="text"
+                id="referenceSearch"
+                value={referenceSearch}
+                onChange={(e) => setReferenceSearch(e.target.value)}
+                placeholder="Search by order reference"
+                className="border border-gray-300 rounded-md px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {referenceSearch && (
+                <button 
+                  onClick={clearReferenceSearch}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  title="Clear reference search"
                 >
                   ✕
                 </button>
@@ -404,7 +460,7 @@ const AdminOrders = () => {
               </select>
             </div>
             
-            {/* Network Filter (New) */}
+            {/* Network Filter */}
             <div className="flex items-center">
               <label htmlFor="networkFilter" className="mr-2 text-gray-700">Network:</label>
               <select
@@ -517,6 +573,7 @@ const AdminOrders = () => {
             >
               <option value="">Select Status</option>
               <option value="pending">Pending</option>
+              <option value="waiting">Waiting</option>
               <option value="processing">Processing</option>
               <option value="failed">Failed</option>
               <option value="shipped">Shipped</option>
@@ -565,6 +622,7 @@ const AdminOrders = () => {
                           type="checkbox"
                           onChange={(e) => {
                             if (e.target.checked) {
+                              // Use the appropriate ID (geonetReference or id)
                               setSelectedOrders(filteredOrders.map(order => order.geonetReference || order.id));
                             } else {
                               setSelectedOrders([]);
@@ -575,7 +633,7 @@ const AdminOrders = () => {
                         />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Order ID
+                        Order Reference
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Buyer
@@ -607,22 +665,25 @@ const AdminOrders = () => {
                     {filteredOrders.map((order, index) => {
                       // Add ref to last element for infinite scrolling
                       const isLastElement = index === filteredOrders.length - 1;
+                      // Use the appropriate ID consistently (geonetReference or id)
+                      const orderId = order.geonetReference || order.id;
+                      
                       return (
                         <tr 
-                          key={order.id} 
+                          key={orderId} 
                           className="hover:bg-gray-50"
                           ref={isLastElement ? lastOrderElementRef : null}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <input
                               type="checkbox"
-                              checked={selectedOrders.includes(order.geonetReference || order.id)}
-                              onChange={() => toggleOrderSelection(order.geonetReference || order.id)}
+                              checked={selectedOrders.includes(orderId)}
+                              onChange={() => toggleOrderSelection(orderId)}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {order.geonetReference || order.id}
+                            {orderId}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {order.userId?.name || 'Unknown'}
@@ -651,10 +712,11 @@ const AdminOrders = () => {
                             <div className="flex items-center space-x-2">
                               <select
                                 value={order.status || ""}
-                                onChange={(e) => updateOrderStatus(order.geonetReference || order.id, e.target.value)}
+                                onChange={(e) => updateOrderStatus(orderId, e.target.value)}
                                 className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                               >
                                 <option value="pending">Pending</option>
+                                <option value="waiting">Waiting</option>
                                 <option value="processing">Processing</option>
                                 <option value="failed">Failed</option>
                                 <option value="shipped">Shipped</option>
@@ -662,7 +724,7 @@ const AdminOrders = () => {
                                 <option value="completed">Completed</option>
                               </select>
                               <button
-                                onClick={() => updateOrderStatus(order.geonetReference || order.id, order.status)}
+                                onClick={() => updateOrderStatus(orderId, order.status)}
                                 className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-md text-sm"
                               >
                                 Update
