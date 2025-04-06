@@ -277,6 +277,100 @@ router.put('/users/:id/add-money',auth, adminAuth, async (req, res) => {
   }
 });
 
+
+/**
+ * @route   PUT /api/admin/users/:id/deduct-money
+ * @desc    Deduct money from user wallet
+ * @access  Admin
+ */
+router.put('/users/:id/deduct-money', auth, adminAuth, async (req, res) => {
+  try {
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ msg: 'Please provide a valid amount' });
+    }
+    
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      // Find user and update wallet balance
+      const user = await User.findById(req.params.id).session(session);
+      
+      if (!user) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(404).json({ msg: 'User not found' });
+      }
+      
+      // Check if user has sufficient balance
+      if (user.walletBalance < parseFloat(amount)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ 
+          msg: 'Insufficient balance', 
+          currentBalance: user.walletBalance,
+          requestedDeduction: parseFloat(amount)
+        });
+      }
+      
+      // Update wallet balance
+      user.walletBalance -= parseFloat(amount);
+      await user.save({ session });
+      
+      // Create transaction record
+      const transaction = new Transaction({
+        userId: user._id,
+        type: 'withdrawal',
+        amount: parseFloat(amount),
+        status: 'completed',
+        reference: `ADMIN-DEDUCT-${Date.now()}`,
+        gateway: 'admin-deduction',
+        metadata: {
+          reason: reason || 'Administrative deduction',
+          adminId: req.user.id,
+          previousBalance: user.walletBalance + parseFloat(amount)
+        }
+      });
+      
+      await transaction.save({ session });
+      
+      // Optional: Send notification to user
+      try {
+        if (user.phoneNumber) {
+          const formattedPhone = user.phoneNumber.replace(/^\+/, '');
+          const message = `DATAMART: GHS${amount.toFixed(2)} has been deducted from your wallet. Your new balance is GHS${user.walletBalance.toFixed(2)}. Reason: ${reason || 'Administrative adjustment'}.`;
+          
+          await sendSMS(formattedPhone, message, {
+            useCase: 'transactional',
+            senderID: 'Bundle'
+          });
+        }
+      } catch (smsError) {
+        console.error('Failed to send deduction SMS:', smsError.message);
+        // Continue with the transaction even if SMS fails
+      }
+      
+      await session.commitTransaction();
+      session.endSession();
+      
+      res.json({
+        msg: `Successfully deducted ${amount} from ${user.name}'s wallet`,
+        currentBalance: user.walletBalance,
+        transaction
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 /**
  * @route   DELETE /api/admin/users/:id
  * @desc    Delete user

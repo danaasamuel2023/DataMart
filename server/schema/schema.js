@@ -1,15 +1,22 @@
 const mongoose = require("mongoose");
 
-// User Schema
+// Device Block Schema
+const BlockedDeviceSchema = new mongoose.Schema({
+  deviceId: { type: String, required: true },
+  userAgent: { type: String },
+  ipAddress: { type: String },
+  reason: { type: String },
+  blockedAt: { type: Date, default: Date.now },
+  blockedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+});
 
-
-// User Schema with password reset fields
+// User Schema with blocked devices
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   phoneNumber: { type: String, required: true, unique: true },
-  role: { type: String, enum: ["buyer", "seller", "admin"], default: "buyer" },
+  role: { type: String, enum: ["buyer", "seller", "reporter", "admin"], default: "buyer" },
   walletBalance: { type: Number, default: 0 }, // User's wallet balance
   referralCode: { type: String, unique: true }, // User's unique referral code
   referredBy: { type: String, default: null }, // Who referred this user
@@ -23,57 +30,59 @@ const UserSchema = new mongoose.Schema({
   // Account status fields
   isDisabled: { type: Boolean, default: false }, // If account is disabled
   disableReason: { type: String }, // Why account was disabled
-  disabledAt: { type: Date } // When account was disabled
+  disabledAt: { type: Date }, // When account was disabled
+  
+  // Device blocking
+  blockedDevices: [BlockedDeviceSchema], // Array of blocked devices
+  lastLogin: {
+    deviceId: { type: String },
+    ipAddress: { type: String },
+    userAgent: { type: String },
+    timestamp: { type: Date }
+  }
 });
-// Data Purchase Schema
+
+// Other schemas remain the same...
 const DataPurchaseSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Buyer ID
-  phoneNumber: { type: String, required: true }, // Where data is sent
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
+  phoneNumber: { type: String, required: true }, 
   network: { type: String, enum: ["YELLO", "TELECEL", "AT_PREMIUM","airteltigo","at"], required: true },
-  capacity: { type: Number, required: true }, // Data size (GB/MB)
-  gateway: { type: String, required: true }, // Payment method used
-  method: { type: String, enum: ["web", "api"], required: true }, // Source of purchase
-  price: { type: Number, required: true }, // Cost of data package
-  geonetReference: { type: String, required: true }, // Unique reference from Geonet
-  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting"], default: "pending" }, // Status
+  capacity: { type: Number, required: true }, 
+  gateway: { type: String, required: true }, 
+  method: { type: String, enum: ["web", "api"], required: true }, 
+  price: { type: Number, required: true }, 
+  geonetReference: { type: String, required: true }, 
+  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting"], default: "pending" }, 
   createdAt: { type: Date, default: Date.now }
 });
 
-
-// Transaction Schema (Deposits & Purchases)
 const TransactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  type: { type: String, enum: ["deposit", "purchase","refund"], required: true }, // Deposit or Data Purchase
+  type: { type: String, enum: ["deposit", "purchase","refund","withdrawal"], required: true }, 
   amount: { type: Number, required: true },
   status: { type: String, enum: ["pending", "completed", "failed","refund","waiting"], default: "pending" },
-  reference: { type: String, unique: true, required: true }, // Unique transaction ID
-  gateway: { type: String, required: true }, // Payment method (Mobile Money, Card, etc.)
+  reference: { type: String, unique: true, required: true }, 
+  gateway: { type: String, required: true }, 
+  metadata: { type: Object, default: {} },
   createdAt: { type: Date, default: Date.now }
 });
 
-// Referral Bonus Schema
 const ReferralBonusSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Who got the bonus
-  referredUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // New user
-  amount: { type: Number, required: true }, // Bonus amount
-  status: { type: String, enum: ["pending", "credited"], default: "pending" }, // If bonus is credited
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
+  referredUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
+  amount: { type: Number, required: true }, 
+  status: { type: String, enum: ["pending", "credited"], default: "pending" }, 
   createdAt: { type: Date, default: Date.now }
 });
 
 const DataInventorySchema = new mongoose.Schema({
   network: { type: String, enum: ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at","waiting"], required: true },
-  
   inStock: { type: Boolean, default: true },
   updatedAt: { type: Date, default: Date.now }
 });
 
-
-
-// Add this to your schema.js file
-
 const Schema = mongoose.Schema;
 
-// API Key Schema
 const apiKeySchema = new Schema({
     userId: {
         type: Schema.Types.ObjectId,
@@ -107,9 +116,9 @@ const apiKeySchema = new Schema({
     }
 });
 
-// Create index for faster lookups
 apiKeySchema.index({ key: 1 });
 apiKeySchema.index({ userId: 1 });
+
 const OrderReportSchema = new mongoose.Schema({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -148,16 +157,9 @@ const OrderReportSchema = new mongoose.Schema({
   }
 });
 
-// Create index for faster lookups
 OrderReportSchema.index({ userId: 1 });
 OrderReportSchema.index({ purchaseId: 1 });
 OrderReportSchema.index({ status: 1 });
-
-const OrderReport = mongoose.model("OrderReport", OrderReportSchema);
-
-
-// Export ApiKey along with your other models
-
 
 // Export all models
 const User = mongoose.model("User", UserSchema);
@@ -166,5 +168,6 @@ const Transaction = mongoose.model("Transaction", TransactionSchema);
 const ReferralBonus = mongoose.model("ReferralBonus", ReferralBonusSchema);
 const ApiKey = mongoose.model('ApiKey', apiKeySchema);
 const DataInventory = mongoose.model("DataInventory", DataInventorySchema);
+const OrderReport = mongoose.model("OrderReport", OrderReportSchema);
 
-module.exports = { User, DataPurchase, Transaction, ReferralBonus,ApiKey,DataInventory,OrderReport };
+module.exports = { User, DataPurchase, Transaction, ReferralBonus, ApiKey, DataInventory, OrderReport };

@@ -26,8 +26,11 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
+  const [showDeductMoneyModal, setShowDeductMoneyModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [amountToAdd, setAmountToAdd] = useState('');
+  const [amountToDeduct, setAmountToDeduct] = useState('');
+  const [deductionReason, setDeductionReason] = useState('');
   const [processingAction, setProcessingAction] = useState(false);
 
   // Fetch users on component mount
@@ -142,6 +145,54 @@ const AdminUsers = () => {
     } catch (err) {
       console.error('Error adding money:', err);
       toast.error(err.response?.data?.msg || 'Failed to add money');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Handle deduct money from user's wallet
+  const handleDeductMoney = async () => {
+    if (!amountToDeduct || isNaN(amountToDeduct) || parseFloat(amountToDeduct) <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    try {
+      setProcessingAction(true);
+      const token = localStorage.getItem('authToken');
+      
+      const response = await axios.put(
+        `https://datamartbackened.onrender.com/api/users/${selectedUser._id}/deduct-money`,
+        { 
+          amount: parseFloat(amountToDeduct),
+          reason: deductionReason 
+        },
+        {
+          headers: {
+            'x-auth-token': token
+          }
+        }
+      );
+      
+      // Update user in the list
+      setUsers(users.map(user => 
+        user._id === selectedUser._id 
+          ? { ...user, walletBalance: response.data.currentBalance } 
+          : user
+      ));
+      
+      toast.success(`Successfully deducted ${amountToDeduct} from ${selectedUser.name}'s wallet`);
+      setShowDeductMoneyModal(false);
+      setAmountToDeduct('');
+      setDeductionReason('');
+      setSelectedUser(null);
+    } catch (err) {
+      console.error('Error deducting money:', err);
+      if (err.response?.data?.msg === 'Insufficient balance') {
+        toast.error(`Insufficient balance. Current balance: ${err.response.data.currentBalance}`);
+      } else {
+        toast.error(err.response?.data?.msg || 'Failed to deduct money');
+      }
     } finally {
       setProcessingAction(false);
     }
@@ -277,7 +328,7 @@ const AdminUsers = () => {
                           {user.walletBalance.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap border-b border-gray-200">
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => {
                                 setSelectedUser(user);
@@ -286,6 +337,15 @@ const AdminUsers = () => {
                               className="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
                             >
                               Add Money
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowDeductMoneyModal(true);
+                              }}
+                              className="px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm"
+                            >
+                              Deduct Money
                             </button>
                             <button
                               onClick={() => router.push(`/admin/users/${user._id}`)}
@@ -413,6 +473,64 @@ const AdminUsers = () => {
                 disabled={processingAction}
               >
                 {processingAction ? 'Processing...' : 'Add Funds'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deduct Money Modal */}
+      {showDeductMoneyModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Deduct Money from Wallet</h2>
+            <p className="mb-4">
+              Deduct funds from <span className="font-semibold">{selectedUser.name}</span>'s wallet
+              <br />
+              <span className="text-sm text-gray-600">Current balance: {selectedUser.walletBalance.toFixed(2)}</span>
+            </p>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Amount</label>
+              <input
+                type="number"
+                value={amountToDeduct}
+                onChange={(e) => setAmountToDeduct(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md"
+                placeholder="Enter amount"
+                min="0"
+                step="0.01"
+                max={selectedUser.walletBalance}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Reason (optional)</label>
+              <input
+                type="text"
+                value={deductionReason}
+                onChange={(e) => setDeductionReason(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md"
+                placeholder="Enter reason for deduction"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowDeductMoneyModal(false);
+                  setSelectedUser(null);
+                  setAmountToDeduct('');
+                  setDeductionReason('');
+                }}
+                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+                disabled={processingAction}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeductMoney}
+                className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
+                disabled={processingAction}
+              >
+                {processingAction ? 'Processing...' : 'Deduct Funds'}
               </button>
             </div>
           </div>
