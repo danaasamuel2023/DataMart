@@ -11,6 +11,7 @@ const HubnetAt = require('./HubnetInteraction/hubnet.js');
 const AdminManagement = require('./admin-management/adminManagemet.js')
 const passreset = require('./ResetPasword/reset.js')
 const Report = require('./Reporting/reporting.js')
+const DepositeMorle = require('./DepositeMoorle/moorle.js')
 dotenv.config();
 
 // Initialize Express app
@@ -32,6 +33,7 @@ app.use('/api/v1', HubnetAt);
 app.use('/api',AdminManagement)
 app.use('/api/v1', passreset);
 app.use('/api/reports', Report);
+app.use('/api/v1', DepositeMorle);
 
 // Default Route
 app.get('/', (req, res) => {
