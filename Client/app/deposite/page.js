@@ -13,7 +13,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
 
 const MoolreDeposit = () => {
   // States
@@ -93,13 +93,16 @@ const MoolreDeposit = () => {
     setError('');
     
     try {
-      const response = await axios.post(`${API_BASE_URL}/deposit`, {
+      // Update the endpoint to match the backend route
+      const response = await axios.post(`${API_BASE_URL}/depositsmoolre`, {
         userId,
         amount: parseFloat(amount),
         phoneNumber,
         network,
         currency: 'GHS' // Default to Ghana Cedis
       });
+      
+      console.log('Deposit response:', response.data);
       
       if (response.data.success && response.data.requiresOtp) {
         // OTP verification is required
@@ -118,7 +121,12 @@ const MoolreDeposit = () => {
       }
     } catch (err) {
       console.error('Deposit error:', err);
-      setError(err.response?.data?.error || 'An error occurred while processing your deposit');
+      if (err.response && err.response.data) {
+        console.error('Error response:', err.response.data);
+        setError(err.response.data.error || 'An error occurred while processing your deposit');
+      } else {
+        setError('Network error. Please check your connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -137,11 +145,26 @@ const MoolreDeposit = () => {
     setError('');
     
     try {
-      const response = await axios.post(`${API_BASE_URL}/verify-otp`, {
-        reference,
-        otpCode,
-        phoneNumber
+      // Prepare the request payload exactly as expected by the backend
+      const payload = {
+        reference: reference,
+        otpCode: otpCode, // This must match the backend parameter name
+        phoneNumber: phoneNumber
+      };
+      
+      // Don't include externalRef - backend doesn't expect this parameter
+      // It retrieves externalRef from the stored transaction
+      
+      console.log('Sending OTP verification with:', payload);
+      
+      const response = await axios.post(`${API_BASE_URL}/verify-otp`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          // Ensure headers match what backend expects
+        }
       });
+      
+      console.log('OTP verification response:', response.data);
       
       if (response.data.success) {
         setSuccess('OTP verified successfully. Please check your phone to approve the payment.');
@@ -152,7 +175,31 @@ const MoolreDeposit = () => {
       }
     } catch (err) {
       console.error('OTP verification error:', err);
-      setError(err.response?.data?.error || 'An error occurred during OTP verification');
+      
+      // Detailed error analysis
+      if (err.response) {
+        console.error('Error response data:', err.response.data);
+        console.error('Error response status:', err.response.status);
+        console.error('Error response headers:', err.response.headers);
+        
+        if (err.response.status === 400) {
+          // Get specific error message from response if available
+          const errorMsg = err.response.data.error || 'Invalid OTP code or format';
+          setError(`Verification failed: ${errorMsg}. Please check the code and try again.`);
+        } else if (err.response.status === 404) {
+          setError('Transaction not found. Please start a new deposit.');
+        } else {
+          setError(err.response.data.error || 'OTP verification failed');
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        console.error('No response received:', err.request);
+        setError('No response from server. Please check your connection and try again.');
+      } else {
+        // Something else caused the error
+        console.error('Error setting up request:', err.message);
+        setError('Error preparing verification request. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -189,18 +236,25 @@ const MoolreDeposit = () => {
 
   // Check transaction status
   const checkTransactionStatus = async () => {
-    if (!reference) return;
+    if (!reference) {
+      setError('Reference ID is missing. Cannot check status.');
+      return;
+    }
     
     setLoading(true);
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/verify-payment?reference=${reference}`);
+      console.log('Checking transaction status for reference:', reference);
+      
+      const response = await axios.get(`${API_BASE_URL}/verify-payment?reference=${encodeURIComponent(reference)}`);
+      
+      console.log('Transaction status response:', response.data);
       
       if (response.data.success) {
         setTransactionStatus(response.data.data.status);
         
         if (response.data.data.status === 'completed') {
-          setSuccess('Payment completed successfully!');
+          setSuccess(`Payment of GHS ${response.data.data.amount.toFixed(2)} completed successfully!`);
           
           // Reset form after successful payment
           setTimeout(() => {
@@ -208,20 +262,32 @@ const MoolreDeposit = () => {
             setPhoneNumber('');
             setOtpCode('');
             setReference('');
+            setExternalRef('');
             setOtpRequired(false);
             setStep(1);
           }, 5000);
         } else if (response.data.data.status === 'failed') {
-          setError('Payment failed. Please try again.');
+          setError('Payment failed. Please try again with a new deposit.');
         } else {
           setTransactionStatus('pending');
+          setSuccess('Your payment is still being processed. Please complete the payment on your phone.');
         }
       } else {
         setError(response.data.message || 'Could not verify payment status');
       }
     } catch (err) {
       console.error('Check status error:', err);
-      setError(err.response?.data?.error || 'An error occurred while checking payment status');
+      
+      if (err.response) {
+        console.error('Error response:', err.response.data);
+        if (err.response.status === 404) {
+          setError('Transaction not found. The reference may be invalid.');
+        } else {
+          setError(err.response.data.error || 'Failed to check payment status');
+        }
+      } else {
+        setError('Network error while checking payment status. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

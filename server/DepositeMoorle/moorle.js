@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const MOOLRE_API_USER = 'datamart'; 
 const MOOLRE_API_PUBKEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyaWQiOjEwNjYxMSwiZXhwIjoxOTI1MDA5OTk5fQ.YXgxzLhfhtTCd_R5b7uenbv0guNwr8RJ63X4NcP3JGw'; // Your Moolre public API key
 const MOOLRE_API_KEY = 'HiYwjNe9XUWlOYVzMYwkDCryV9JTziYxMsn5YrNOEyZHyrVjuZIJDHHK5OfThpDZ'; // Your Moolre private API key
-const MOOLRE_ACCOUNT_NUMBER = '10661106046487'; // Your Moolre account number
+const MOOLRE_ACCOUNT_NUMBER = '10661106047264'; // Your Moolre account number
 const MOOLRE_BASE_URL = 'https://api.moolre.com';
 
 // Initiate Deposit via Moolre (Mobile Money)
