@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { User } = require('../schema/schema'); 
+const bcrypt = require("bcryptjs");
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'DatAmArt';
 const ARKESEL_API_KEY = process.env.ARKESEL_API_KEY || 'QkNhS0l2ZUZNeUdweEtmYVRUREg';
@@ -223,8 +225,12 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'Invalid verification code' });
     }
     
-    // Update password
-    user.password = newPassword; // Note: In real implementation, hash the password here
+    // Hash the new password before saving
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    // Update password with the hashed version
+    user.password = hashedPassword;
     
     // Clear OTP data
     user.resetPasswordOTP = undefined;
@@ -250,7 +256,6 @@ router.post('/reset-password', async (req, res) => {
     });
   }
 });
-
 // Add route to resend OTP if expired or not received (NO authentication required)
 router.post('/resend-password-reset-otp', async (req, res) => {
   try {
