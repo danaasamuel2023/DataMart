@@ -18,7 +18,7 @@ export default function RequestPasswordReset() {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5000/api/v1/request-password-reset', {
+      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/request-password-reset', {
         phoneNumber
       });
       
@@ -40,7 +40,7 @@ export default function RequestPasswordReset() {
     setError('');
 
     try {
-      await axios.post('http://localhost:5000/api/v1/resend-password-reset-otp', {
+      await axios.post('https://datamartbackened.onrender.com/api/v1/resend-password-reset-otp', {
         phoneNumber
       });
       setSuccess(true);

@@ -86,7 +86,7 @@ const VerifyAndResetContent = ({ initialPhone }) => {
     setError('');
 
     try {
-      await axios.post('http://localhost:5000/api/v1/resend-password-reset-otp', {
+      await axios.post('https://datamartbackened.onrender.com/api/v1/resend-password-reset-otp', {
         phoneNumber
       });
       setTimeLeft(600); // Reset timer to 10 minutes
