@@ -135,7 +135,7 @@ const MTNBundleCards = () => {
     { capacity: '4', mb: '4000', price: '18.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '5', mb: '5000', price: '23.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '7', mb: '7000', price: '33.50', network: 'YELLO', inStock: inventoryAvailable },
+    // { capacity: '7', mb: '7000', price: '33.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: inventoryAvailable },
