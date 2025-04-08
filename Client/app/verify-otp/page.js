@@ -115,7 +115,7 @@ const VerifyAndResetContent = ({ initialPhone }) => {
     setError('');
 
     try {
-      await axios.post('http://localhost:5000/api/v1/reset-password', {
+      await axios.post('https://datamartbackened.onrender.com/api/v1/reset-password', {
         phoneNumber,
         otp,
         newPassword
@@ -250,7 +250,7 @@ const VerifyAndResetContent = ({ initialPhone }) => {
                 {isResending ? 'Resending...' : 'Resend Code'}
               </button>
               
-              <Link href="/reset-password/request" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+              <Link href="/reset" className="text-sm font-medium text-blue-600 hover:text-blue-500">
                 Try different number
               </Link>
             </div>
