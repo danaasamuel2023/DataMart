@@ -66,7 +66,7 @@ export default function AdminReports() {
           params.append('endDate', dateRange.endDate);
         }
         
-        const response = await axios.get(`http://localhost:5000/api/reports/admin/all?${params.toString()}`);
+        const response = await axios.get(`https://datamartbackened.onrender.com/api/reports/admin/all?${params.toString()}`);
         
         if (response.data.status === 'success') {
           setReports(response.data.data.reports);

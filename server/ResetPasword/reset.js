@@ -4,7 +4,7 @@ const router = express.Router();
 const axios = require('axios');
 const { User } = require('../schema/schema'); 
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET || 'DatAmArt';
 const ARKESEL_API_KEY = process.env.ARKESEL_API_KEY || 'QkNhS0l2ZUZNeUdweEtmYVRUREg';
 
 // SMS sending function
@@ -12,7 +12,7 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
   const {
     scheduleTime = null,
     useCase = null,
-    senderID = 'DataHub'
+    senderID = 'Bundle'
   } = options;
 
   // Input validation
@@ -145,7 +145,7 @@ router.post('/request-password-reset', async (req, res) => {
     await user.save();
     
     // Send OTP via SMS
-    const message = `Your DataHub password reset code is: ${otp}. Valid for 10 minutes.`;
+    const message = `Your Datamart password reset code is: ${otp}. Valid for 10 minutes.`;
     const smsResult = await sendSMS(user.phoneNumber, message, { useCase: 'transactional' });
     
     if (!smsResult.success) {
