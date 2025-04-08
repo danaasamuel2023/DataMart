@@ -234,7 +234,7 @@ router.post('/reset-password', async (req, res) => {
     await user.save();
     
     // Send success SMS notification
-    const message = 'Your DataHub password has been successfully reset. If you did not perform this action, please contact support immediately.';
+    const message = 'Your Datamart password has been successfully reset. If you did not perform this action, please contact support immediately.';
     await sendSMS(user.phoneNumber, message, { useCase: 'transactional' });
     
     res.status(200).json({
