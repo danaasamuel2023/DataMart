@@ -59,14 +59,11 @@ const Navbar = () => {
       // Use direct window location for reliable navigation
       window.location.href = '/Signin';
       
-      // Use router as fallback
-      setTimeout(() => {
-        router.push('/login');
-      }, 100);
+      
     } catch (error) {
       console.error("Error during logout:", error);
       // Emergency fallback
-      window.location.href = '/login';
+      window.location.href = '/Signin';
     }
   };
 

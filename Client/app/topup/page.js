@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Link from 'next/link';
-import { Info } from 'lucide-react'; // Make sure to install lucide-react
+import { Info, AlertCircle, X, Copy } from 'lucide-react'; // Make sure to install lucide-react
 
 export default function DepositPage() {
   const [amount, setAmount] = useState('');
@@ -16,6 +16,10 @@ export default function DepositPage() {
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState('');
+  const [disableReason, setDisableReason] = useState('');
+  const [copySuccess, setCopySuccess] = useState('');
   
   const router = useRouter();
   
@@ -30,6 +34,15 @@ export default function DepositPage() {
         setUserId(user.id);
         setUserEmail(user.email);
         setIsAuthenticated(true);
+        
+        // If the user has an approvalStatus or isDisabled property, set it
+        if (user.approvalStatus) {
+          setApprovalStatus(user.approvalStatus);
+        }
+        
+        if (user.disableReason) {
+          setDisableReason(user.disableReason);
+        }
       } else {
         // Redirect to login if not authenticated
         router.push('/SignIn');
@@ -83,7 +96,17 @@ export default function DepositPage() {
       }
     } catch (error) {
       console.error('Deposit error:', error);
-      setError(error.response?.data?.error || 'Failed to process deposit. Please try again.');
+      
+      // Check if the error is due to pending approval or disabled account
+      if (error.response?.data?.error === 'Account not approved') {
+        setApprovalStatus(error.response.data.approvalStatus);
+        setShowApprovalModal(true);
+      } else if (error.response?.data?.error === 'Account is disabled') {
+        setDisableReason(error.response.data.disableReason || 'No reason provided');
+        setShowApprovalModal(true);
+      } else {
+        setError(error.response?.data?.error || 'Failed to process deposit. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -96,6 +119,106 @@ export default function DepositPage() {
   
   return (
     <div className="max-w-md mx-auto my-10 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+      {/* Approval Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertCircle size={24} className="text-red-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {approvalStatus === 'pending' ? 'Account Pending Approval' : 'Account Disabled'}
+                </h2>
+              </div>
+              <button 
+                onClick={() => setShowApprovalModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              {approvalStatus === 'pending' ? (
+                <>
+                  <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    Your account is currently pending approval. To expedite the approval process, please make a payment of <span className="font-bold">100 GHS</span> to:
+                  </p>
+                  
+                  <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-gray-800 dark:text-gray-200"><span className="font-semibold">Mobile Money Number:</span> 0597760914</p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText('0597760914');
+                          setCopySuccess('Number copied!');
+                          setTimeout(() => setCopySuccess(''), 2000);
+                        }}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1"
+                        title="Copy number"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                    <p className="text-gray-800 dark:text-gray-200"><span className="font-semibold">Account Name:</span> KOJO Frimpong</p>
+                    {copySuccess && (
+                      <p className="text-green-600 dark:text-green-400 text-xs mt-1">{copySuccess}</p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg mb-4">
+                    <p className="text-yellow-800 dark:text-yellow-300 font-medium text-sm">
+                      <AlertCircle size={16} className="inline mr-2" />
+                      Important: Use your registration email or phone number as payment reference
+                    </p>
+                  </div>
+                  
+                  <p className="text-gray-700 dark:text-gray-300 mb-2">
+                    Your account will be approved within 2 hours after payment confirmation.
+                  </p>
+                  
+                  <p className="text-gray-700 dark:text-gray-300">
+                    For immediate assistance, please email us at: <a href="mailto:datamartghana@gmail.com" className="text-blue-600 dark:text-blue-400 underline">datamartghana@gmail.com</a>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    Your account has been disabled for the following reason:
+                  </p>
+                  
+                  <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-4 rounded-lg mb-4">
+                    <p className="text-red-800 dark:text-red-300">{disableReason}</p>
+                  </div>
+                  
+                  <p className="text-gray-700 dark:text-gray-300">
+                    To resolve this issue, please contact our support team at: <a href="mailto:datamartghana@gmail.com" className="text-blue-600 dark:text-blue-400 underline">datamartghana@gmail.com</a>
+                  </p>
+                </>
+              )}
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowApprovalModal(false)}
+                className="bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded mr-2"
+              >
+                Close
+              </button>
+              
+              {approvalStatus === 'pending' && (
+                <a
+                  href="mailto:datamartghana@gmail.com"
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Contact Support
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-center flex-1 text-gray-900 dark:text-white">Deposit Funds</h1>
         <Link 
