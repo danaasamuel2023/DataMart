@@ -170,7 +170,7 @@ export default function LoginPage() {
           <div className="text-center mt-4">
             <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               Don't have an account?{' '}
-              <Link href="/Signup" className="text-blue-500 ml-1 hover:underline">
+              <Link href="/SignUp" className="text-blue-500 ml-1 hover:underline">
                 Sign Up
               </Link>
             </p>
