@@ -10,19 +10,47 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 // Initiate Deposit
 // Initiate Deposit
+// Initiate Deposit
 router.post('/deposit', async (req, res) => {
   try {
     const { userId, amount, totalAmountWithFee, email } = req.body;
 
     // Validate input
     if (!userId || !amount || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid deposit details' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid deposit details' 
+      });
     }
 
-    // Find user to get their email
+    // Find user to get their email and check account status
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
+
+    // Check if user's account is disabled
+    if (user.isDisabled) {
+      return res.status(403).json({
+        success: false,
+        error: 'Account is disabled',
+        message: 'Your account has been disabled. Deposits are not allowed.',
+        disableReason: user.disableReason || 'No reason provided'
+      });
+    }
+
+    // Check approval status only if it exists on the user document
+    // This ensures backward compatibility with accounts created before approval system was implemented
+    if (user.approvalStatus !== undefined && user.approvalStatus !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        error: 'Account not approved',
+        message: 'Your account is pending approval. Deposits are only allowed for approved accounts.',
+        approvalStatus: user.approvalStatus
+      });
     }
 
     // Generate a unique transaction reference
@@ -65,6 +93,7 @@ router.post('/deposit', async (req, res) => {
 
     // Return Paystack payment URL
     return res.json({
+      success: true,
       message: 'Deposit initiated',
       paystackUrl: paystackResponse.data.data.authorization_url,
       reference
@@ -72,7 +101,10 @@ router.post('/deposit', async (req, res) => {
 
   } catch (error) {
     console.error('Deposit Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
   }
 });
 router.post('/paystack/webhook', async (req, res) => {

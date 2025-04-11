@@ -59,7 +59,8 @@ router.post("/register", async (req, res) => {
       password: hashedPassword,
       phoneNumber,
       referralCode,
-      referredBy
+      referredBy ,
+       approvalStatus: "pending"
     });
 
     await newUser.save();

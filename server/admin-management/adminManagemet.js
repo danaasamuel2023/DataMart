@@ -999,4 +999,87 @@ router.put('/transactions/:id/update-status', auth, adminAuth, async (req, res) 
   }
 });
 
+router.put('/users/:id/toggle-status', auth, adminAuth, async (req, res) => {
+  try {
+    const { disableReason } = req.body;
+    const userId = req.params.id;
+    
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    
+    // Get current admin for tracking
+    const admin = await User.findById(req.user.id).select('name');
+    
+    // Toggle the isDisabled status
+    user.isDisabled = !user.isDisabled;
+    
+    // Update related fields
+    if (user.isDisabled) {
+      // Disabling the account
+      user.disableReason = disableReason || 'Administrative action';
+      user.disabledAt = new Date();
+      user.disabledBy = req.user.id;
+    } else {
+      // Re-enabling the account
+      user.disableReason = null;
+      user.disabledAt = null;
+      user.enabledBy = req.user.id;
+      user.enabledAt = new Date();
+    }
+    
+    await user.save();
+    
+    // Send notification SMS to the user
+    try {
+      if (user.phoneNumber) {
+        const formattedPhone = user.phoneNumber.replace(/^\+/, '');
+        let message;
+        
+        if (user.isDisabled) {
+          message = `DATAMART: Your account has been disabled. Reason: ${user.disableReason}. Contact support for assistance.`;
+        } else {
+          message = `DATAMART: Your account has been re-enabled. You can now access all platform features. Thank you for choosing DATAMART.`;
+        }
+        
+        await sendSMS(formattedPhone, message, {
+          useCase: 'transactional',
+          senderID: 'Bundle'
+        });
+      }
+    } catch (smsError) {
+      console.error('Failed to send account status SMS:', smsError.message);
+      // Continue even if SMS fails
+    }
+    
+    return res.json({
+      success: true,
+      message: user.isDisabled ? 'User account has been disabled' : 'User account has been enabled',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        isDisabled: user.isDisabled,
+        disableReason: user.disableReason,
+        disabledAt: user.disabledAt,
+        disabledBy: admin ? admin.name : req.user.id
+      }
+    });
+    
+  } catch (err) {
+    console.error('Toggle user status error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: err.message
+    });
+  }
+});
+
 module.exports = router;

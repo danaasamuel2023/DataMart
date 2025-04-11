@@ -10,16 +10,30 @@ const BlockedDeviceSchema = new mongoose.Schema({
   blockedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
 });
 
-// User Schema with blocked devices
+// Friend Registration Schema - for tracking registered friends
+const RegisteredFriendSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  name: { type: String },
+  email: { type: String },
+  phoneNumber: { type: String },
+  registeredAt: { type: Date, default: Date.now }
+});
+
+// User Schema with blocked devices, registered friends and admin approval
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   phoneNumber: { type: String, required: true, unique: true },
-  role: { type: String, enum: ["buyer", "seller", "reporter", "admin"], default: "buyer" },
+  role: { type: String, enum: ["buyer", "seller", "reporter", "admin", "Dealer"], default: "buyer" },
   walletBalance: { type: Number, default: 0 }, // User's wallet balance
   referralCode: { type: String, unique: true }, // User's unique referral code
   referredBy: { type: String, default: null }, // Who referred this user
+  
+  // Friend registration tracking
+  registeredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // User who registered this user
+  registeredFriends: [RegisteredFriendSchema], // Friends registered by this user
+  
   createdAt: { type: Date, default: Date.now },
   
   // Password reset fields
@@ -39,8 +53,28 @@ const UserSchema = new mongoose.Schema({
     ipAddress: { type: String },
     userAgent: { type: String },
     timestamp: { type: Date }
+  },
+  
+  // Admin approval fields
+  approvalStatus: { 
+    type: String, 
+    enum: ["pending", "approved", "rejected"], 
+    default: "pending" 
+  },
+  approvedBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User" 
+  },
+  approvedAt: { 
+    type: Date 
+  },
+  rejectionReason: { 
+    type: String 
   }
 });
+
+// Add index for approval status to make queries more efficient
+UserSchema.index({ approvalStatus: 1 });
 
 // Other schemas remain the same...
 const DataPurchaseSchema = new mongoose.Schema({
@@ -67,11 +101,14 @@ const TransactionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Updated ReferralBonus Schema to include friend registration type
 const ReferralBonusSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   referredUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   amount: { type: Number, required: true }, 
-  status: { type: String, enum: ["pending", "credited"], default: "pending" }, 
+  status: { type: String, enum: ["pending", "credited"], default: "pending" },
+  // Added registration type field to track how the user was referred
+  registrationType: { type: String, enum: ["referral", "friend-registration"], default: "referral" },
   createdAt: { type: Date, default: Date.now }
 });
 
