@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 
 const FloatingWhatsAppIcon = () => {
-  const whatsappGroupUrl = 'https://chat.whatsapp.com/J0IGpoz8pTv4cgea2ie8Zr';
+  const whatsappGroupUrl = 'https://chat.whatsapp.com/HfHCT72jm2Z1B14fsJjuhT';
   
   return (
     <div className="fixed bottom-6 right-6 z-50">

@@ -123,7 +123,7 @@ const VerifyAndResetContent = ({ initialPhone }) => {
       
       setSuccess(true);
       setTimeout(() => {
-        router.push('/Signin');
+        router.push('/SignIn');
       }, 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong. Please try again.');

@@ -2,23 +2,24 @@ const express = require('express');
 const router = express.Router();
 const { User, ReferralBonus } = require('../schema/schema'); // Adjust path as needed
 const jwt = require('jsonwebtoken');
+const  authMiddleware = require('../middlewareUser/middleware'); // Adjust path as needed
 
 // Middleware to check if user is authenticated
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
+// const authMiddleware = async (req, res, next) => {
+//   try {
+//     const token = req.headers.authorization?.split(' ')[1];
+//     if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
     
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     const user = await User.findById(decoded.id);
+//     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
-    req.user = user;
-    next();
-  } catch (error) {
-    return res.status(401).json({ success: false, message: 'Invalid token', error: error.message });
-  }
-};
+//     req.user = user;
+//     next();
+//   } catch (error) {
+//     return res.status(401).json({ success: false, message: 'Invalid token', error: error.message });
+//   }
+// };
 
 // Middleware to check if user is admin
 const adminMiddleware = async (req, res, next) => {
@@ -98,7 +99,7 @@ router.get('/user/approval-status', authMiddleware, async (req, res) => {
 });
 
 // Route to get all pending users
-router.get('/admin/users/pending', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/users/pending', async (req, res) => {
   try {
     const pendingUsers = await User.find({ approvalStatus: "pending" })
       .select("name email phoneNumber referredBy createdAt")
@@ -110,22 +111,47 @@ router.get('/admin/users/pending', authMiddleware, adminMiddleware, async (req, 
   }
 });
 
-// Route to approve a user
+/// Route to approve a user
 router.put('/admin/users/:userId/approve', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
     
+    // Validate userId format
+    if (!userId || !userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid user ID format' 
+      });
+    }
+    
     // Check if user exists
     const userToApprove = await User.findById(userId);
     if (!userToApprove) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ 
+        success: false, 
+        message: "User not found" 
+      });
     }
     
-    // Check if user already has approval status
+    // Check approval status
     if (!userToApprove.hasOwnProperty('approvalStatus')) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "This user was created before the approval system was implemented and doesn't need approval" 
+      // If user doesn't have approvalStatus field, add it and set to approved
+      userToApprove.approvalStatus = "approved";
+      userToApprove.approvedBy = req.user._id;
+      userToApprove.approvedAt = Date.now();
+      await userToApprove.save();
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "User approval status updated successfully" 
+      });
+    }
+    
+    // If user is already approved
+    if (userToApprove.approvalStatus === "approved") {
+      return res.status(200).json({ 
+        success: true, 
+        message: "User is already approved" 
       });
     }
     
@@ -137,21 +163,39 @@ router.put('/admin/users/:userId/approve', authMiddleware, adminMiddleware, asyn
     
     // Process referral if applicable
     if (userToApprove.referredBy) {
-      await ReferralBonus.findOneAndUpdate(
-        { referredUserId: userToApprove._id, status: "pending" },
-        { status: "credited" }
-      );
-      
-      const referringUser = await User.findOne({ referralCode: userToApprove.referredBy });
-      if (referringUser) {
-        referringUser.walletBalance = (referringUser.walletBalance || 0) + 10; // Add bonus
-        await referringUser.save();
+      try {
+        // Find and update any pending referral bonus
+        const updatedBonus = await ReferralBonus.findOneAndUpdate(
+          { referredUserId: userToApprove._id, status: "pending" },
+          { status: "credited" },
+          { new: true }
+        );
+        
+        // If a bonus was found and updated, update the referrer's wallet
+        if (updatedBonus) {
+          const referringUser = await User.findOne({ referralCode: userToApprove.referredBy });
+          if (referringUser) {
+            referringUser.walletBalance = (referringUser.walletBalance || 0) + 10; // Add bonus
+            await referringUser.save();
+          }
+        }
+      } catch (referralError) {
+        console.error("Error processing referral bonus:", referralError);
+        // Continue with the approval process even if referral processing fails
       }
     }
     
-    return res.status(200).json({ success: true, message: "User approved successfully" });
+    return res.status(200).json({ 
+      success: true, 
+      message: "User approved successfully" 
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Error approving user", error: error.message });
+    console.error("Error approving user:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Error approving user", 
+      error: error.message 
+    });
   }
 });
 

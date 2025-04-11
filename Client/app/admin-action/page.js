@@ -110,7 +110,7 @@ const AdminUsers = () => {
       }
       
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com'}/api/admin/users/pending`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/users/pending`,
         {
           headers: {
             'x-auth-token': token
@@ -201,7 +201,7 @@ const AdminUsers = () => {
       const token = localStorage.getItem('authToken');
       
       await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com'}/api/admin/users/${userId}/approve`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/users/${userId}/approve`,
         {},
         {
           headers: {

@@ -68,7 +68,7 @@ export default function DepositPage() {
     try {
       // Call the deposit API endpoint with the BASE amount (without fee)
       // but tell Paystack to charge the total amount
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/deposit', {
+      const response = await axios.post('http://localhost:5000/api/v1/deposit', {
         userId,
         amount: parseFloat(amount), // Send the base amount WITHOUT fee
         totalAmountWithFee: parseFloat(totalAmount), // Send the total amount for Paystack to charge
