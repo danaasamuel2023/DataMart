@@ -43,15 +43,15 @@ router.post('/deposit', async (req, res) => {
     }
 
     // Check approval status only if it exists on the user document
-    // This ensures backward compatibility with accounts created before approval system was implemented
-    if (user.approvalStatus !== undefined && user.approvalStatus !== 'approved') {
-      return res.status(403).json({
-        success: false,
-        error: 'Account not approved',
-        message: 'Your account is pending approval. Deposits are only allowed for approved accounts.',
-        approvalStatus: user.approvalStatus
-      });
-    }
+    // // This ensures backward compatibility with accounts created before approval system was implemented
+    // if (user.approvalStatus !== undefined && user.approvalStatus !== 'approved') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Account not approved',
+    //     message: 'Your account is pending approval. Deposits are only allowed for approved accounts.',
+    //     approvalStatus: user.approvalStatus
+    //   });
+    // }
 
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
