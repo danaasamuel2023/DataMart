@@ -312,7 +312,7 @@ export default function DataPurchases() {
     setReportError(null);
     
     try {
-      const response = await axios.post(`https://datamartbackened.onrender.com/api/reports/create`, {
+      const response = await axios.post(`https://datamartbackened.onrender.com/api/reports/creat`, {
         userId: userId,
         purchaseId: selectedOrder._id,
         reason: reportReason
