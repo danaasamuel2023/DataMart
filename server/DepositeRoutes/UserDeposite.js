@@ -11,6 +11,7 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 // Initiate Deposit
 // Initiate Deposit
 // Initiate Deposit
+// Initiate Deposit with approved user list check
 router.post('/deposit', async (req, res) => {
   try {
     const { userId, amount, totalAmountWithFee, email } = req.body;
@@ -42,16 +43,26 @@ router.post('/deposit', async (req, res) => {
       });
     }
 
-    // Check approval status only if it exists on the user document
-    // // This ensures backward compatibility with accounts created before approval system was implemented
-    // if (user.approvalStatus !== undefined && user.approvalStatus !== 'approved') {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Account not approved',
-    //     message: 'Your account is pending approval. Deposits are only allowed for approved accounts.',
-    //     approvalStatus: user.approvalStatus
-    //   });
-    // }
+    // Get the list of approved users
+    // You can either maintain this list in the database or fetch it as needed
+    const approvedUsers = await User.find({ 
+      $or: [
+        { approvalStatus: 'approved' },
+        { approvalStatus: { $exists: false } } // Include legacy users without the field
+      ]
+    }).select('_id');
+    
+    // Convert to array of IDs for easier checking
+    const approvedUserIds = approvedUsers.map(user => user._id.toString());
+    
+    // Check if the userId making the deposit is in the approved list
+    if (!approvedUserIds.includes(userId.toString())) {
+      return res.status(403).json({
+        success: false,
+        error: 'Account not approved',
+        message: 'Your account is not approved for deposits. Please contact support.',
+      });
+    }
 
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;

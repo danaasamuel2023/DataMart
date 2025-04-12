@@ -1,4 +1,3 @@
-// pages/deposit.js or app/topup/page.js
 'use client'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,7 +16,7 @@ export default function DepositPage() {
   const [userId, setUserId] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalStatus, setApprovalStatus] = useState('');
+  const [accountStatus, setAccountStatus] = useState(''); // 'pending', 'disabled', or 'not-approved'
   const [disableReason, setDisableReason] = useState('');
   const [copySuccess, setCopySuccess] = useState('');
   
@@ -36,12 +35,14 @@ export default function DepositPage() {
         setIsAuthenticated(true);
         
         // If the user has an approvalStatus or isDisabled property, set it
-        if (user.approvalStatus) {
-          setApprovalStatus(user.approvalStatus);
-        }
-        
-        if (user.disableReason) {
-          setDisableReason(user.disableReason);
+        if (user.isDisabled) {
+          setAccountStatus('disabled');
+          setDisableReason(user.disableReason || 'No reason provided');
+        } else if (user.approvalStatus === 'pending') {
+          setAccountStatus('pending');
+        } else if (user.approvalStatus === 'rejected') {
+          setAccountStatus('not-approved');
+          setDisableReason(user.rejectionReason || 'Your account has not been approved.');
         }
       } else {
         // Redirect to login if not authenticated
@@ -97,12 +98,19 @@ export default function DepositPage() {
     } catch (error) {
       console.error('Deposit error:', error);
       
-      // Check if the error is due to pending approval or disabled account
-      if (error.response?.data?.error === 'Account not approved') {
-        setApprovalStatus(error.response.data.approvalStatus);
-        setShowApprovalModal(true);
-      } else if (error.response?.data?.error === 'Account is disabled') {
+      // Check for specific error responses
+      if (error.response?.data?.error === 'Account is disabled') {
+        setAccountStatus('disabled');
         setDisableReason(error.response.data.disableReason || 'No reason provided');
+        setShowApprovalModal(true);
+      } else if (error.response?.data?.error === 'Account not approved') {
+        // This will now handle both pending and not approved users
+        if (error.response.data.approvalStatus === 'pending') {
+          setAccountStatus('pending');
+        } else {
+          setAccountStatus('not-approved');
+          setDisableReason(error.response.data.reason || 'Your account has not been approved.');
+        }
         setShowApprovalModal(true);
       } else {
         setError(error.response?.data?.error || 'Failed to process deposit. Please try again.');
@@ -127,7 +135,11 @@ export default function DepositPage() {
               <div className="flex items-center">
                 <AlertCircle size={24} className="text-red-500 mr-2" />
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {approvalStatus === 'pending' ? 'Account Pending Approval' : 'Account Disabled'}
+                  {accountStatus === 'pending' 
+                    ? 'Account Pending Approval' 
+                    : accountStatus === 'disabled' 
+                      ? 'Account Disabled' 
+                      : 'Account Not Approved'}
                 </h2>
               </div>
               <button 
@@ -139,7 +151,7 @@ export default function DepositPage() {
             </div>
             
             <div className="mb-6">
-              {approvalStatus === 'pending' ? (
+              {accountStatus === 'pending' ? (
                 <>
                   <p className="text-gray-700 dark:text-gray-300 mb-4">
                     Your account is currently pending approval. To expedite the approval process, please make a payment of <span className="font-bold">100 GHS</span> to:
@@ -176,10 +188,40 @@ export default function DepositPage() {
                   <p className="text-gray-700 dark:text-gray-300 mb-2">
                     Your account will be approved within 2 hours after payment confirmation.
                   </p>
-                  
-                  <p className="text-gray-700 dark:text-gray-300">
-                    For immediate assistance, please email us at: <a href="mailto:datamartghana@gmail.com" className="text-blue-600 dark:text-blue-400 underline">datamartghana@gmail.com</a>
+                </>
+              ) : accountStatus === 'not-approved' ? (
+                <>
+                  <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    Your account has not been approved. To complete the approval process and activate deposits, please make a payment of <span className="font-bold">100 GHS</span> to:
                   </p>
+                  
+                  <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-gray-800 dark:text-gray-200"><span className="font-semibold">Mobile Money Number:</span> 0597760914</p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText('0597760914');
+                          setCopySuccess('Number copied!');
+                          setTimeout(() => setCopySuccess(''), 2000);
+                        }}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1"
+                        title="Copy number"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                    <p className="text-gray-800 dark:text-gray-200"><span className="font-semibold">Account Name:</span> KOJO Frimpong</p>
+                    {copySuccess && (
+                      <p className="text-green-600 dark:text-green-400 text-xs mt-1">{copySuccess}</p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg mb-4">
+                    <p className="text-yellow-800 dark:text-yellow-300 font-medium text-sm">
+                      <AlertCircle size={16} className="inline mr-2" />
+                      Important: Use your registration email or phone number as payment reference
+                    </p>
+                  </div>
                 </>
               ) : (
                 <>
@@ -190,12 +232,12 @@ export default function DepositPage() {
                   <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-4 rounded-lg mb-4">
                     <p className="text-red-800 dark:text-red-300">{disableReason}</p>
                   </div>
-                  
-                  <p className="text-gray-700 dark:text-gray-300">
-                    To resolve this issue, please contact our support team at: <a href="mailto:datamartghana@gmail.com" className="text-blue-600 dark:text-blue-400 underline">datamartghana@gmail.com</a>
-                  </p>
                 </>
               )}
+              
+              <p className="text-gray-700 dark:text-gray-300">
+                For immediate assistance, please email us at: <a href="mailto:datamartghana@gmail.com" className="text-blue-600 dark:text-blue-400 underline">datamartghana@gmail.com</a>
+              </p>
             </div>
             
             <div className="flex justify-end">
@@ -206,14 +248,12 @@ export default function DepositPage() {
                 Close
               </button>
               
-              {approvalStatus === 'pending' && (
-                <a
-                  href="mailto:datamartghana@gmail.com"
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                >
-                  Contact Support
-                </a>
-              )}
+              <a
+                href="mailto:datamartghana@gmail.com"
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              >
+                Contact Support
+              </a>
             </div>
           </div>
         </div>

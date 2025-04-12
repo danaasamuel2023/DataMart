@@ -25,6 +25,7 @@ const AdminUsers = () => {
   
   // Pending users state
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [selectedPendingUsers, setSelectedPendingUsers] = useState([]);
   
   // Only keep modal state we need for disable/approve
   const [selectedUser, setSelectedUser] = useState(null);
@@ -119,6 +120,7 @@ const AdminUsers = () => {
       );
       
       setPendingUsers(response.data.data);
+      setSelectedPendingUsers([]); // Reset selections when fetching new data
       setError(null);
     } catch (err) {
       console.error('Error fetching pending users:', err);
@@ -194,7 +196,29 @@ const AdminUsers = () => {
     }
   };
 
-  // Handle approve pending user
+  // Handle selection of pending users
+  const handleSelectPendingUser = (userId) => {
+    setSelectedPendingUsers(prevSelected => {
+      if (prevSelected.includes(userId)) {
+        return prevSelected.filter(id => id !== userId);
+      } else {
+        return [...prevSelected, userId];
+      }
+    });
+  };
+
+  // Handle select all pending users
+  const handleSelectAllPendingUsers = () => {
+    if (selectedPendingUsers.length === pendingUsers.length) {
+      // If all are selected, unselect all
+      setSelectedPendingUsers([]);
+    } else {
+      // Otherwise, select all
+      setSelectedPendingUsers(pendingUsers.map(user => user._id));
+    }
+  };
+
+  // Handle approve single pending user
   const handleApproveUser = async (userId) => {
     try {
       setProcessingAction(true);
@@ -222,6 +246,44 @@ const AdminUsers = () => {
     } catch (err) {
       console.error('Error approving user:', err);
       toast.error(err.response?.data?.message || 'Failed to approve user');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Handle approve multiple pending users
+  const handleApproveMultipleUsers = async () => {
+    if (selectedPendingUsers.length === 0) {
+      toast.warning('No users selected for approval');
+      return;
+    }
+
+    try {
+      setProcessingAction(true);
+      const token = localStorage.getItem('authToken');
+      
+      // Create a batch approval request
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com'}/api/admin/users/approve-multiple`,
+        { userIds: selectedPendingUsers },
+        {
+          headers: {
+            'x-auth-token': token
+          }
+        }
+      );
+      
+      toast.success(`${selectedPendingUsers.length} users approved successfully`);
+      
+      // Refresh both user lists
+      fetchUsers(pagination.currentPage);
+      fetchPendingUsers();
+      
+      // Clear selections
+      setSelectedPendingUsers([]);
+    } catch (err) {
+      console.error('Error approving multiple users:', err);
+      toast.error(err.response?.data?.message || 'Failed to approve selected users');
     } finally {
       setProcessingAction(false);
     }
@@ -470,7 +532,24 @@ const AdminUsers = () => {
       {/* Pending Users Tab */}
       {activeTab === 'pending' && (
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Users Awaiting Approval</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Users Awaiting Approval</h2>
+            
+            {/* Bulk approval button */}
+            {pendingUsers.length > 0 && (
+              <button
+                onClick={handleApproveMultipleUsers}
+                disabled={selectedPendingUsers.length === 0 || processingAction}
+                className={`px-4 py-2 ${
+                  selectedPendingUsers.length === 0 || processingAction
+                    ? 'bg-gray-300 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-600'
+                } text-white rounded-md`}
+              >
+                {processingAction ? 'Processing...' : `Approve Selected (${selectedPendingUsers.length})`}
+              </button>
+            )}
+          </div>
           
           {/* Error message */}
           {error && (
@@ -489,6 +568,15 @@ const AdminUsers = () => {
               <table className="min-w-full bg-white">
                 <thead>
                   <tr>
+                    <th className="px-4 py-3 border-b-2 border-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={pendingUsers.length > 0 && selectedPendingUsers.length === pendingUsers.length}
+                        onChange={handleSelectAllPendingUsers}
+                        disabled={pendingUsers.length === 0}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                    </th>
                     <th className="px-6 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Name
                     </th>
@@ -513,6 +601,14 @@ const AdminUsers = () => {
                   {pendingUsers.length > 0 ? (
                     pendingUsers.map((user) => (
                       <tr key={user._id}>
+                        <td className="px-4 py-4 whitespace-nowrap border-b border-gray-200 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedPendingUsers.includes(user._id)}
+                            onChange={() => handleSelectPendingUser(user._id)}
+                            className="form-checkbox h-5 w-5 text-blue-600"
+                          />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap border-b border-gray-200">
                           {user.name}
                         </td>
@@ -541,7 +637,7 @@ const AdminUsers = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="px-6 py-4 text-center border-b border-gray-200">
+                      <td colSpan="7" className="px-6 py-4 text-center border-b border-gray-200">
                         No pending users found
                       </td>
                     </tr>
