@@ -262,18 +262,36 @@ const AdminUsers = () => {
       setProcessingAction(true);
       const token = localStorage.getItem('authToken');
       
-      // Create a batch approval request
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com'}/api/admin/users/approve-multiple`,
-        { userIds: selectedPendingUsers },
-        {
-          headers: {
-            'x-auth-token': token
-          }
-        }
-      );
+      // Process approvals sequentially to avoid overwhelming the server
+      let successCount = 0;
+      let errorCount = 0;
       
-      toast.success(`${selectedPendingUsers.length} users approved successfully`);
+      for (const userId of selectedPendingUsers) {
+        try {
+          await axios.put(
+            `${process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com'}/api/admin/users/${userId}/approve`,
+            {},
+            {
+              headers: {
+                'x-auth-token': token
+              }
+            }
+          );
+          successCount++;
+        } catch (err) {
+          console.error(`Error approving user ${userId}:`, err);
+          errorCount++;
+        }
+      }
+      
+      // Display appropriate message based on results
+      if (successCount > 0 && errorCount > 0) {
+        toast.success(`${successCount} users approved successfully. ${errorCount} failed.`);
+      } else if (successCount > 0) {
+        toast.success(`${successCount} users approved successfully.`);
+      } else {
+        toast.error('Failed to approve selected users. Please try again.');
+      }
       
       // Refresh both user lists
       fetchUsers(pagination.currentPage);
@@ -282,8 +300,8 @@ const AdminUsers = () => {
       // Clear selections
       setSelectedPendingUsers([]);
     } catch (err) {
-      console.error('Error approving multiple users:', err);
-      toast.error(err.response?.data?.message || 'Failed to approve selected users');
+      console.error('Error in multiple approval process:', err);
+      toast.error('An error occurred during the approval process. Please try again.');
     } finally {
       setProcessingAction(false);
     }

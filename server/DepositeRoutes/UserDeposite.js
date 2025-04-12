@@ -45,24 +45,24 @@ router.post('/deposit', async (req, res) => {
 
     // Get the list of approved users
     // You can either maintain this list in the database or fetch it as needed
-    const approvedUsers = await User.find({ 
-      $or: [
-        { approvalStatus: 'approved' },
-        { approvalStatus: { $exists: false } } // Include legacy users without the field
-      ]
-    }).select('_id');
+    // const approvedUsers = await User.find({ 
+    //   $or: [
+    //     { approvalStatus: 'approved' },
+    //     { approvalStatus: { $exists: false } } // Include legacy users without the field
+    //   ]
+    // }).select('_id');
     
-    // Convert to array of IDs for easier checking
-    const approvedUserIds = approvedUsers.map(user => user._id.toString());
+    // // Convert to array of IDs for easier checking
+    // const approvedUserIds = approvedUsers.map(user => user._id.toString());
     
-    // Check if the userId making the deposit is in the approved list
-    if (!approvedUserIds.includes(userId.toString())) {
-      return res.status(403).json({
-        success: false,
-        error: 'Account not approved',
-        message: 'Your account is not approved for deposits. Please contact support.',
-      });
-    }
+    // // Check if the userId making the deposit is in the approved list
+    // if (!approvedUserIds.includes(userId.toString())) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Account not approved',
+    //     message: 'Your account is not approved for deposits. Please contact support.',
+    //   });
+    // }
 
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
