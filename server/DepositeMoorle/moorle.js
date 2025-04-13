@@ -355,8 +355,8 @@ router.post('/generate-payment-id', async (req, res) => {
   }
 });
 
-// Verify transaction status with Moolre
-router.get('/verify-payment', async (req, res) => {
+/// Verify transaction status with Moolre
+router.get('/verify-payments', async (req, res) => {
   try {
     const { reference } = req.query;
     
@@ -389,63 +389,80 @@ router.get('/verify-payment', async (req, res) => {
       });
     }
     
-    // For pending transactions, check with Moolre
-    // Implement according to Moolre's API for checking transaction status
-    // This is a placeholder as the specific endpoint wasn't in the provided docs
+    // For pending transactions, check with Moolre using the correct endpoint and format
     try {
-      const statusResponse = await axios.get(
-        `${MOOLRE_BASE_URL}/open/transact/status/${transaction.metadata.externalRef}`,
+      const statusResponse = await axios.post(
+        `${MOOLRE_BASE_URL}/open/transact/status`,
+        {
+          type: 1,
+          idtype: 1,
+          id: transaction.metadata.externalRef,
+          accountnumber: MOOLRE_ACCOUNT_NUMBER
+        },
         {
           headers: {
+            'Content-Type': 'application/json',
             'X-API-USER': MOOLRE_API_USER,
-            'X-API-KEY': MOOLRE_API_KEY
+            'X-API-PUBKEY': MOOLRE_API_PUBKEY
           }
         }
       );
       
-      // Process response based on Moolre's API structure
-      // This is an example based on typical APIs
-      if (statusResponse.data.status === 1 && 
-          (statusResponse.data.data.status === 'completed' || 
-           statusResponse.data.data.status === 'success')) {
+      if (statusResponse.data.status === 1) {
+        const txStatus = statusResponse.data.data.txstatus;
         
-        // Update transaction status
-        transaction.status = 'completed';
-        await transaction.save();
-        
-        // Update user wallet
-        const user = await User.findById(transaction.userId);
-        if (user) {
-          user.walletBalance += transaction.amount;
-          await user.save();
+        // Check transaction status (1 = Successful, 0 = Pending, 2 = Failed)
+        if (txStatus === 1) {
+          // Update transaction status
+          transaction.status = 'completed';
+          await transaction.save();
+          
+          // Update user wallet
+          const user = await User.findById(transaction.userId);
+          if (user) {
+            user.walletBalance += transaction.amount;
+            await user.save();
+          }
+          
+          return res.json({
+            success: true,
+            message: 'Payment verified successfully',
+            data: {
+              reference,
+              amount: transaction.amount,
+              status: 'completed'
+            }
+          });
+        } else if (txStatus === 2) {
+          transaction.status = 'failed';
+          await transaction.save();
+          
+          return res.json({
+            success: false,
+            message: 'Payment failed',
+            data: {
+              reference,
+              amount: transaction.amount,
+              status: 'failed'
+            }
+          });
+        } else {
+          // Status is still pending
+          return res.json({
+            success: false,
+            message: 'Payment is still pending',
+            data: {
+              reference,
+              amount: transaction.amount,
+              status: 'pending'
+            }
+          });
         }
-        
-        return res.json({
-          success: true,
-          message: 'Payment verified successfully',
-          data: {
-            reference,
-            amount: transaction.amount,
-            status: 'completed'
-          }
-        });
-      } else if (statusResponse.data.data.status === 'failed') {
-        transaction.status = 'failed';
-        await transaction.save();
-        
-        return res.json({
-          success: false,
-          message: 'Payment failed',
-          data: {
-            reference,
-            amount: transaction.amount,
-            status: 'failed'
-          }
-        });
       } else {
+        // API call was unsuccessful
         return res.json({
           success: false,
-          message: `Payment status: ${statusResponse.data.data.status || 'pending'}`,
+          message: statusResponse.data.message || 'Failed to verify with payment provider',
           data: {
             reference,
             amount: transaction.amount,
@@ -468,7 +485,6 @@ router.get('/verify-payment', async (req, res) => {
     });
   }
 });
-
 // Get all transactions for a user
 router.get('/user-transactions/:userId', async (req, res) => {
   try {

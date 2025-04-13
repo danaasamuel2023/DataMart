@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Link from 'next/link';
-import { Info, AlertCircle, X, Copy } from 'lucide-react'; // Make sure to install lucide-react
+import { Info, AlertCircle, X, Copy, AlertTriangle } from 'lucide-react'; // Added AlertTriangle icon
 
 export default function DepositPage() {
   const [amount, setAmount] = useState('');
@@ -19,6 +19,8 @@ export default function DepositPage() {
   const [accountStatus, setAccountStatus] = useState(''); // 'pending', 'disabled', or 'not-approved'
   const [disableReason, setDisableReason] = useState('');
   const [copySuccess, setCopySuccess] = useState('');
+  // New state for Paystack warning modal
+  const [showPaystackWarningModal, setShowPaystackWarningModal] = useState(false);
   
   const router = useRouter();
   
@@ -75,6 +77,13 @@ export default function DepositPage() {
       return;
     }
     
+    // Show the Paystack warning modal first
+    setShowPaystackWarningModal(true);
+  };
+  
+  // Function to proceed with the deposit after warning
+  const proceedWithDeposit = async () => {
+    setShowPaystackWarningModal(false);
     setIsLoading(true);
     setError('');
     setSuccess('');
@@ -120,6 +129,13 @@ export default function DepositPage() {
     }
   };
   
+  // Function to use alternative payment method
+  const useAlternativePayment = () => {
+    setShowPaystackWarningModal(false);
+    // Navigate to deposit page with alternative payment flag
+    router.push('/deposite?method=alternative');
+  };
+  
   // Show loading or redirect if not authenticated yet
   if (!isAuthenticated) {
     return <div className="flex justify-center items-center min-h-screen text-gray-800 dark:text-gray-200">Checking authentication...</div>;
@@ -127,6 +143,85 @@ export default function DepositPage() {
   
   return (
     <div className="max-w-md mx-auto my-10 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+      {/* Paystack Warning Modal */}
+      {showPaystackWarningModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertTriangle size={24} className="text-yellow-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Important Payment Notice
+                </h2>
+              </div>
+              <button 
+                onClick={() => setShowPaystackWarningModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                You're about to be redirected to Paystack to complete your payment. Please note:
+              </p>
+              
+              <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg mb-4">
+                <div className="flex items-start">
+                  <AlertCircle size={20} className="text-yellow-600 dark:text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">⚠️ Paystack Payment Warning</p>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
+                      If Paystack does not prompt you to enter your PIN or if the payment fails, please use our alternative payment method instead.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                <p className="text-gray-800 dark:text-gray-200 font-semibold mb-2">Alternative Payment Option:</p>
+                <p className="text-gray-800 dark:text-gray-200 mb-3">
+                  We have an alternative deposit method available when Paystack is not working properly.
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+                  Note: The alternative payment method has higher charges and is not recommended for business use.
+                </p>
+                <button
+                  onClick={useAlternativePayment}
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded"
+                >
+                  Use Alternative Deposit Method
+                </button>
+              </div>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
+                <p className="text-blue-800 dark:text-blue-300 text-sm">
+                  <Info size={16} className="inline mr-2" />
+                  The alternative deposit method will redirect you to our other payment system. Your account will be credited automatically upon successful payment.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowPaystackWarningModal(false)}
+                className="bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded mr-2"
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={proceedWithDeposit}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              >
+                Proceed with Paystack
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Approval Modal */}
       {showApprovalModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
