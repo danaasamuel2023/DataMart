@@ -67,8 +67,8 @@ export default function DepositPage() {
   const handleDeposit = async (e) => {
     e.preventDefault();
     
-    if (!amount || amount <= 0) {
-      setError('Please enter a valid amount');
+    if (!amount || amount <= 9) {
+      setError('Please enter a valid amount greater than 9 GHS.');
       return;
     }
     

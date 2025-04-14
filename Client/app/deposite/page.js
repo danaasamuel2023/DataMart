@@ -70,8 +70,8 @@ const MoolreDeposit = () => {
 
   // Form validation
   const isFormValid = () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount');
+    if (!amount || parseFloat(amount) <= 9) {
+      setError('Please enter a valid amount greater than GHS 9');
       return false;
     }
     
