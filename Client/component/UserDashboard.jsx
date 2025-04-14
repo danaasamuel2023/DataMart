@@ -35,6 +35,9 @@ const DashboardPage = () => {
   const navigateToTopup = () => {
     router.push('/topup');
   };
+  const navigateToregisterFriend=() =>{
+    router.push('/registerFriend');
+  }
 
   const navigateToNetwork = (network) => {
     switch(network) {
@@ -224,6 +227,14 @@ const DashboardPage = () => {
               >
                 <AlertCircle className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
                 Transactions
+              </button>
+
+              <button 
+                onClick={navigateToregisterFriend}
+                className="inline-flex items-center px-2 py-1 sm:px-4 sm:py-2 bg-white dark:bg-gray-800 text-yellow-500 font-medium rounded-md shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300 text-xs sm:text-sm"
+              >
+                <User className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+                Register an agent
               </button>
             </div>
           </div>

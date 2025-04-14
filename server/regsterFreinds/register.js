@@ -2,16 +2,16 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { User, ReferralBonus } = require("../schema/schema");
-const { authMiddleware } = require("./auth"); // Keep auth middleware for security
 const router = express.Router();
 
-// Route to register a friend (requires authentication but uses passed referrerId)
-router.post("/register-friend", authMiddleware, async (req, res) => {
+// Route to register a friend (uses userId from params instead of auth token)
+router.post("/register-friend/:userId", async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, referrerId } = req.body;
+    const { userId } = req.params; // Get the agent's userId from route params
+    const { name, email, password, phoneNumber } = req.body;
     
     // Input validation
-    if (!name || !email || !password || !phoneNumber || !referrerId) {
+    if (!name || !email || !password || !phoneNumber || !userId) {
       return res.status(400).json({ 
         message: "All fields are required",
         details: {
@@ -19,7 +19,7 @@ router.post("/register-friend", authMiddleware, async (req, res) => {
           email: !email ? "Email is required" : null,
           password: !password ? "Password is required" : null,
           phoneNumber: !phoneNumber ? "Phone number is required" : null,
-          referrerId: !referrerId ? "Referrer ID is required" : null
+          userId: !userId ? "Agent ID is required" : null
         }
       });
     }
@@ -48,10 +48,19 @@ router.post("/register-friend", authMiddleware, async (req, res) => {
       }
     }
 
-    // Get the referrer using the provided ID
-    const referrer = await User.findById(referrerId);
-    if (!referrer) {
-      return res.status(404).json({ message: "Referrer not found" });
+    // Get the agent who is registering the friend
+    const agent = await User.findById(userId);
+    if (!agent) {
+      return res.status(404).json({ message: "Agent not found" });
+    }
+    
+    // Check if agent has enough balance to register a friend
+    if (agent.walletBalance < 15) {
+      return res.status(400).json({ 
+        message: "Insufficient balance to register a friend",
+        requiredBalance: 15,
+        currentBalance: agent.walletBalance
+      });
     }
 
     // Hash password
@@ -68,32 +77,36 @@ router.post("/register-friend", authMiddleware, async (req, res) => {
       password: hashedPassword,
       phoneNumber,
       referralCode,
-      referredBy: referrer.referralCode,
-      registeredByUserId: referrer._id
+      referredBy: agent.referralCode,
+      registeredByUserId: agent._id
     });
 
     await newUser.save();
 
     // Create referral record
     await ReferralBonus.create({
-      userId: referrer._id,
+      userId: agent._id,
       referredUserId: newUser._id,
       amount: 5, // Set referral bonus amount
       status: "pending"
     });
 
-    // Update the referrer's registered friends list
-    if (!referrer.registeredFriends) {
-      referrer.registeredFriends = [];
+    // Update the agent's registered friends list
+    if (!agent.registeredFriends) {
+      agent.registeredFriends = [];
     }
-    referrer.registeredFriends.push({
+    agent.registeredFriends.push({
       userId: newUser._id,
       name: newUser.name,
       email: newUser.email,
       phoneNumber: newUser.phoneNumber,
       registeredAt: new Date()
     });
-    await referrer.save();
+    
+    // Deduct 15 cedis from the agent's wallet balance
+    agent.walletBalance -= 15;
+    
+    await agent.save();
 
     res.status(201).json({
       message: "Friend registered successfully",
@@ -101,7 +114,9 @@ router.post("/register-friend", authMiddleware, async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         phoneNumber: newUser.phoneNumber
-      }
+      },
+      deductedAmount: 15,
+      newWalletBalance: agent.walletBalance
     });
   } catch (error) {
     console.error("Friend registration error:", error);
@@ -110,7 +125,7 @@ router.post("/register-friend", authMiddleware, async (req, res) => {
 });
 
 // Route to get all registered friends with custom user ID
-router.get("/my-registered-friends/:userId", authMiddleware, async (req, res) => {
+router.get("/my-registered-friends/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     

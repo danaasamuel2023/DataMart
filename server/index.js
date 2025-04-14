@@ -13,6 +13,7 @@ const passreset = require('./ResetPasword/reset.js')
 const Report = require('./Reporting/reporting.js')
 const DepositeMorle = require('./DepositeMoorle/moorle.js')
 const approveuser = require('./adim-aprove/approve.js')
+const registerFriend = require('./regsterFreinds/register.js')
 dotenv.config();
 
 // Initialize Express app
@@ -36,6 +37,7 @@ app.use('/api/v1', passreset);
 app.use('/api/reports', Report);
 app.use('/api/v1', DepositeMorle);
 app.use('/api', approveuser)
+app.use('/api', registerFriend);
 
 // Default Route
 app.get('/', (req, res) => {
