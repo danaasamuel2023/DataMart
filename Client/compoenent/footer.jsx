@@ -163,19 +163,19 @@ const Footer = () => {
                 text="SamTech Building, Digital Street, Accra" 
                 isDarkMode={isDarkMode}
               />
-              <ContactItem 
+              {/* <ContactItem 
                 icon={<Phone size={18} />} 
                 text="0597760914" 
                 isDarkMode={isDarkMode}
-              />
+              /> */}
               <ContactItem 
                 icon={<Mail size={18} />} 
-                text="unimarketgh@gmail.com" 
+                text="datamartghana@gmail.com" 
                 isDarkMode={isDarkMode}
               />
               <ContactItem 
                 icon={<Clock size={18} />} 
-                text="Mon-Sat: 8AM - 8PM" 
+                text="Mon-Sun: 8AM - 9PM" 
                 isDarkMode={isDarkMode}
               />
             </div>
