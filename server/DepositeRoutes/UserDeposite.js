@@ -9,9 +9,6 @@ const PAYSTACK_SECRET_KEY = 'sk_live_0fba72fb9c4fc71200d2e0cdbb4f2b37c1de396c';
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 // Initiate Deposit
-// Initiate Deposit
-// Initiate Deposit
-// Initiate Deposit with approved user list check
 router.post('/deposit', async (req, res) => {
   try {
     const { userId, amount, totalAmountWithFee, email } = req.body;
@@ -42,27 +39,6 @@ router.post('/deposit', async (req, res) => {
         disableReason: user.disableReason || 'No reason provided'
       });
     }
-
-    // Get the list of approved users
-    // You can either maintain this list in the database or fetch it as needed
-    // const approvedUsers = await User.find({ 
-    //   $or: [
-    //     { approvalStatus: 'approved' },
-    //     { approvalStatus: { $exists: false } } // Include legacy users without the field
-    //   ]
-    // }).select('_id');
-    
-    // // Convert to array of IDs for easier checking
-    // const approvedUserIds = approvedUsers.map(user => user._id.toString());
-    
-    // // Check if the userId making the deposit is in the approved list
-    // if (!approvedUserIds.includes(userId.toString())) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Account not approved',
-    //     message: 'Your account is not approved for deposits. Please contact support.',
-    //   });
-    // }
 
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
@@ -118,6 +94,56 @@ router.post('/deposit', async (req, res) => {
     });
   }
 });
+
+// FIXED: Added transaction locking mechanism using processing field
+// Process a successful payment and update user wallet
+async function processSuccessfulPayment(reference) {
+  // Use findOneAndUpdate with proper conditions to prevent race conditions
+  const transaction = await Transaction.findOneAndUpdate(
+    { 
+      reference, 
+      status: 'pending',
+      processing: { $ne: true } // Only update if not already being processed
+    },
+    { 
+      $set: { 
+        processing: true  // Mark as being processed to prevent double processing
+      } 
+    },
+    { new: true }
+  );
+
+  if (!transaction) {
+    console.log(`Transaction ${reference} not found or already processed/processing`);
+    return { success: false, message: 'Transaction not found or already processed' };
+  }
+
+  try {
+    // Now safely update the transaction status
+    transaction.status = 'completed';
+    await transaction.save();
+    console.log(`Transaction ${reference} marked as completed`);
+
+    // Update user's wallet balance with the original amount (without fee)
+    const user = await User.findById(transaction.userId);
+    if (user) {
+      user.walletBalance += transaction.amount; 
+      await user.save();
+      console.log(`User ${user._id} wallet updated, new balance: ${user.walletBalance}`);
+      return { success: true, message: 'Deposit successful' };
+    } else {
+      console.error(`User not found for transaction ${reference}`);
+      return { success: false, message: 'User not found' };
+    }
+  } catch (error) {
+    // If there's an error, release the processing lock
+    transaction.processing = false;
+    await transaction.save();
+    throw error;
+  }
+}
+
+// Paystack webhook handler
 router.post('/paystack/webhook', async (req, res) => {
   try {
     // Log incoming webhook
@@ -146,35 +172,8 @@ router.post('/paystack/webhook', async (req, res) => {
       const { reference } = event.data;
       console.log(`Processing successful payment for reference: ${reference}`);
 
-      // Find transaction by reference
-      const transaction = await Transaction.findOne({ reference });
-
-      if (!transaction) {
-        console.error(`Transaction not found for reference: ${reference}`);
-        return res.status(400).json({ error: 'Transaction not found' });
-      }
-
-      if (transaction.status !== 'pending') {
-        console.log(`Transaction ${reference} already processed, status: ${transaction.status}`);
-        return res.json({ message: 'Transaction already processed' });
-      }
-
-      // Mark transaction as completed
-      transaction.status = 'completed';
-      await transaction.save();
-      console.log(`Transaction ${reference} marked as completed`);
-
-      // Update user's wallet balance with the original amount (without fee)
-      const user = await User.findById(transaction.userId);
-      if (user) {
-        user.walletBalance += transaction.amount; 
-        await user.save();
-        console.log(`User ${user._id} wallet updated, new balance: ${user.walletBalance}`);
-      } else {
-        console.error(`User not found for transaction ${reference}`);
-      }
-
-      return res.json({ message: 'Deposit successful' });
+      const result = await processSuccessfulPayment(reference);
+      return res.json({ message: result.message });
     } else {
       console.log(`Unhandled event type: ${event.event}`);
       return res.json({ message: 'Event received' });
@@ -186,6 +185,7 @@ router.post('/paystack/webhook', async (req, res) => {
   }
 });
 
+// Verify payment endpoint for client-side verification
 router.get('/verify-payment', async (req, res) => {
   try {
     const { reference } = req.query;
@@ -238,26 +238,30 @@ router.get('/verify-payment', async (req, res) => {
 
         // If payment is successful
         if (data.status === 'success') {
-          // Update transaction status
-          transaction.status = 'completed';
-          await transaction.save();
-
-          // Update user's wallet balance with the original amount (without fee)
-          const user = await User.findById(transaction.userId);
-          if (user) {
-            user.walletBalance += transaction.amount;
-            await user.save();
+          // Process the payment using our common function
+          const result = await processSuccessfulPayment(reference);
+          
+          if (result.success) {
+            return res.json({
+              success: true,
+              message: 'Payment verified successfully',
+              data: {
+                reference,
+                amount: transaction.amount,
+                status: 'completed'
+              }
+            });
+          } else {
+            return res.json({
+              success: false,
+              message: result.message,
+              data: {
+                reference,
+                amount: transaction.amount,
+                status: transaction.status
+              }
+            });
           }
-
-          return res.json({
-            success: true,
-            message: 'Payment verified successfully',
-            data: {
-              reference,
-              amount: transaction.amount,
-              status: 'completed'
-            }
-          });
         } else {
           return res.json({
             success: false,
@@ -297,7 +301,7 @@ router.get('/verify-payment', async (req, res) => {
   }
 });
 
-// NEW ROUTE: Get all transactions for a user
+// Get all transactions for a user
 router.get('/user-transactions/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -353,7 +357,7 @@ router.get('/user-transactions/:userId', async (req, res) => {
   }
 });
 
-// NEW ROUTE: Verify pending transaction by ID
+// Verify pending transaction by ID
 router.post('/verify-pending-transaction/:transactionId', async (req, res) => {
   try {
     const { transactionId } = req.params;
@@ -398,27 +402,32 @@ router.post('/verify-pending-transaction/:transactionId', async (req, res) => {
       
       // If payment is successful
       if (data.status === 'success') {
-        // Update transaction status
-        transaction.status = 'completed';
-        await transaction.save();
+        // Process the payment using our common function
+        const result = await processSuccessfulPayment(transaction.reference);
         
-        // Update user's wallet balance
-        const user = await User.findById(transaction.userId);
-        if (user) {
-          user.walletBalance += transaction.amount;
-          await user.save();
+        if (result.success) {
+          return res.json({
+            success: true,
+            message: 'Transaction verified and completed successfully',
+            data: {
+              transactionId,
+              reference: transaction.reference,
+              amount: transaction.amount,
+              status: 'completed'
+            }
+          });
+        } else {
+          return res.json({
+            success: false,
+            message: result.message,
+            data: {
+              transactionId,
+              reference: transaction.reference,
+              amount: transaction.amount,
+              status: transaction.status
+            }
+          });
         }
-        
-        return res.json({
-          success: true,
-          message: 'Transaction verified and completed successfully',
-          data: {
-            transactionId,
-            reference: transaction.reference,
-            amount: transaction.amount,
-            status: 'completed'
-          }
-        });
       } else if (data.status === 'failed') {
         // Mark transaction as failed
         transaction.status = 'failed';

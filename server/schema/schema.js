@@ -90,15 +90,49 @@ const DataPurchaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const TransactionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  type: { type: String, enum: ["deposit", "purchase","refund","withdrawal"], required: true }, 
-  amount: { type: Number, required: true },
-  status: { type: String, enum: ["pending", "completed", "failed","refund","waiting"], default: "pending" },
-  reference: { type: String, unique: true, required: true }, 
-  gateway: { type: String, required: true }, 
-  metadata: { type: Object, default: {} },
-  createdAt: { type: Date, default: Date.now }
+const transactionSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  type: {
+    type: String,
+    enum: ['deposit', 'withdrawal', 'transfer', 'refund'],
+    required: true
+  },
+  amount: {
+    type: Number,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'completed', 'failed', 'cancelled'],
+    default: 'pending'
+  },
+  reference: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  gateway: {
+    type: String,
+    enum: ['paystack', 'manual', 'system'],
+    default: 'paystack'
+  },
+  // Add the new processing field to prevent double processing
+  processing: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 // Updated ReferralBonus Schema to include friend registration type
