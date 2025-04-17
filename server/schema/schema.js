@@ -90,7 +90,7 @@ const DataPurchaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const transactionSchema = new mongoose.Schema({
+const TransactionSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
