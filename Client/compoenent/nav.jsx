@@ -18,21 +18,25 @@ import {
   Phone,
   ArrowUpRight,
   LogOut,
-  User
+  User,
+  PanelLeftClose,
+  PanelLeft,
+  PanelRightClose
 } from 'lucide-react';
 
 const Navbar = () => {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Define three sidebar states: expanded, normal, collapsed
+  const [sidebarState, setSidebarState] = useState("normal"); // "expanded", "normal", "collapsed"
   const [activeSection, setActiveSection] = useState("Dashboard");
  
   // Check system preference and local storage on initial load
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const sidebarState = localStorage.getItem('sidebarState');
+    const savedSidebarState = localStorage.getItem('sidebarState');
 
     if (savedTheme === 'dark' || (savedTheme === null && prefersDarkMode)) {
       setIsDarkMode(true);
@@ -41,8 +45,8 @@ const Navbar = () => {
       document.documentElement.classList.remove('dark');
     }
     
-    if (sidebarState === 'collapsed') {
-      setIsCollapsed(true);
+    if (savedSidebarState) {
+      setSidebarState(savedSidebarState);
     }
   }, []);
 
@@ -56,11 +60,11 @@ const Navbar = () => {
       localStorage.removeItem('userData');
       
       // Use direct window location for reliable navigation
-      window.location.href = '/Signin';
+      window.location.href = '/SignIn';
     } catch (error) {
       console.error("Error during logout:", error);
       // Emergency fallback
-      window.location.href = '/Signin';
+      window.location.href = '/SignIn';
     }
   };
 
@@ -78,11 +82,68 @@ const Navbar = () => {
     }
   };
 
-  // Toggle sidebar collapse state
+  // Toggle sidebar states
   const toggleSidebar = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem('sidebarState', newState ? 'collapsed' : 'expanded');
+    let newState;
+    
+    // Add toggling animation effect
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.classList.add('sidebar-pulse');
+      setTimeout(() => {
+        sidebar.classList.remove('sidebar-pulse');
+      }, 500);
+    }
+    
+    switch(sidebarState) {
+      case "expanded":
+        newState = "normal";
+        break;
+      case "normal":
+        newState = "collapsed";
+        break;
+      case "collapsed":
+        newState = "expanded";
+        break;
+      default:
+        newState = "normal";
+    }
+    
+    setSidebarState(newState);
+    localStorage.setItem('sidebarState', newState);
+    
+    // Show notification of state change
+    const stateLabels = {
+      "expanded": "Wide",
+      "normal": "Normal", 
+      "collapsed": "Hidden"
+    };
+    
+    // Flash notification about sidebar state change
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg z-50 animate-fadeInOut';
+    notification.textContent = `Sidebar: ${stateLabels[newState]}`;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.remove();
+    }, 2000);
+  };
+
+  // Specific functions to set sidebar to a particular state
+  const expandSidebar = () => {
+    setSidebarState("expanded");
+    localStorage.setItem('sidebarState', "expanded");
+  };
+
+  const collapseSidebar = () => {
+    setSidebarState("collapsed");
+    localStorage.setItem('sidebarState', "collapsed");
+  };
+
+  const resetSidebar = () => {
+    setSidebarState("normal");
+    localStorage.setItem('sidebarState', "normal");
   };
 
   const toggleMobileMenu = () => {
@@ -143,7 +204,9 @@ const Navbar = () => {
   );
 
   // Desktop Navigation Item Component with Tooltip
-  const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false, isCollapsed = false }) => {
+  const NavItem = ({ icon, text, path, onClick, isNew = false, isHighlighted = false }) => {
+    const isCollapsed = sidebarState === "collapsed";
+    
     const navContent = (
       <div 
         className={`
@@ -178,7 +241,7 @@ const Navbar = () => {
         
         {!isCollapsed && (
           <div className="flex items-center ml-3 w-full">
-            <span className="flex-grow font-medium text-sm">{text}</span>
+            <span className={`flex-grow font-medium text-sm ${sidebarState === "expanded" ? "whitespace-normal" : "whitespace-nowrap"}`}>{text}</span>
             {isNew && (
               <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
                 New
@@ -276,16 +339,49 @@ const Navbar = () => {
     );
   };
 
+  // Get sidebar width based on state
+  const getSidebarWidth = () => {
+    switch(sidebarState) {
+      case "expanded": return "w-72"; // Wider sidebar (changed from 80 to 72)
+      case "normal": return "w-56";   // Normal sidebar (changed from 64 to 56)
+      case "collapsed": return "w-16"; // Collapsed sidebar (changed from 20 to 16)
+      default: return "w-56";
+    }
+  };
+
+  // Get sidebar width for content offset
+  const getContentOffset = () => {
+    switch(sidebarState) {
+      case "expanded": return "md:ml-72";
+      case "normal": return "md:ml-56";
+      case "collapsed": return "md:ml-16";
+      default: return "md:ml-56";
+    }
+  };
+
+  // Get the appropriate sidebar toggle icon based on state
+  const getSidebarToggleIcon = () => {
+    switch(sidebarState) {
+      case "expanded": 
+        return <PanelLeftClose size={20} />;
+      case "normal": 
+        return <ChevronLeft size={20} />;
+      case "collapsed": 
+        return <PanelLeft size={20} />;
+      default:
+        return <ChevronLeft size={20} />;
+    }
+  };
+
   return (
     <>
       {/* Desktop Sidebar */}
       <aside 
-        className={`hidden md:flex flex-col ${
-          isCollapsed ? 'w-20' : 'w-64'
-        } bg-white dark:bg-gray-900 text-gray-900 dark:text-white h-screen fixed left-0 top-0 overflow-y-auto transition-all duration-300 z-30 shadow-lg`}
+        id="sidebar"
+        className={`hidden md:flex flex-col ${getSidebarWidth()} bg-white dark:bg-gray-900 text-gray-900 dark:text-white h-screen fixed left-0 top-0 overflow-y-auto transition-all duration-300 z-30 shadow-lg`}
       >
-        <div className={`p-4 text-2xl font-bold border-b border-gray-200 dark:border-gray-800 flex ${isCollapsed ? 'justify-center' : 'justify-between'} items-center h-16`}>
-          {isCollapsed ? (
+        <div className={`p-4 text-2xl font-bold border-b border-gray-200 dark:border-gray-800 flex ${sidebarState === "collapsed" ? 'justify-center' : 'justify-between'} items-center h-16`}>
+          {sidebarState === "collapsed" ? (
             <div className="flex justify-center w-full">
               <Link href="/">
                 <DataMartLogo width={40} height={30} />
@@ -296,7 +392,7 @@ const Navbar = () => {
               <DataMartLogo />
             </Link>
           )}
-          {!isCollapsed && (
+          {sidebarState !== "collapsed" && (
             <div className="flex items-center">
               <button 
                 onClick={toggleDarkMode} 
@@ -308,19 +404,22 @@ const Navbar = () => {
               <button 
                 onClick={toggleSidebar}
                 className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-                aria-label="Collapse sidebar"
+                aria-label="Adjust sidebar width"
+                title={sidebarState === "expanded" ? "Switch to normal width" : "Collapse sidebar"}
               >
-                <ChevronLeft size={20} />
+                {getSidebarToggleIcon()}
               </button>
             </div>
           )}
-          {isCollapsed && (
+          {sidebarState === "collapsed" && (
             <button 
-              onClick={toggleSidebar}
-              className="absolute right-0 top-16 bg-blue-500 text-white p-1 rounded-r-md hover:bg-blue-600 transition-colors"
+              onClick={expandSidebar}
+              className="absolute right-0 top-16 bg-blue-500 text-white p-2 rounded-r-md hover:bg-blue-600 transition-colors group"
               aria-label="Expand sidebar"
+              title="Expand sidebar"
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={22} />
+              <span className="absolute opacity-0 group-hover:opacity-100 left-0 top-1/2 transform -translate-x-full -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded transition-opacity whitespace-nowrap">Show Menu</span>
             </button>
           )}
         </div>
@@ -328,83 +427,75 @@ const Navbar = () => {
         <nav className="mt-5 flex flex-col justify-between h-[calc(100vh-64px)] px-2">
           <div>
             {/* Dashboard Section */}
-            {!isCollapsed && (
+            {sidebarState !== "collapsed" && (
               <div className="px-4 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Dashboard
               </div>
             )}
             <NavItem 
-              icon={<LayoutDashboard size={isCollapsed ? 24 : 20} />} 
+              icon={<LayoutDashboard size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="Dashboard" 
               path="/" 
-              isCollapsed={isCollapsed}
               isHighlighted={true}
             />
             <NavItem 
-              icon={<Home size={isCollapsed ? 24 : 20} />} 
+              icon={<Home size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="Home" 
               path="/" 
-              isCollapsed={isCollapsed}
             />
             <NavItem 
-              icon={<CreditCard size={isCollapsed ? 24 : 20} className="text-green-500" />} 
+              icon={<CreditCard size={sidebarState === "collapsed" ? 24 : 20} className="text-green-500" />} 
               text="Top Up" 
-              path="/topup" 
-              isCollapsed={isCollapsed} 
+              path="/topup"
             />
 
             {/* Services Section */}
-            {!isCollapsed && (
+            {sidebarState !== "collapsed" && (
               <div className="px-4 py-2 mt-6 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Services
               </div>
             )}
-            {isCollapsed && <div className="mt-6 border-t border-gray-200 dark:border-gray-800 pt-6"></div>}
+            {sidebarState === "collapsed" && <div className="mt-6 border-t border-gray-200 dark:border-gray-800 pt-6"></div>}
             <NavItem 
-              icon={<Layers size={isCollapsed ? 24 : 20} />} 
+              icon={<Layers size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="AIRTEL TIGO" 
               path="/at-ishare" 
-              isCollapsed={isCollapsed}
             />
             <NavItem 
-              icon={<Layers size={isCollapsed ? 24 : 20} />} 
+              icon={<Layers size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="MTN" 
               path="/mtnup2u" 
-              isCollapsed={isCollapsed}
             />
            
             <NavItem 
-              icon={<Phone size={isCollapsed ? 24 : 20} />} 
+              icon={<Phone size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="Telecel Bundle" 
               path="/TELECEL" 
               isNew 
-              isCollapsed={isCollapsed}
             />
 
             {/* API & Documentation Section */}
-            {!isCollapsed && (
+            {sidebarState !== "collapsed" && (
               <div className="px-4 py-2 mt-6 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 API & Documentation
               </div>
             )}
-            {isCollapsed && <div className="mt-6 border-t border-gray-200 dark:border-gray-800 pt-6"></div>}
+            {sidebarState === "collapsed" && <div className="mt-6 border-t border-gray-200 dark:border-gray-800 pt-6"></div>}
             <NavItem 
-              icon={<Key size={isCollapsed ? 24 : 20} />} 
+              icon={<Key size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="API Keys" 
               path="/api-keys" 
-              isCollapsed={isCollapsed}
             />
             <NavItem 
-              icon={<FileText size={isCollapsed ? 24 : 20} />} 
+              icon={<FileText size={sidebarState === "collapsed" ? 24 : 20} />} 
               text="API Documentation" 
               path="/api-doc" 
-              isCollapsed={isCollapsed}
             />
           </div>
           
           {/* User Profile & Logout Section */}
           <div className="mt-auto pb-4">
-            {!isCollapsed && (
+            {sidebarState !== "collapsed" && (
               <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mx-3 mb-3">
                 <div className="flex items-center">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
@@ -424,13 +515,24 @@ const Navbar = () => {
             )}
             
             <NavItem 
-              icon={<LogOut size={isCollapsed ? 24 : 20} className="text-red-500" />} 
+              icon={<LogOut size={sidebarState === "collapsed" ? 24 : 20} className="text-red-500" />} 
               text="Logout" 
               onClick={handleLogout} 
-              isCollapsed={isCollapsed}
             />
           </div>
         </nav>
+
+        {/* Enhanced Sidebar width control bar */}
+        <div className="absolute inset-y-0 right-0 w-2 bg-blue-100 dark:bg-gray-800 hover:bg-blue-200 dark:hover:bg-gray-700 cursor-col-resize opacity-50 hover:opacity-100 transition-opacity flex items-center justify-center" title="Drag to resize sidebar">
+          <div className="absolute inset-y-0 right-0 w-1 bg-blue-300 dark:bg-gray-600"></div>
+          
+          {/* Visible control dots */}
+          <div className="flex flex-col space-y-1 py-4">
+            {[1, 2, 3].map((_, i) => (
+              <div key={i} className="w-1 h-1 rounded-full bg-blue-500 dark:bg-blue-400"></div>
+            ))}
+          </div>
+        </div>
       </aside>
 
       {/* Mobile Navigation */}
@@ -447,6 +549,14 @@ const Navbar = () => {
               aria-label="Toggle dark mode"
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            {/* Add logout button directly in the top bar for mobile */}
+            <button 
+              onClick={handleLogout}
+              className="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-2 rounded-full hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut size={18} />
             </button>
             <button 
               onClick={toggleMobileMenu} 
@@ -522,6 +632,16 @@ const Navbar = () => {
                 >
                   <CreditCard className="mr-2" /> Top Up Account
                 </Link>
+              </div>
+              
+              {/* Always visible Logout button in mobile menu */}
+              <div className="p-4 animate-fadeIn border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={handleLogout}
+                  className="w-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 py-3 rounded-lg flex items-center justify-center font-medium shadow-sm hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  <LogOut className="mr-2" /> Logout
+                </button>
               </div>
               
               {/* Dashboard Section */}
@@ -611,15 +731,83 @@ const Navbar = () => {
                 </button>
               </div>
             </div>
+            
+            {/* Additional prominent logout button */}
+            <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 py-3 rounded-lg flex items-center justify-center font-medium shadow-sm hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <LogOut className="mr-2" /> Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Content wrapper - Spacing offset for the fixed sidebar */}
-      <div className="flex w-full">
-        {/* Sidebar spacer for desktop */}
-        <div className={`hidden md:block ${isCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 transition-all duration-300`}></div>
-      </div>
+      {/* Main content wrapper with proper spacing */}
+      <main className={`${getContentOffset()} pt-16 transition-all duration-300`}>
+        {/* Move controls to top-right of content area where they're more visible */}
+        <div className="hidden md:block fixed z-50 top-6 right-6">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-1.5 flex space-x-2 border border-blue-200 dark:border-gray-700">
+            {sidebarState !== "expanded" && (
+              <button
+                onClick={expandSidebar}
+                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center"
+                title="Expand sidebar (wide view)"
+              >
+                <PanelRightClose size={20} />
+                <span className="ml-1 text-xs font-medium">Wide</span>
+              </button>
+            )}
+            
+            {sidebarState !== "normal" && (
+              <button
+                onClick={resetSidebar}
+                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center"
+                title="Normal sidebar width"
+              >
+                <PanelLeft size={20} />
+                <span className="ml-1 text-xs font-medium">Normal</span>
+              </button>
+            )}
+            
+            {sidebarState !== "collapsed" && (
+              <button
+                onClick={collapseSidebar}
+                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center"
+                title="Collapse sidebar (maximize content area)"
+              >
+                <ChevronLeft size={20} />
+                <span className="ml-1 text-xs font-medium">Hide</span>
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Add a clear visual indicator for the collapsed state */}
+        <div 
+          className={`hidden md:block fixed top-1/2 transform -translate-y-1/2 transition-all duration-300 z-30 ${
+            sidebarState === "collapsed" ? "left-5" : "-left-10"
+          }`}
+        >
+          <div 
+            className="bg-blue-100 dark:bg-blue-900/20 p-1 rounded-full cursor-pointer"
+            onClick={() => sidebarState === "collapsed" ? expandSidebar() : collapseSidebar()}
+            title={sidebarState === "collapsed" ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarState === "collapsed" ? (
+              <ChevronRight size={20} className="text-blue-600 dark:text-blue-400" />
+            ) : (
+              <ChevronLeft size={20} className="text-blue-600 dark:text-blue-400" />
+            )}
+          </div>
+        </div>
+        
+        {/* Content goes here */}
+        <div className="p-6">
+          {/* Your page content */}
+        </div>
+      </main>
 
       {/* Animations */}
       <style jsx global>{`
@@ -633,12 +821,33 @@ const Navbar = () => {
           to { transform: translateX(0); opacity: 1; }
         }
         
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+          15% { opacity: 1; transform: translateY(0) translateX(-50%); }
+          85% { opacity: 1; transform: translateY(0) translateX(-50%); }
+          100% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+        }
+        
+        @keyframes pulse {
+          0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+          70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
         .animate-fadeIn {
           animation: fadeIn 0.4s ease-out forwards;
         }
         
         .animate-slideInRight {
           animation: slideInRight 0.3s ease-out forwards;
+        }
+        
+        .animate-fadeInOut {
+          animation: fadeInOut 2s ease-out forwards;
+        }
+        
+        .sidebar-pulse {
+          animation: pulse 0.5s ease-out;
         }
       `}</style>
     </>
