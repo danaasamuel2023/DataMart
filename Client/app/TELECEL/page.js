@@ -125,13 +125,13 @@ const TelecelBundleCards = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = false;
+  const inventoryAvailable = true;
   
   const [bundles, setBundles] = useState([
     { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: inventoryAvailable },
     // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
     // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '10', mb: '10000', price: '36.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '10', mb: '10000', price: '37.50', network: 'TELECEL', inStock: inventoryAvailable },
     // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: inventoryAvailable },
     { capacity: '15', mb: '15000', price: '55.50', network: 'TELECEL', inStock: inventoryAvailable },
     { capacity: '20', mb: '20000', price: '75.00', network: 'TELECEL', inStock: inventoryAvailable },

@@ -149,7 +149,7 @@ router.post('/purchase-data', async (req, res) => {
         status: 'error',
         message: 'Insufficient wallet balance',
         currentBalance: user.walletBalance,
-        requiredAmount: price
+        requiredAmount:  price
       });
     }
 

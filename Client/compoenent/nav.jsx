@@ -53,7 +53,7 @@ const Navbar = () => {
   // Improved Logout function
   const handleLogout = () => {
     console.log("Logout initiated");
-    
+     z
     try {
       // Clear auth data
       localStorage.removeItem('authToken');
