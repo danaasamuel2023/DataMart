@@ -141,7 +141,7 @@ const TelecelBundleCards = () => {
     { capacity: '50', mb: '50000', price: '180.00', network: 'TELECEL', inStock: inventoryAvailable }
   ]);
 
-  // Get user data from localStorage on component mount
+  // Get user data from localStorage on component mount 
   useEffect(() => {
     const storedUserData = localStorage.getItem('userData');
     if (storedUserData) {
