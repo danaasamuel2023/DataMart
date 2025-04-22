@@ -364,8 +364,6 @@ router.get('/data-packages', async (req, res) => {
         });
     }
 });
-
-// Purchase Data (support both authentication methods)
 router.post('/purchase', async (req, res, next) => {
     // First try API key authentication
     const apiKey = req.headers['x-api-key'];
@@ -383,7 +381,8 @@ router.post('/purchase', async (req, res, next) => {
             phoneNumber, 
             network, 
             capacity, 
-            gateway 
+            gateway,
+            referrerNumber // Added to support Hubnet referrer functionality
         } = req.body;
 
         logOperation('DATA_PURCHASE_REQUEST', {
@@ -392,6 +391,7 @@ router.post('/purchase', async (req, res, next) => {
             network,
             capacity,
             gateway,
+            referrerNumber,
             timestamp: new Date()
         });
 
@@ -439,44 +439,9 @@ router.post('/purchase', async (req, res, next) => {
             });
         }
 
-        // Check agent wallet balance
-        const agentBalance = await checkAgentBalance();
-        
-        logOperation('AGENT_BALANCE_RESULT', {
-            balance: agentBalance,
-            requiredAmount: price,
-            sufficient: agentBalance >= price
-        });
-        
-        if (agentBalance < price) {
-            logOperation('AGENT_INSUFFICIENT_BALANCE', {
-                agentBalance,
-                requiredAmount: price
-            });
-            
-            return res.status(400).json({
-                status: 'error',
-                message: 'Service provider out of stock'
-            });
-        }
-
         // Generate unique references
         const transactionReference = `TRX-${uuidv4()}`;
-        const orderReference = `ORDER-${uuidv4()}`;
-
-        // Create Data Purchase
-        const dataPurchase = new DataPurchase({
-            userId: req.user._id,
-            phoneNumber,
-            network,
-            capacity,
-            mb: dataPackage.mb,
-            gateway,
-            method: 'api',
-            price,
-            status: 'pending',
-            geonetReference: orderReference
-        });
+        const orderReference = Math.floor(1000 + Math.random() * 900000); // Generates a number between 1000 and 9999
 
         // Create Transaction
         const transaction = new Transaction({
@@ -488,80 +453,226 @@ router.post('/purchase', async (req, res, next) => {
             gateway
         });
 
-        // Deduct wallet balance
-        const previousBalance = req.user.walletBalance;
-        req.user.walletBalance -= price;
+        // If network is AT_PREMIUM, route to Hubnet instead of Geonettech
+        if (network === 'at') {
+            // Convert data amount from GB to MB for Hubnet API
+            const volumeInMB = parseFloat(capacity) * 1000;
 
-        logOperation('USER_WALLET_UPDATE', {
-            userId: req.user._id,
-            previousBalance,
-            newBalance: req.user.walletBalance,
-            deduction: price
-        });
+            // Get network code for Hubnet - for AT_PREMIUM, it should be 'at'
+            const networkCode = 'at';
 
-        // Save entities to database
-        await dataPurchase.save({ session });
-        await transaction.save({ session });
-        await req.user.save({ session });
+            logOperation('HUBNET_ORDER_REQUEST_PREPARED', {
+                networkCode,
+                phoneNumber,
+                volumeInMB,
+                reference: orderReference,
+                referrer: referrerNumber || phoneNumber,
+                timestamp: new Date()
+            });
 
-        logOperation('DATA_PURCHASE_DOCUMENTS_SAVED', {
-            transaction: transaction._id,
-            dataPurchase: dataPurchase._id,
-            userUpdated: req.user._id
-        });
-
-        // Place order with Geonettech
-        logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
-            network_key: network,
-            ref: orderReference,
-            recipient: phoneNumber,
-            capacity: capacity,
-            timestamp: new Date()
-        });
-
-        const geonetOrderPayload = [{
-            network_key: network,
-            ref: orderReference,
-            recipient: phoneNumber,
-            capacity: capacity
-        }];
-        
-        logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
-        
-        const geonetResponse = await geonetClient.post('/orders', geonetOrderPayload);
-        
-        logOperation('GEONETTECH_ORDER_RESPONSE', {
-            status: geonetResponse.status,
-            statusText: geonetResponse.statusText,
-            headers: geonetResponse.headers,
-            data: geonetResponse.data,
-            timestamp: new Date()
-        });
-
-        // Update status if successful
-        dataPurchase.status = 'completed';
-        transaction.status = 'completed';
-        
-        await dataPurchase.save({ session });
-        await transaction.save({ session });
-
-        // Commit transaction
-        await session.commitTransaction();
-        logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
-
-        res.status(201).json({
-            status: 'success',
-            data: {
-                purchaseId: dataPurchase._id,
-                transactionReference: transaction.reference,
+            // Create Data Purchase with Hubnet reference
+            const dataPurchase = new DataPurchase({
+                userId: req.user._id,
+                phoneNumber,
                 network,
                 capacity,
                 mb: dataPackage.mb,
+                gateway,
+                method: 'api',
                 price,
-                remainingBalance: req.user.walletBalance,
-                geonetechResponse: geonetResponse.data
+                status: 'pending',
+                hubnetReference: orderReference,
+                referrerNumber: referrerNumber || null,
+                geonetReference: orderReference // Keep this for compatibility
+            });
+
+            // Save entities to database
+            await dataPurchase.save({ session });
+            await transaction.save({ session });
+
+            // Deduct wallet balance
+            const previousBalance = req.user.walletBalance;
+            req.user.walletBalance -= price;
+            await req.user.save({ session });
+
+            logOperation('USER_WALLET_UPDATE', {
+                userId: req.user._id,
+                previousBalance,
+                newBalance: req.user.walletBalance,
+                deduction: price
+            });
+
+            // Make request to Hubnet API
+            const hubnetResponse = await fetch(`https://console.hubnet.app/live/api/context/business/transaction/${networkCode}-new-transaction`, {
+                method: 'POST',
+                headers: {
+                    'token': 'Bearer KN5CxVxXYWCrKDyHBOwvNj1gbMSiWTw5FL5',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phone: phoneNumber,
+                    volume: volumeInMB,
+                    reference: orderReference,
+                    referrer: referrerNumber || phoneNumber,
+                    webhook: ''
+                })
+            });
+
+            const hubnetData = await hubnetResponse.json();
+
+            logOperation('HUBNET_ORDER_RESPONSE', {
+                status: hubnetResponse.status,
+                ok: hubnetResponse.ok,
+                data: hubnetData,
+                timestamp: new Date()
+            });
+
+            if (!hubnetResponse.ok) {
+                logOperation('HUBNET_ORDER_FAILED', {
+                    error: hubnetData.message || 'Unknown error',
+                    status: hubnetResponse.status
+                });
+                throw new Error(hubnetData.message || 'Failed to process data purchase with Hubnet');
             }
-        });
+
+            // Update status if successful
+            dataPurchase.status = 'completed';
+            transaction.status = 'completed';
+            
+            await dataPurchase.save({ session });
+            await transaction.save({ session });
+
+            // Commit transaction
+            await session.commitTransaction();
+            logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
+
+            res.status(201).json({
+                status: 'success',
+                data: {
+                    purchaseId: dataPurchase._id,
+                    transactionReference: transaction.reference,
+                    network,
+                    capacity,
+                    mb: dataPackage.mb,
+                    price,
+                    remainingBalance: req.user.walletBalance,
+                    hubnetResponse: hubnetData
+                }
+            });
+        } else {
+            // For other networks, continue with the original Geonettech flow
+            
+            // Check agent wallet balance (only needed for Geonettech)
+            const agentBalance = await checkAgentBalance();
+            
+            logOperation('AGENT_BALANCE_RESULT', {
+                balance: agentBalance,
+                requiredAmount: price,
+                sufficient: agentBalance >= price
+            });
+            
+            if (agentBalance < price) {
+                logOperation('AGENT_INSUFFICIENT_BALANCE', {
+                    agentBalance,
+                    requiredAmount: price
+                });
+                
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Service provider out of stock'
+                });
+            }
+
+            // Create Data Purchase with Geonet reference
+            const dataPurchase = new DataPurchase({
+                userId: req.user._id,
+                phoneNumber,
+                network,
+                capacity,
+                mb: dataPackage.mb,
+                gateway,
+                method: 'api',
+                price,
+                status: 'pending',
+                geonetReference: orderReference
+            });
+
+            // Deduct wallet balance
+            const previousBalance = req.user.walletBalance;
+            req.user.walletBalance -= price;
+
+            logOperation('USER_WALLET_UPDATE', {
+                userId: req.user._id,
+                previousBalance,
+                newBalance: req.user.walletBalance,
+                deduction: price
+            });
+
+            // Save entities to database
+            await dataPurchase.save({ session });
+            await transaction.save({ session });
+            await req.user.save({ session });
+
+            logOperation('DATA_PURCHASE_DOCUMENTS_SAVED', {
+                transaction: transaction._id,
+                dataPurchase: dataPurchase._id,
+                userUpdated: req.user._id
+            });
+
+            // Place order with Geonettech
+            logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
+                network_key: network,
+                ref: orderReference,
+                recipient: phoneNumber,
+                capacity: capacity,
+                timestamp: new Date()
+            });
+
+            const geonetOrderPayload = [{
+                network_key: network,
+                ref: orderReference,
+                recipient: phoneNumber,
+                capacity: capacity
+            }];
+            
+            logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
+            
+            const geonetResponse = await geonetClient.post('/orders', geonetOrderPayload);
+            
+            logOperation('GEONETTECH_ORDER_RESPONSE', {
+                status: geonetResponse.status,
+                statusText: geonetResponse.statusText,
+                headers: geonetResponse.headers,
+                data: geonetResponse.data,
+                timestamp: new Date()
+            });
+
+            // Update status if successful
+            dataPurchase.status = 'completed';
+            transaction.status = 'completed';
+            
+            await dataPurchase.save({ session });
+            await transaction.save({ session });
+
+            // Commit transaction
+            await session.commitTransaction();
+            logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
+
+            res.status(201).json({
+                status: 'success',
+                data: {
+                    purchaseId: dataPurchase._id,
+                    transactionReference: transaction.reference,
+                    network,
+                    capacity,
+                    mb: dataPackage.mb,
+                    price,
+                    remainingBalance: req.user.walletBalance,
+                    geonetechResponse: geonetResponse.data
+                }
+            });
+        }
+
     } catch (error) {
         // Rollback transaction
         await session.abortTransaction();
@@ -596,7 +707,6 @@ router.post('/purchase', async (req, res, next) => {
         logOperation('DATABASE_SESSION_ENDED', { timestamp: new Date() });
     }
 });
-
 
 
 // Get Purchase History (support both authentication methods)
