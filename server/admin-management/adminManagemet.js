@@ -493,177 +493,344 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
 router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
   try {
     const { status } = req.body;
+    const orderId = req.params.id;
     
-    if (!['pending', 'completed', 'failed', 'processing', 'refunded','delivered'].includes(status)) {
+    // Validate status
+    if (!['pending', 'waiting', 'processing', 'failed', 'shipped', 'delivered', 'completed'].includes(status)) {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Find the order by geonetReference instead of _id
-    const order = await DataPurchase.findOne({ geonetReference: req.params.id })
-      .populate('userId', 'name email phoneNumber walletBalance');
+    // Start a transaction for safety
+    const session = await mongoose.startSession();
+    session.startTransaction();
     
-    if (!order) {
-      return res.status(404).json({ msg: 'Order not found' });
-    }
-    
-    const previousStatus = order.status;
-    
-    // Process refund if status is being changed to failed
-    if (status === 'failed' && previousStatus !== 'failed') {
-      try {
-        // Start a transaction for the refund process
-        const session = await mongoose.startSession();
-        session.startTransaction();
-        
-        try {
-          // Find the user and update their wallet balance
-          const user = await User.findById(order.userId._id).session(session);
-          
-          if (user) {
-            // Add the refund amount to the user's wallet balance
-            user.walletBalance += order.price;
-            await user.save({ session });
-            
-            // Create refund transaction record
-            const transaction = new Transaction({
-              userId: user._id,
-              type: 'refund',
-              amount: order.price,
-              status: 'completed',
-              reference: `REFUND-${order._id}-${Date.now()}`,
-              gateway: 'wallet-refund'
-            });
-            
-            await transaction.save({ session });
-            
-            console.log(`Refunded ${order.price} to user ${user._id} for order ${order._id}`);
-            
-            // Send refund SMS to the user
-            try {
-              // Format phone number for SMS if needed
-              const formatPhoneForSms = (phone) => {
-                // Remove the '+' if it exists or format as needed
-                return phone.replace(/^\+233/, '');
-              };
-              
-              if (user.phoneNumber) {
-                const userPhone = formatPhoneForSms(user.phoneNumber);
-                const refundMessage = `DATAMART: Your order for ${order.capacity}GB ${order.network} data bundle (Ref: ${order.geonetReference}) could not be processed. Your account has been refunded with GHS${order.price.toFixed(2)}. Thank you for choosing DATAMART.`;
-                
-                // Assuming you have a sendSMS function similar to the one in paste-2.txt
-                // This would be imported or defined elsewhere in your application
-                await sendSMS(userPhone, refundMessage, {
-                  useCase: 'transactional',
-                  senderID: 'Bundle' // Replace with your actual sender ID
-                });
-                
-                console.log(`Refund SMS sent to ${userPhone} for order ${order._id}`);
-              }
-            } catch (smsError) {
-              console.error('Failed to send refund SMS:', smsError.message);
-              // Continue with the transaction even if SMS fails
-            }
-          } else {
-            console.error(`User not found for refund: ${order.userId._id}`);
-          }
-          
-          // Update the order status
-          order.status = status;
-          order.processedBy = req.user.id; // Assuming you store the admin ID who processed it
-          order.updatedAt = Date.now();
-          await order.save({ session });
-          
-          await session.commitTransaction();
-          session.endSession();
-          
-        } catch (txError) {
-          await session.abortTransaction();
-          session.endSession();
-          throw txError;
-        }
-      } catch (refundError) {
-        console.error('Error processing refund:', refundError.message);
-        return res.status(500).json({ msg: 'Error processing refund' });
+    try {
+      // First try to find by geonetReference (primary reference for orders)
+      let order = await DataPurchase.findOne({ geonetReference: orderId })
+        .populate('userId', 'name email phoneNumber walletBalance')
+        .session(session);
+      
+      // If not found, try by MongoDB _id
+      if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
+        order = await DataPurchase.findById(orderId)
+          .populate('userId', 'name email phoneNumber walletBalance')
+          .session(session);
       }
-    } else {
-      // Just update the status if not a refund scenario
+      
+      if (!order) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(404).json({ msg: `Order with ID/Reference ${orderId} not found` });
+      }
+      
+      const previousStatus = order.status;
+      
+      // Log the status change for audit trail
+      console.log(`Order ${orderId} status change: ${previousStatus} -> ${status} by admin ${req.user.id}`);
+      
+      // Process refund if status is being changed to failed
+      if (status === 'failed' && previousStatus !== 'failed') {
+        // Only process refund if the order was previously not failed
+        // Find the user and update their wallet balance
+        const user = await User.findById(order.userId._id).session(session);
+        
+        if (user) {
+          // Add the refund amount to the user's wallet balance
+          user.walletBalance += order.price;
+          await user.save({ session });
+          
+          // Create refund transaction record
+          const transaction = new Transaction({
+            userId: user._id,
+            type: 'refund',
+            amount: order.price,
+            status: 'completed',
+            reference: `REFUND-${order._id}-${Date.now()}`,
+            gateway: 'wallet-refund',
+            metadata: {
+              orderId: order._id,
+              geonetReference: order.geonetReference,
+              previousStatus,
+              adminId: req.user.id
+            }
+          });
+          
+          await transaction.save({ session });
+          
+          console.log(`Refunded ${order.price} to user ${user._id} for order ${order._id}`);
+          
+          // Send refund SMS to the user
+          try {
+            // Format phone number for SMS if needed
+            const formatPhoneForSms = (phone) => {
+              // Remove the '+' if it exists or format as needed
+              return phone.replace(/^\+/, '');
+            };
+            
+            if (user.phoneNumber) {
+              const userPhone = formatPhoneForSms(user.phoneNumber);
+              const refundMessage = `DATAMART: Your order for ${order.capacity}GB ${order.network} data bundle (Ref: ${order.geonetReference}) could not be processed. Your account has been refunded with GHS${order.price.toFixed(2)}. Thank you for choosing DATAMART.`;
+              
+              await sendSMS(userPhone, refundMessage, {
+                useCase: 'transactional',
+                senderID: 'Bundle'
+              });
+            }
+          } catch (smsError) {
+            console.error('Failed to send refund SMS:', smsError.message);
+            // Continue even if SMS fails
+          }
+        }
+      }
+      
+      // Update the order status
       order.status = status;
+      order.processedBy = req.user.id;
       order.updatedAt = Date.now();
-      await order.save();
+      
+      // Add status history for tracking
+      if (!order.statusHistory) {
+        order.statusHistory = [];
+      }
+      
+      order.statusHistory.push({
+        status,
+        changedAt: new Date(),
+        changedBy: req.user.id,
+        previousStatus
+      });
+      
+      await order.save({ session });
+      
+      // Commit the transaction
+      await session.commitTransaction();
+      session.endSession();
+      
+      res.json({
+        success: true,
+        msg: 'Order status updated successfully',
+        order: {
+          id: order._id,
+          geonetReference: order.geonetReference,
+          status: order.status,
+          previousStatus,
+          updatedAt: order.updatedAt
+        }
+      });
+    } catch (txError) {
+      // If an error occurs, abort the transaction
+      await session.abortTransaction();
+      session.endSession();
+      throw txError;
     }
-    
-    res.json({
-      msg: 'Order status updated successfully',
-      order
-    });
   } catch (err) {
-    console.error(err.message);
-    if (err.kind === 'ObjectId' || err.name === 'CastError') {
-      return res.status(400).json({ msg: 'Invalid order format' });
-    }
-    res.status(500).send('Server Error');
+    console.error(`Error updating order ${req.params.id} status:`, err.message);
+    res.status(500).json({ 
+      success: false,
+      msg: 'Server Error while updating order status',
+      error: err.message
+    });
   }
 });
 
 /**
- * @route   GET /api/admin/analytics
- * @desc    Get admin dashboard analytics
+ * @route   POST /api/admin/orders/bulk-status-update
+ * @desc    Bulk update order statuses with improved error handling
  * @access  Admin
  */
-router.get('/analytics', async (req, res) => {
+router.post('/orders/bulk-status-update', auth, adminAuth, async (req, res) => {
   try {
-    // Total users
-    const totalUsers = await User.countDocuments();
+    const { orderIds, status } = req.body;
     
-    // Total orders
-    const totalOrders = await DataPurchase.countDocuments();
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ msg: 'Please provide an array of order IDs' });
+    }
     
-    // Today's revenue
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    if (!status || !['pending', 'waiting', 'processing', 'failed', 'shipped', 'delivered', 'completed'].includes(status)) {
+      return res.status(400).json({ msg: 'Invalid status value' });
+    }
     
-    const todayRevenue = await DataPurchase.aggregate([
-      { 
-        $match: { 
-          createdAt: { $gte: today },
-          status: 'completed'
-        } 
-      },
-      { $group: { _id: null, total: { $sum: '$price' } } }
-    ]);
+    // Results tracking
+    const results = {
+      success: [],
+      failed: [],
+      notFound: []
+    };
     
-    // This month's revenue
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    // Process orders in batches to avoid overwhelming the database
+    const batchSize = 10;
+    const batches = [];
     
-    const monthlyRevenue = await DataPurchase.aggregate([
-      { 
-        $match: { 
-          createdAt: { $gte: firstDayOfMonth },
-          status: 'completed'
-        } 
-      },
-      { $group: { _id: null, total: { $sum: '$price' } } }
-    ]);
+    for (let i = 0; i < orderIds.length; i += batchSize) {
+      batches.push(orderIds.slice(i, i + batchSize));
+    }
     
-    // Recent orders
-    const recentOrders = await DataPurchase.find()
-      .populate('userId', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(5);
+    for (const batch of batches) {
+      // Process each batch with a new session
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      
+      try {
+        for (const orderId of batch) {
+          // First try to find by geonetReference
+          let order = await DataPurchase.findOne({ geonetReference: orderId })
+            .session(session);
+          
+          // If not found, try by MongoDB _id
+          if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
+            order = await DataPurchase.findById(orderId)
+              .session(session);
+          }
+          
+          if (!order) {
+            results.notFound.push(orderId);
+            continue;
+          }
+          
+          const previousStatus = order.status;
+          
+          // Skip if status is already the target status
+          if (previousStatus === status) {
+            results.success.push({
+              id: order._id,
+              geonetReference: order.geonetReference,
+              status,
+              message: 'Status already set (no change needed)'
+            });
+            continue;
+          }
+          
+          // Process refund if status is being changed to failed
+          if (status === 'failed' && previousStatus !== 'failed') {
+            try {
+              // Only process refund if the order was previously not failed
+              const user = await User.findById(order.userId).session(session);
+              
+              if (user) {
+                // Add the refund amount to the user's wallet balance
+                user.walletBalance += order.price;
+                await user.save({ session });
+                
+                // Create refund transaction record
+                const transaction = new Transaction({
+                  userId: user._id,
+                  type: 'refund',
+                  amount: order.price,
+                  status: 'completed',
+                  reference: `REFUND-${order._id}-${Date.now()}`,
+                  gateway: 'wallet-refund',
+                  metadata: {
+                    orderId: order._id,
+                    geonetReference: order.geonetReference,
+                    previousStatus,
+                    bulkUpdate: true,
+                    adminId: req.user.id
+                  }
+                });
+                
+                await transaction.save({ session });
+              }
+            } catch (refundError) {
+              console.error(`Refund error for order ${orderId}:`, refundError.message);
+              results.failed.push({
+                id: order._id,
+                geonetReference: order.geonetReference,
+                error: 'Refund processing failed'
+              });
+              continue;
+            }
+          }
+          
+          // Update the order status
+          order.status = status;
+          order.processedBy = req.user.id;
+          order.updatedAt = Date.now();
+          
+          // Add status history for tracking
+          if (!order.statusHistory) {
+            order.statusHistory = [];
+          }
+          
+          order.statusHistory.push({
+            status,
+            changedAt: new Date(),
+            changedBy: req.user.id,
+            previousStatus,
+            bulkUpdate: true
+          });
+          
+          await order.save({ session });
+          
+          results.success.push({
+            id: order._id,
+            geonetReference: order.geonetReference,
+            previousStatus,
+            status
+          });
+        }
+        
+        // Commit the transaction for this batch
+        await session.commitTransaction();
+        session.endSession();
+      } catch (batchError) {
+        // If an error occurs in this batch, abort its transaction
+        await session.abortTransaction();
+        session.endSession();
+        console.error('Error processing batch:', batchError.message);
+        
+        // Mark all orders in this batch as failed
+        batch.forEach(orderId => {
+          if (!results.success.some(s => s.id.toString() === orderId || s.geonetReference === orderId) && 
+              !results.notFound.includes(orderId)) {
+            results.failed.push({
+              id: orderId,
+              error: 'Batch transaction error'
+            });
+          }
+        });
+      }
+    }
     
+    // Send response with detailed results
     res.json({
-      totalUsers,
-      totalOrders,
-      todayRevenue: todayRevenue.length > 0 ? todayRevenue[0].total : 0,
-      monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue[0].total : 0,
-      recentOrders
+      msg: `Bulk update processed. Success: ${results.success.length}, Failed: ${results.failed.length}, Not Found: ${results.notFound.length}`,
+      results
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error('Bulk update error:', err.message);
+    res.status(500).json({ 
+      success: false,
+      msg: 'Server Error during bulk update',
+      error: err.message
+    });
   }
 });
 
+// Schema update to track status history
+// Add this to your schema.js file to track order status changes
+/*
+const DataPurchaseSchema = new mongoose.Schema({
+  // ... existing fields
+  
+  statusHistory: [{
+    status: {
+      type: String,
+      enum: ['pending', 'waiting', 'processing', 'failed', 'shipped', 'delivered', 'completed'],
+      required: true
+    },
+    changedAt: {
+      type: Date,
+      default: Date.now
+    },
+    changedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    previousStatus: String,
+    bulkUpdate: Boolean
+  }]
+});
+*/
 
 router.put('/inventory/:network/toggle',auth, adminAuth, async (req, res) => {
   try {

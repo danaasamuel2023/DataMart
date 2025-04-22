@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { User, DataPurchase, Transaction,DataInventory} = require('../schema/schema');
 
 // Geonettech API Configuration
-const GEONETTECH_BASE_URL = 'https://vendor.geonettech.com/api/v1';
+const GEONETTECH_BASE_URL = 'https://connect.geonettech.com/api/v1';
 const GEONETTECH_API_KEY = '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
 
 // Create Geonettech client
