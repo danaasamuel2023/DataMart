@@ -173,43 +173,65 @@ export default function DataPurchases() {
       // Extract status from response
       const geonetStatus = statusResponse.data.data.order.status;
       
-      // Update status in state
+      // Only update if we got a valid status back
+      if (geonetStatus) {
+        // Update status in state
+        const updatedPurchases = allPurchases.map(purchase => {
+          if (purchase._id === purchaseId) {
+            return { ...purchase, status: geonetStatus };
+          }
+          return purchase;
+        });
+        
+        setAllPurchases(updatedPurchases);
+        
+        // Also update the filtered purchases list
+        const updatedFilteredPurchases = purchases.map(purchase => {
+          if (purchase._id === purchaseId) {
+            return { ...purchase, status: geonetStatus };
+          }
+          return purchase;
+        });
+        
+        setPurchases(updatedFilteredPurchases);
+        
+        // If status is "completed", update our backend too
+        if (geonetStatus === 'completed') {
+          try {
+            await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
+              status: 'completed'
+            });
+          } catch (updateError) {
+            console.error('Failed to update status in backend:', updateError);
+          }
+        }
+      } else {
+        // If no status returned, update with "unknown"
+        const updatedPurchases = allPurchases.map(purchase => {
+          if (purchase._id === purchaseId) {
+            return { ...purchase, status: "unknown" };
+          }
+          return purchase;
+        });
+        
+        setAllPurchases(updatedPurchases);
+        setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
+      }
+      
+    } catch (error) {
+      console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
+      
+      // Update status to "error checking" on API failure
       const updatedPurchases = allPurchases.map(purchase => {
         if (purchase._id === purchaseId) {
-          return { ...purchase, status: geonetStatus || purchase.status };
+          return { ...purchase, status: "error checking" };
         }
         return purchase;
       });
       
       setAllPurchases(updatedPurchases);
+      setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
       
-      // Also update the filtered purchases list
-      const updatedFilteredPurchases = purchases.map(purchase => {
-        if (purchase._id === purchaseId) {
-          return { ...purchase, status: geonetStatus || purchase.status };
-        }
-        return purchase;
-      });
-      
-      setPurchases(updatedFilteredPurchases);
-      
-      // If status is "completed" and our local status is different
-      if (geonetStatus === 'completed') {
-        try {
-          // Update status in our backend (optional)
-          await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
-            status: 'completed'
-          });
-        } catch (updateError) {
-          console.error('Failed to update status in backend:', updateError);
-        }
-      }
-      
-      // Success notification could be added here
-      
-    } catch (error) {
-      console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
-      // Error notification could be added here
     } finally {
       setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
     }
@@ -272,6 +294,16 @@ export default function DataPurchases() {
       </div>
     );
   }
+  
+  // Function to display status message
+  const getStatusMessage = (purchase) => {
+    // If we have a geonet reference, show the Check Status button
+    if (purchase.geonetReference && purchase.network !== 'at') {
+      return "Click to check status";
+    }
+    // For AirtelTigo or purchases without reference
+    return purchase.status || "Unknown";
+  };
 
   // Helper function to get network initials for logo
   const getNetworkInitials = (networkCode) => {
@@ -464,9 +496,32 @@ export default function DataPurchases() {
                       </div>
                       
                       <div className="flex items-center space-x-3">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
-                          {purchase.status}
-                        </span>
+                        {purchase.geonetReference && purchase.network !== 'at' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network);
+                            }}
+                            disabled={checkingStatus[purchase._id]}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded flex items-center"
+                          >
+                            {checkingStatus[purchase._id] ? (
+                              <>
+                                <Loader2 className="animate-spin h-3 w-3 mr-1" />
+                                Checking
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="h-3 w-3 mr-1" />
+                                Check Status
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                            {purchase.status || "Unknown"}
+                          </span>
+                        )}
                         {expandedId === purchase._id ? 
                           <ChevronDown className="h-5 w-5 text-gray-400" /> : 
                           <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -509,33 +564,19 @@ export default function DataPurchases() {
                           <div className="text-gray-900 dark:text-white font-medium truncate">
                             {purchase.geonetReference || '-'}
                           </div>
+                          
+                          {purchase.status && (
+                            <>
+                              <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
+                                <Clock className="h-4 w-4 mr-2 text-indigo-500" />
+                                Status
+                              </div>
+                              <div className="text-gray-900 dark:text-white font-medium">
+                                {purchase.status}
+                              </div>
+                            </>
+                          )}
                         </div>
-                        
-                        {/* Check Status button */}
-                        {purchase.geonetReference && purchase.network !== 'at' && (
-                          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network);
-                              }}
-                              disabled={checkingStatus[purchase._id]}
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center"
-                            >
-                              {checkingStatus[purchase._id] ? (
-                                <>
-                                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                                  Checking...
-                                </>
-                              ) : (
-                                <>
-                                  <Clock className="h-4 w-4 mr-2" />
-                                  Check Status
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -564,10 +605,7 @@ export default function DataPurchases() {
                           Price
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Actions
+                          Status/Action
                         </th>
                       </tr>
                     </thead>
@@ -605,12 +643,7 @@ export default function DataPurchases() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
-                              {purchase.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            {purchase.geonetReference && purchase.network !== 'at' && (
+                            {purchase.geonetReference && purchase.network !== 'at' ? (
                               <button
                                 onClick={() => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network)}
                                 disabled={checkingStatus[purchase._id]}
@@ -619,15 +652,19 @@ export default function DataPurchases() {
                                 {checkingStatus[purchase._id] ? (
                                   <>
                                     <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                                    Checking
+                                    Checking Status
                                   </>
                                 ) : (
                                   <>
                                     <Clock className="-ml-1 mr-2 h-4 w-4" />
-                                    Check Status
+                                    {purchase.status ? `Update Status (${purchase.status})` : 'Check Status'}
                                   </>
                                 )}
                               </button>
+                            ) : (
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                                {purchase.status || "Unknown"}
+                              </span>
                             )}
                           </td>
                         </tr>
