@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const { User, DataPurchase, Transaction, DataInventory } = require('../schema/schema');
 
 // Geonettech API Configuration
-const GEONETTECH_BASE_URL = 'https://posapi.geonettech.com/api/v1';
+const GEONETTECH_BASE_URL = 'https://connect.geonettech.com/api/v1';
 const GEONETTECH_API_KEY = '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
 
 // Create Geonettech client
@@ -84,7 +84,7 @@ router.post('/bulk-purchase-data', async (req, res) => {
     const duplicateNumbers = [];
     
     // Check for recent purchases (last 30 minutes) from our database
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const thirtyMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const recentPurchases = await DataPurchase.find({
       userId: userId,
       createdAt: { $gte: thirtyMinutesAgo }

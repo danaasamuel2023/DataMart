@@ -280,7 +280,7 @@ const BulkDataPurchase = () => {
     setError(null);
     
     try {
-      const response = await axios.post('http://localhost:5000/api/bulk-purchase-data', {
+      const response = await axios.post('https://datamartbackened.onrender.com/api/bulk-purchase-data', {
         userId: userData.id,
         orders: orders
       });
