@@ -1,11 +1,11 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, AlertTriangle, Search, Filter, X, AlertCircle, FileText } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X } from 'lucide-react';
 
 // API constants
-const GEONETTECH_BASE_URL = 'https://connect.geonettech.com/api/v1';
+const GEONETTECH_BASE_URL = 'https://orders.geonettech.com/api/v1';
 const API_KEY = '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
 const API_BASE_URL = 'https://datamartbackened.onrender.com/api/v1';
 
@@ -60,18 +60,9 @@ export default function DataPurchases() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterNetwork, setFilterNetwork] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
-
-  // Report modal state
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [reportReason, setReportReason] = useState('');
-  const [submittingReport, setSubmittingReport] = useState(false);
-  const [reportSuccess, setReportSuccess] = useState(false);
-  const [reportError, setReportError] = useState(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState({});
 
   const router = useRouter();
-  const modalRef = useRef(null);
   
   // Get userId from localStorage userData object
   const getUserId = () => {
@@ -89,23 +80,6 @@ export default function DataPurchases() {
     }
   };
 
-  // Handle click outside modal to close it
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        // Only close if not in confirmation mode
-        if (!showConfirmation) {
-          setShowReportModal(false);
-        }
-      }
-    }
-    
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showConfirmation]);
-
   useEffect(() => {
     const userId = getUserId();
     
@@ -120,62 +94,14 @@ export default function DataPurchases() {
         const response = await axios.get(`${API_BASE_URL}/data/purchase-history/${userId}`, {
           params: {
             page: pagination.currentPage,
-            limit: 20 // Increased limit for better filtering options
+            limit: 20
           }
         });
         
         if (response.data.status === 'success') {
-          // Get the purchases from the response
           const purchasesData = response.data.data.purchases;
-          
-          // For each purchase with a geonetReference, fetch the current status
-          const purchasesWithUpdatedStatus = await Promise.all(
-            purchasesData.map(async (purchase) => {
-              // If there's no geonetReference or it's an AirtelTigo purchase, skip status update
-              if (!purchase.geonetReference || purchase.network === 'at') {
-                return purchase;
-              }
-              
-              try {
-                // Make request to Geonettech API to get current status
-                const statusResponse = await axios.get(
-                  `${GEONETTECH_BASE_URL}/order/${purchase.geonetReference}/status`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${API_KEY}`
-                    }
-                  }
-                );
-                
-                // Extract status from response
-                const geonetStatus = statusResponse.data.data.order.status;
-                
-                // If status is "completed" and our local status is different
-                if (geonetStatus === 'completed' && purchase.status !== 'completed') {
-                  try {
-                    // Update status in our backend (optional)
-                    await axios.post(`${API_BASE_URL}/data/update-status/${purchase._id}`, {
-                      status: 'completed'
-                    });
-                  } catch (updateError) {
-                    console.error('Failed to update status in backend:', updateError);
-                  }
-                }
-                
-                // Return purchase with updated status
-                return {
-                  ...purchase,
-                  status: geonetStatus || purchase.status
-                };
-              } catch (statusError) {
-                console.error(`Failed to fetch status for purchase ${purchase._id}:`, statusError);
-                return purchase;
-              }
-            })
-          );
-          
-          setAllPurchases(purchasesWithUpdatedStatus);
-          setPurchases(purchasesWithUpdatedStatus);
+          setAllPurchases(purchasesData);
+          setPurchases(purchasesData);
           setPagination({
             currentPage: response.data.data.pagination.currentPage,
             totalPages: response.data.data.pagination.totalPages
@@ -192,13 +118,6 @@ export default function DataPurchases() {
     };
 
     fetchPurchases();
-    
-    // Set up polling to check status periodically (every 60 seconds)
-    const intervalId = setInterval(fetchPurchases, 60000);
-    
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
-    
   }, [pagination.currentPage, router]);
 
   // Apply filters and search
@@ -230,6 +149,71 @@ export default function DataPurchases() {
       setPurchases(filteredPurchases);
     }
   }, [searchTerm, filterStatus, filterNetwork, allPurchases]);
+
+  // Function to check status of a specific order
+  const checkOrderStatus = async (purchaseId, geonetReference, network) => {
+    // Skip if there's no geonetReference or it's an AirtelTigo purchase
+    if (!geonetReference || network === 'at') {
+      return;
+    }
+    
+    setCheckingStatus(prev => ({ ...prev, [purchaseId]: true }));
+    
+    try {
+      // Make request to Geonettech API to get current status
+      const statusResponse = await axios.get(
+        `${GEONETTECH_BASE_URL}/order/${geonetReference}/status`,
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`
+          }
+        }
+      );
+      
+      // Extract status from response
+      const geonetStatus = statusResponse.data.data.order.status;
+      
+      // Update status in state
+      const updatedPurchases = allPurchases.map(purchase => {
+        if (purchase._id === purchaseId) {
+          return { ...purchase, status: geonetStatus || purchase.status };
+        }
+        return purchase;
+      });
+      
+      setAllPurchases(updatedPurchases);
+      
+      // Also update the filtered purchases list
+      const updatedFilteredPurchases = purchases.map(purchase => {
+        if (purchase._id === purchaseId) {
+          return { ...purchase, status: geonetStatus || purchase.status };
+        }
+        return purchase;
+      });
+      
+      setPurchases(updatedFilteredPurchases);
+      
+      // If status is "completed" and our local status is different
+      if (geonetStatus === 'completed') {
+        try {
+          // Update status in our backend (optional)
+          await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
+            status: 'completed'
+          });
+        } catch (updateError) {
+          console.error('Failed to update status in backend:', updateError);
+        }
+      }
+      
+      // Success notification could be added here
+      
+    } catch (error) {
+      console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
+      // Error notification could be added here
+    } finally {
+      setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
+    }
+  };
 
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {
@@ -267,77 +251,6 @@ export default function DataPurchases() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  // Open report modal for an order
-  const openReportModal = (order) => {
-    setSelectedOrder(order);
-    setReportReason('');
-    setReportSuccess(false);
-    setReportError(null);
-    setShowConfirmation(false);
-    setShowReportModal(true);
-  };
-
-  // View all reports
-  const viewAllReports = () => {
-    router.push('/reports');
-  };
-
-  // Submit report confirmation
-  const confirmReportSubmission = () => {
-    if (reportReason.trim().length < 10) {
-      setReportError("Please provide a detailed reason (at least 10 characters)");
-      return;
-    }
-    setShowConfirmation(true);
-  };
-
-  // Cancel report submission
-  const cancelReportSubmission = () => {
-    setShowConfirmation(false);
-  };
-
-  // Submit report to backend
-  const submitReport = async () => {
-    if (!selectedOrder || !reportReason.trim()) {
-      return;
-    }
-    
-    const userId = getUserId();
-    if (!userId) {
-      setReportError("Authentication required. Please login again.");
-      return;
-    }
-    
-    setSubmittingReport(true);
-    setReportError(null);
-    
-    try {
-      const response = await axios.post(`https://datamartbackened.onrender.com/api/reports/creat`, {
-        userId: userId,
-        purchaseId: selectedOrder._id,
-        reason: reportReason
-      });
-      
-      if (response.data.status === 'success') {
-        setReportSuccess(true);
-        setShowConfirmation(false);
-        
-        // Clear form after successful submission
-        setTimeout(() => {
-          setShowReportModal(false);
-          setReportSuccess(false);
-        }, 3000);
-      } else {
-        throw new Error(response.data.message || 'Failed to submit report');
-      }
-    } catch (error) {
-      console.error('Error submitting report:', error);
-      setReportError(error.response?.data?.message || 'Failed to submit report. Please try again.');
-    } finally {
-      setSubmittingReport(false);
-    }
-  };
-
   // Check if user is authenticated
   const userId = getUserId();
   if (!userId && typeof window !== 'undefined') {
@@ -370,7 +283,7 @@ export default function DataPurchases() {
   const formatDataSize = (capacity) => {
     return capacity >= 1000 
       ? `${capacity / 1000}GB` 
-      : `${capacity}GB`;
+      : `${capacity}MB`;
   };
 
   // Get unique networks for filter dropdown
@@ -389,140 +302,9 @@ export default function DataPurchases() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-3xl">
-      {/* Report Modal */}
-      {showReportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div 
-            ref={modalRef}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden border border-gray-200 dark:border-gray-600"
-          >
-            {/* Modal Header */}
-            <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gradient-to-r from-red-500 to-red-600">
-              <h3 className="text-xl font-bold text-white drop-shadow-md flex items-center">
-                <AlertCircle className="mr-2 h-5 w-5" /> Report Order Not Received
-              </h3>
-            </div>
-            
-            {/* Modal Content */}
-            <div className="p-6">
-              {reportSuccess ? (
-                <div className="text-center py-6">
-                  <div className="bg-green-100 dark:bg-green-800 p-4 rounded-md text-green-800 dark:text-green-200 mb-4">
-                    Your report has been submitted successfully. Our team will investigate and get back to you.
-                  </div>
-                </div>
-              ) : showConfirmation ? (
-                <div>
-                  <div className="bg-yellow-100 dark:bg-yellow-800/30 p-4 rounded-md text-yellow-800 dark:text-yellow-200 mb-6 flex items-start">
-                    <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                    <p>
-                      <strong>Warning:</strong> Submitting false reports may result in account penalties or suspension. Please confirm that you have not received the data bundle you purchased.
-                    </p>
-                  </div>
-                  
-                  <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Order Details:</h4>
-                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-6">
-                    <p><span className="font-semibold">Network:</span> {networkNames[selectedOrder.network] || selectedOrder.network}</p>
-                    <p><span className="font-semibold">Phone Number:</span> {selectedOrder.phoneNumber}</p>
-                    <p><span className="font-semibold">Data Size:</span> {formatDataSize(selectedOrder.capacity)}</p>
-                    <p><span className="font-semibold">Order Date:</span> {formatDate(selectedOrder.createdAt)}</p>
-                  </div>
-                  
-                  <div className="flex space-x-3 mt-6">
-                    <button
-                      onClick={cancelReportSubmission}
-                      className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white py-2 px-4 rounded-md font-medium"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={submitReport}
-                      disabled={submittingReport}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium flex justify-center items-center"
-                    >
-                      {submittingReport ? (
-                        <>
-                          <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                          Submitting...
-                        </>
-                      ) : (
-                        "Confirm Report"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="bg-yellow-100 dark:bg-yellow-800/30 p-4 rounded-md text-yellow-800 dark:text-yellow-200 mb-4 flex items-start">
-                    <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                    <p>
-                      Only report if your order status shows "completed" but you have not received the data on your phone.
-                    </p>
-                  </div>
-                  
-                  <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Order Details:</h4>
-                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-4">
-                    <p><span className="font-semibold">Network:</span> {networkNames[selectedOrder.network] || selectedOrder.network}</p>
-                    <p><span className="font-semibold">Phone Number:</span> {selectedOrder.phoneNumber}</p>
-                    <p><span className="font-semibold">Data Size:</span> {formatDataSize(selectedOrder.capacity)}</p>
-                    <p><span className="font-semibold">Order Date:</span> {formatDate(selectedOrder.createdAt)}</p>
-                    <p><span className="font-semibold">Status:</span> {selectedOrder.status}</p>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label htmlFor="reason" className="block text-gray-700 dark:text-gray-200 font-medium mb-2">
-                      Please explain why you believe you did not receive this data bundle:
-                    </label>
-                    <textarea
-                      id="reason"
-                      value={reportReason}
-                      onChange={(e) => setReportReason(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows="4"
-                      placeholder="Provide details about the issue (e.g., 'The data bundle never appeared in my account although it shows completed')"
-                    ></textarea>
-                  </div>
-                  
-                  {reportError && (
-                    <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-md text-red-800 dark:text-red-200 text-sm mb-4">
-                      {reportError}
-                    </div>
-                  )}
-                  
-                  <div className="flex space-x-3 mt-6">
-                    <button
-                      onClick={() => setShowReportModal(false)}
-                      className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white py-2 px-4 rounded-md font-medium"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={confirmReportSubmission}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium"
-                    >
-                      Submit Report
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full overflow-hidden border border-gray-200 dark:border-gray-600">
         <div className="border-b border-gray-200 dark:border-gray-700 p-4 md:p-6 bg-gradient-to-r from-blue-500 to-indigo-600">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-md">Data Purchase History</h2>
-            {/* View All Reports Button */}
-            <button 
-              onClick={viewAllReports}
-              className="bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-md text-sm font-medium flex items-center"
-            >
-              <FileText className="h-4 w-4 mr-1" />
-              View All Reports
-            </button>
-          </div>
+          <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-md">Data Purchase History</h2>
         </div>
         
         {/* Search and filter bar */}
@@ -615,7 +397,7 @@ export default function DataPurchases() {
         
         {/* Content area */}
         <div className="p-4 md:p-6">
-          {/* Custom ZigZag Loading state */}
+          {/* Loading state */}
           {loading ? (
             <div className="flex flex-col justify-center items-center py-12">
               <div className="relative w-64 h-12 mb-4">
@@ -729,18 +511,28 @@ export default function DataPurchases() {
                           </div>
                         </div>
                         
-                        {/* Report button - only for completed orders */}
-                        {purchase.status === 'completed' && (
+                        {/* Check Status button */}
+                        {purchase.geonetReference && purchase.network !== 'at' && (
                           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openReportModal(purchase);
+                                checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network);
                               }}
-                              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex items-center justify-center"
+                              disabled={checkingStatus[purchase._id]}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center"
                             >
-                              <AlertTriangle className="h-4 w-4 mr-2" />
-                              Report Not Received
+                              {checkingStatus[purchase._id] ? (
+                                <>
+                                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                                  Checking...
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="h-4 w-4 mr-2" />
+                                  Check Status
+                                </>
+                              )}
                             </button>
                           </div>
                         )}
@@ -817,13 +609,24 @@ export default function DataPurchases() {
                               {purchase.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            {purchase.status === 'completed' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            {purchase.geonetReference && purchase.network !== 'at' && (
                               <button
-                                onClick={() => openReportModal(purchase)}
-                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                onClick={() => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network)}
+                                disabled={checkingStatus[purchase._id]}
+                                className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:shadow-outline-blue active:bg-blue-700 transition ease-in-out duration-150"
                               >
-                                Report Issue
+                                {checkingStatus[purchase._id] ? (
+                                  <>
+                                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                                    Checking
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="-ml-1 mr-2 h-4 w-4" />
+                                    Check Status
+                                  </>
+                                )}
                               </button>
                             )}
                           </td>
