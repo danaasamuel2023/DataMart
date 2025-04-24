@@ -2,6 +2,53 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// Toast Notification Component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000); // Auto-close after 5 seconds
+    
+    return () => clearTimeout(timer);
+  }, [onClose]);
+  
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
+      <div className={`p-4 rounded-md shadow-lg flex items-center ${
+        type === 'success' 
+          ? 'bg-green-500 text-white' 
+          : type === 'error' 
+            ? 'bg-red-500 text-white' 
+            : 'bg-yellow-500 text-black'
+      }`}>
+        <div className="mr-3">
+          {type === 'success' ? (
+            <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : type === 'error' ? (
+            <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="h-6 w-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </div>
+        <div className="flex-grow">
+          <p className="font-medium">{message}</p>
+        </div>
+        <button onClick={onClose} className="ml-4">
+          <svg className={`h-5 w-5 ${type === 'warning' ? 'text-black' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Service Information Modal Component - Fully Responsive
 const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -117,19 +164,24 @@ const MTNBundleCards = () => {
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
   const [bundleMessages, setBundleMessages] = useState({});
   const [userData, setUserData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingPurchase, setPendingPurchase] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
+  // Toast state
+  const [toast, setToast] = useState({
+    visible: false,
+    message: '',
+    type: 'success'
+  });
+  
   // Manual inventory control - set this to false if you want bundles to be out of stock
   const inventoryAvailable = true;
   
   const [bundles, setBundles] = useState([
-    
-     { capacity: '1', mb: '1000', price: '4.30', network: 'YELLO', inStock: inventoryAvailable },
+    { capacity: '1', mb: '1000', price: '4.30', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '2', mb: '2000', price: '9.2', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '4', mb: '4000', price: '18.50', network: 'YELLO', inStock: inventoryAvailable },
@@ -180,6 +232,31 @@ const MTNBundleCards = () => {
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
+  }, []);
+
+  // Add CSS for toast animation
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translate3d(0, -20px, 0);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+      .animate-fade-in-down {
+        animation: fadeInDown 0.5s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   // MTN Logo SVG
@@ -237,10 +314,26 @@ const MTNBundleCards = () => {
     setPhoneNumber(formattedNumber);
   };
 
+  // Function to show toast
+  const showToast = (message, type = 'success') => {
+    setToast({
+      visible: true,
+      message,
+      type
+    });
+  };
+
+  // Function to hide toast
+  const hideToast = () => {
+    setToast(prev => ({
+      ...prev,
+      visible: false
+    }));
+  };
+
   const handlePurchase = async (bundle, index) => {
     // Clear previous messages
     setBundleMessages(prev => ({ ...prev, [index]: null }));
-    setGlobalMessage({ text: '', type: '' });
     
     // Check if bundle is out of stock first
     if (!bundle.inStock) {
@@ -261,7 +354,7 @@ const MTNBundleCards = () => {
     }
 
     if (!userData || !userData.id) {
-      setGlobalMessage({ text: 'User not authenticated. Please login to continue.', type: 'error' });
+      showToast('User not authenticated. Please login to continue.', 'error');
       return;
     }
 
@@ -292,15 +385,10 @@ const MTNBundleCards = () => {
       });
 
       if (response.data.status === 'success') {
-        setGlobalMessage({ 
-          text: `${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}. It will be delivered soon.`, 
-          type: 'success' 
-        });
+        // Show toast notification instead of global message
+        showToast(`${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}. It will be delivered soon.`, 'success');
         setSelectedBundleIndex(null);
         setPhoneNumber('');
-        
-        // Auto-scroll to the top to see the success message
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (error) {
       console.error('Purchase error:', error);
@@ -311,6 +399,9 @@ const MTNBundleCards = () => {
           type: 'error' 
         } 
       }));
+      
+      // Show error toast
+      showToast(error.response?.data?.message || 'Failed to purchase data bundle', 'error');
     } finally {
       setIsLoading(false); // Hide the global loading overlay
       setPendingPurchase(null);
@@ -326,6 +417,15 @@ const MTNBundleCards = () => {
 
   return (
     <div className={`${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'} min-h-screen transition-colors duration-200`}>
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Toast 
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+      
       {/* Global Loading Overlay */}
       <LoadingOverlay isLoading={isLoading} />
       
@@ -391,29 +491,6 @@ const MTNBundleCards = () => {
             </div>
           </div>
         </div>
-        
-        {globalMessage.text && (
-          <div className={`mb-6 p-4 rounded-lg shadow ${
-            globalMessage.type === 'success' 
-              ? isDarkMode ? 'bg-green-900 text-green-300 border-l-4 border-green-600' : 'bg-green-100 text-green-800 border-l-4 border-green-500' 
-              : isDarkMode ? 'bg-red-900 text-red-300 border-l-4 border-red-600' : 'bg-red-100 text-red-800 border-l-4 border-red-500'
-          }`}>
-            <div className="flex items-center">
-              <div className="mr-3">
-                {globalMessage.type === 'success' ? (
-                  <svg className={`h-6 w-6 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg className={`h-6 w-6 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </div>
-              <span className="font-medium">{globalMessage.text}</span>
-            </div>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {bundles.map((bundle, index) => (

@@ -15,6 +15,7 @@ const DepositeMorle = require('./DepositeMoorle/moorle.js')
 const approveuser = require('./adim-aprove/approve.js')
 const registerFriend = require('./regsterFreinds/register.js')
 const bulkUpload = require('./bulkPurchase/bulk.js')
+const userStats = require('./userInfo/userInfo.js')
 dotenv.config();
 
 // Initialize Express app
@@ -40,6 +41,7 @@ app.use('/api/v1', DepositeMorle);
 app.use('/api', approveuser)
 app.use('/api', registerFriend);
 app.use('/api', bulkUpload);
+app.use('/api/v1', userStats);
 
 // Default Route
 app.get('/', (req, res) => {
