@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X, Info } from 'lucide-react';
 
 // API constants
 const GEONETTECH_BASE_URL = 'https://orders.geonettech.com/api/v1';
@@ -61,8 +61,6 @@ export default function DataPurchases() {
   const [filterNetwork, setFilterNetwork] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState({});
-  // Track which orders have had status checked
-  const [checkedStatuses, setCheckedStatuses] = useState({});
 
   const router = useRouter();
   
@@ -153,7 +151,12 @@ export default function DataPurchases() {
   }, [searchTerm, filterStatus, filterNetwork, allPurchases]);
 
   // Function to check status of a specific order
-  const checkOrderStatus = async (purchaseId, geonetReference, network) => {
+  const checkOrderStatus = async (purchaseId, geonetReference, network, event) => {
+    // Prevent card from expanding when button is clicked
+    if (event) {
+      event.stopPropagation();
+    }
+    
     // Skip if there's no geonetReference or it's an AirtelTigo purchase
     if (!geonetReference || network === 'at') {
       return;
@@ -196,19 +199,9 @@ export default function DataPurchases() {
         });
         
         setPurchases(updatedFilteredPurchases);
-
-        // Mark this status as checked
-        setCheckedStatuses(prev => ({
-          ...prev,
-          [purchaseId]: true
-        }));
         
-        // If status is "completed", we would update our backend, but no endpoint exists
-        // Just log the status change for now
+        // If status is "completed", update our backend too
         if (geonetStatus === 'completed') {
-          console.log(`Status for order ${purchaseId} is now completed`);
-          // When a real endpoint is available, uncomment the code below
-          /* 
           try {
             await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
               status: 'completed'
@@ -216,7 +209,6 @@ export default function DataPurchases() {
           } catch (updateError) {
             console.error('Failed to update status in backend:', updateError);
           }
-          */
         }
       } else {
         // If no status returned, update with "unknown"
@@ -229,12 +221,6 @@ export default function DataPurchases() {
         
         setAllPurchases(updatedPurchases);
         setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
-        
-        // Mark this status as checked
-        setCheckedStatuses(prev => ({
-          ...prev,
-          [purchaseId]: true
-        }));
       }
       
     } catch (error) {
@@ -251,17 +237,6 @@ export default function DataPurchases() {
       setAllPurchases(updatedPurchases);
       setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
       
-      // Mark this status as checked even on error
-      setCheckedStatuses(prev => ({
-        ...prev,
-        [purchaseId]: true
-      }));
-      
-      // Automatically open the dropdown to show status when not already open
-      if (expandedId !== purchaseId) {
-        setExpandedId(purchaseId);
-      }
-      
     } finally {
       setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
     }
@@ -275,8 +250,6 @@ export default function DataPurchases() {
       }));
       // Reset expanded card when changing page
       setExpandedId(null);
-      // Reset checked statuses when changing page
-      setCheckedStatuses({});
     }
   };
 
@@ -327,6 +300,16 @@ export default function DataPurchases() {
     );
   }
   
+  // Function to display status message
+  const getStatusMessage = (purchase) => {
+    // If we have a geonet reference, show the Check Status button
+    if (purchase.geonetReference && purchase.network !== 'at') {
+      return "Click to check status";
+    }
+    // For AirtelTigo or purchases without reference
+    return purchase.status || "Unknown";
+  };
+
   // Helper function to get network initials for logo
   const getNetworkInitials = (networkCode) => {
     const name = networkNames[networkCode] || networkCode;
@@ -336,8 +319,8 @@ export default function DataPurchases() {
   // Format data size
   const formatDataSize = (capacity) => {
     return capacity >= 1000 
-      ? `${capacity / 1000}MB` 
-      : `${capacity}GB`;
+      ? `${capacity / 1000}GB` 
+      : `${capacity}MB`;
   };
 
   // Get unique networks for filter dropdown
@@ -496,36 +479,44 @@ export default function DataPurchases() {
                     key={purchase._id} 
                     className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-600"
                   >
-                    {/* Card header - always visible */}
+                    {/* Card header - improved layout */}
                     <div 
-                      className="flex items-center justify-between p-4 cursor-pointer"
+                      className="p-4 cursor-pointer"
                       onClick={() => toggleExpand(purchase._id)}
                     >
-                      <div className="flex items-center space-x-3">
+                      {/* Network badge */}
+                      <div className="flex items-center mb-3">
                         {/* Network logo */}
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${networkColors[purchase.network] || 'bg-gray-500'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold mr-3 ${networkColors[purchase.network] || 'bg-gray-500'}`}>
                           {getNetworkInitials(purchase.network)}
                         </div>
-                        
-                        <div>
+                        <div className="flex-grow">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            {networkNames[purchase.network] || purchase.network}
+                          </div>
                           <div className="font-bold text-gray-900 dark:text-white">
                             {formatDataSize(purchase.capacity)}
                           </div>
-                          <div className="text-sm text-gray-700 dark:text-gray-200">
-                            {purchase.phoneNumber}
-                          </div>
                         </div>
+                        {expandedId === purchase._id ? 
+                          <ChevronDown className="h-5 w-5 text-gray-400" /> : 
+                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                        }
                       </div>
                       
-                      <div className="flex items-center space-x-3">
+                      {/* Phone and status row */}
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center text-gray-900 dark:text-white font-medium">
+                          <Phone className="h-4 w-4 mr-2 text-blue-500" />
+                          {purchase.phoneNumber}
+                        </div>
+                        
+                        {/* Status badge or button */}
                         {purchase.geonetReference && purchase.network !== 'at' ? (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network);
-                            }}
+                            onClick={(e) => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network, e)}
                             disabled={checkingStatus[purchase._id]}
-                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded flex items-center"
+                            className="ml-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded flex items-center"
                           >
                             {checkingStatus[purchase._id] ? (
                               <>
@@ -539,65 +530,62 @@ export default function DataPurchases() {
                               </>
                             )}
                           </button>
-                        ) : checkedStatuses[purchase._id] ? (
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                        ) : (
+                          <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
                             {purchase.status || "Unknown"}
                           </span>
-                        ) : null}
-                        {expandedId === purchase._id ? 
-                          <ChevronDown className="h-5 w-5 text-gray-400" /> : 
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        }
+                        )}
+                      </div>
+                      
+                      {/* Date and price preview */}
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {formatDate(purchase.createdAt).split(',')[0]}
+                        </div>
+                        <div className="font-semibold">
+                          {formatCurrency(purchase.price)}
+                        </div>
                       </div>
                     </div>
                     
                     {/* Expanded details */}
                     {expandedId === purchase._id && (
-                      <div className="px-4 pb-4 pt-1 border-t border-gray-200 dark:border-gray-600 text-sm">
-                        <div className="grid grid-cols-2 gap-y-4 mt-2">
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <Calendar className="h-4 w-4 mr-2 text-blue-500" />
-                            Date
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium">
-                            {formatDate(purchase.createdAt)}
-                          </div>
+                      <div className="px-4 pb-4 pt-1 border-t border-gray-200 dark:border-gray-600">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md mb-3">
+                          <h4 className="font-semibold text-blue-800 dark:text-blue-200 flex items-center mb-1">
+                            <Info className="h-4 w-4 mr-1" />
+                            Purchase Details
+                          </h4>
                           
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <CreditCard className="h-4 w-4 mr-2 text-green-500" />
-                            Price
+                          <div className="grid grid-cols-2 gap-y-3 text-sm">
+                            <div className="text-gray-600 dark:text-gray-300">Date & Time:</div>
+                            <div className="text-gray-900 dark:text-gray-100 font-medium">
+                              {formatDate(purchase.createdAt)}
+                            </div>
+                            
+                            <div className="text-gray-600 dark:text-gray-300">Price:</div>
+                            <div className="text-gray-900 dark:text-gray-100 font-medium">
+                              {formatCurrency(purchase.price)}
+                            </div>
+                            
+                            <div className="text-gray-600 dark:text-gray-300">Payment Method:</div>
+                            <div className="text-gray-900 dark:text-gray-100 font-medium capitalize">
+                              {purchase.method || "Not specified"}
+                            </div>
+                            
+                            <div className="text-gray-600 dark:text-gray-300">Reference:</div>
+                            <div className="text-gray-900 dark:text-gray-100 font-medium break-all">
+                              {purchase.geonetReference || "N/A"}
+                            </div>
+                            
+                            <div className="text-gray-600 dark:text-gray-300">Current Status:</div>
+                            <div className="text-gray-900 dark:text-gray-100 font-medium">
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                                {purchase.status || "Unknown"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-gray-900 dark:text-white font-medium">
-                            {formatCurrency(purchase.price)}
-                          </div>
-                          
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <Clock className="h-4 w-4 mr-2 text-purple-500" />
-                            Method
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium capitalize">
-                            {purchase.method}
-                          </div>
-                          
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <Tag className="h-4 w-4 mr-2 text-orange-500" />
-                            Reference
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium truncate">
-                            {purchase.geonetReference || '-'}
-                          </div>
-                          
-                          {checkedStatuses[purchase._id] && purchase.status && (
-                            <>
-                              <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                                <Clock className="h-4 w-4 mr-2 text-indigo-500" />
-                                Status
-                              </div>
-                              <div className="text-gray-900 dark:text-white font-medium">
-                                {purchase.status}
-                              </div>
-                            </>
-                          )}
                         </div>
                       </div>
                     )}
@@ -607,7 +595,7 @@ export default function DataPurchases() {
               
               {/* Desktop table view */}
               <div className="hidden lg:block">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
@@ -627,7 +615,7 @@ export default function DataPurchases() {
                           Price
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Action
+                          Status/Action
                         </th>
                       </tr>
                     </thead>
@@ -664,35 +652,27 @@ export default function DataPurchases() {
                               {formatCurrency(purchase.price)}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2">
+                          <td className="px-6 py-4 whitespace-nowrap">
                             {purchase.geonetReference && purchase.network !== 'at' ? (
                               <button
-                                onClick={() => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network)}
+                                onClick={(e) => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network, e)}
                                 disabled={checkingStatus[purchase._id]}
                                 className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:shadow-outline-blue active:bg-blue-700 transition ease-in-out duration-150"
                               >
                                 {checkingStatus[purchase._id] ? (
                                   <>
                                     <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                                    Checking...
+                                    Checking Status
                                   </>
                                 ) : (
                                   <>
                                     <Clock className="-ml-1 mr-2 h-4 w-4" />
-                                    Check Status
+                                    {purchase.status ? `Update Status (${purchase.status})` : 'Check Status'}
                                   </>
                                 )}
                               </button>
                             ) : (
-                              // For AirtelTigo or purchases without reference
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                No check available
-                              </span>
-                            )}
-                            
-                            {/* Only show status badge after checking */}
-                            {checkedStatuses[purchase._id] && (
-                              <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
                                 {purchase.status || "Unknown"}
                               </span>
                             )}
@@ -704,61 +684,86 @@ export default function DataPurchases() {
                 </div>
               </div>
               
-              {/* Pagination controls */}
+              {/* Pagination controls - improved styling */}
               {pagination.totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
                   <button
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                     disabled={pagination.currentPage === 1}
-                    className={`flex items-center px-4 py-2 text-sm rounded-md ${
+                    className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
                       pagination.currentPage === 1
-                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                        : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                        ? 'border-gray-200 text-gray-400 cursor-not-allowed dark:border-gray-700 dark:text-gray-500'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
                   >
-                    <ChevronRight className="h-5 w-5 mr-1" rotate={180} />
+                    <ChevronRight className="h-4 w-4 mr-1 rotate-180" />
                     Previous
                   </button>
                   
-                  <div className="flex gap-1 items-center">
-                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`px-3 py-1 rounded-md text-sm font-medium ${
-                          page === pagination.currentPage
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                  <div className="hidden md:flex space-x-2">
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                      .filter(page => 
+                        page === 1 || 
+                        page === pagination.totalPages || 
+                        Math.abs(page - pagination.currentPage) <= 1
+                      )
+                      .map((page, index, array) => {
+                        // Add ellipsis
+                        if (index > 0 && page - array[index - 1] > 1) {
+                          return (
+                            <React.Fragment key={`ellipsis-${page}`}>
+                              <span className="px-3 py-2 text-gray-500 dark:text-gray-400">...</span>
+                              <button
+                                onClick={() => handlePageChange(page)}
+                                className={`px-3 py-1 rounded-md ${
+                                  pagination.currentPage === page
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          );
+                        }
+                        
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-3 py-1 rounded-md ${
+                              pagination.currentPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
                   </div>
+                  
+                  <span className="text-sm text-gray-700 dark:text-gray-300 md:hidden">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </span>
                   
                   <button
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                     disabled={pagination.currentPage === pagination.totalPages}
-                    className={`flex items-center px-4 py-2 text-sm rounded-md ${
+                    className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
                       pagination.currentPage === pagination.totalPages
-                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                        : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                        ? 'border-gray-200 text-gray-400 cursor-not-allowed dark:border-gray-700 dark:text-gray-500'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
                   >
                     Next
-                    <ChevronRight className="h-5 w-5 ml-1" />
+                    <ChevronRight className="h-4 w-4 ml-1" />
                   </button>
                 </div>
               )}
             </>
           )}
         </div>
-        
-        {/* Footer - optional */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-          Having issues with your data purchase? Contact support at support@datamart.com
-        </div>
       </div>
     </div>
-  );
-}
+  )};
