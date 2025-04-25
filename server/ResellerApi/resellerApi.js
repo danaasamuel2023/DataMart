@@ -72,21 +72,21 @@ const DATA_PACKAGES = [
    { capacity: '50', mb: '50000', price: '206.00', network: 'YELLO', inStock: true },
    { capacity: '100', mb: '100000', price: '406.00', network: 'YELLO', inStock: true },
     // AirtelTigo Packages
-    { capacity: '1', mb: '1000', price: '3.9', network: 'AT_PREMIUM' },
-    { capacity: '2', mb: '2000', price: '8.30', network: 'AT_PREMIUM' },
-    { capacity: '3', mb: '3000', price: '13.20', network: 'AT_PREMIUM' },
-    { capacity: '4', mb: '4000', price: '16.00', network: 'AT_PREMIUM' },
-    { capacity: '5', mb: '5000', price: '19.00', network: 'AT_PREMIUM' },
-    { capacity: '6', mb: '6000', price: '23.00', network: 'AT_PREMIUM' },
-    { capacity: '8', mb: '8000', price: '30.00', network: 'AT_PREMIUM' },
-    { capacity: '10', mb: '10000', price: '37.50', network: 'AT_PREMIUM' },
-    { capacity: '12', mb: '12000', price: '42.50', network: 'AT_PREMIUM' },
-    { capacity: '15', mb: '15000', price: '54.50', network: 'AT_PREMIUM' },
-    // { capacity: '20', mb: '20000', price: '75.00', network: 'AT_PREMIUM' },
-    { capacity: '25', mb: '25000', price: '87.00', network: 'AT_PREMIUM' },
-    { capacity: '30', mb: '30000', price: '110.00', network: 'AT_PREMIUM' },
-    { capacity: '40', mb: '40000', price: '145.00', network: 'AT_PREMIUM' },
-    { capacity: '50', mb: '50000', price: '180.00', network: 'AT_PREMIUM' }
+    { capacity: '1', mb: '1000', price: '3.9', network: 'at' },
+    { capacity: '2', mb: '2000', price: '8.30', network: 'at' },
+    { capacity: '3', mb: '3000', price: '13.20', network: 'at' },
+    { capacity: '4', mb: '4000', price: '16.00', network: 'at' },
+    { capacity: '5', mb: '5000', price: '19.00', network: 'at' },
+    { capacity: '6', mb: '6000', price: '23.00', network: 'at' },
+    { capacity: '8', mb: '8000', price: '30.00', network: 'at' },
+    { capacity: '10', mb: '10000', price: '37.50', network: 'at' },
+    { capacity: '12', mb: '12000', price: '42.50', network: 'at' },
+    { capacity: '15', mb: '15000', price: '54.50', network: 'at' },
+    // { capacity: '20', mb: '20000', price: '75.00', network: 'at' },
+    { capacity: '25', mb: '25000', price: '87.00', network: 'at' },
+    { capacity: '30', mb: '30000', price: '110.00', network: 'at' },
+    { capacity: '40', mb: '40000', price: '145.00', network: 'at' },
+    { capacity: '50', mb: '50000', price: '180.00', network: 'at' }
 ];
 
 
