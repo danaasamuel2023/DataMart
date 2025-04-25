@@ -1,7 +1,9 @@
+'use client'
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Container, Row, Col, Card, Table, Badge, Form, Button, Spinner } from 'react-bootstrap';
-import ExportOrders from '../components/ExportOrders';
+import ExportOrders from '@/component/exportOrders';
 
 const AdminOrderDashboard = () => {
   const [orders, setOrders] = useState([]);
