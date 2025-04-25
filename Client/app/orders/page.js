@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X } from 'lucide-react';
 
 // API constants
-const GEONETTECH_BASE_URL = 'https://orders.geonettech.com/api/v1';
-const API_KEY = '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
+const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1/checkOrderStatus';
+const API_KEY = '42|tjhxBxaWWe4mPUpxXN1uIk0KTxypvlSqOIOQWz6K162aa0d6';
 const API_BASE_URL = 'https://datamartbackened.onrender.com/api/v1';
 
 // Format currency as GHS
@@ -164,7 +164,7 @@ export default function DataPurchases() {
     try {
       // Make request to Geonettech API to get current status
       const statusResponse = await axios.get(
-        `${GEONETTECH_BASE_URL}/order/${geonetReference}/status`,
+        `${GEONETTECH_BASE_URL}/${geonetReference}`,
         {
           headers: {
             Authorization: `Bearer ${API_KEY}`
