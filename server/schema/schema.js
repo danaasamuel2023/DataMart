@@ -87,7 +87,14 @@ const DataPurchaseSchema = new mongoose.Schema({
   price: { type: Number, required: true }, 
   geonetReference: { type: String, required: true }, 
   status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting"], default: "pending" }, 
+  // Add this processing field to prevent duplicate exports
+  processing: { type: Boolean, default: false },
+  // Add these fields for admin notes and update tracking
+  adminNotes: { type: String },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  updatedAt: { type: Date },
   createdAt: { type: Date, default: Date.now }
+ 
 });
 
 const TransactionSchema = new mongoose.Schema({

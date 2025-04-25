@@ -6,8 +6,8 @@ const { v4: uuidv4 } = require('uuid');
 const { User, DataPurchase, Transaction,DataInventory} = require('../schema/schema');
 
 // Geonettech API Configuration
-const GEONETTECH_BASE_URL = 'https://orders.geonettech.com/api/v1';
-const GEONETTECH_API_KEY = '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
+const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1';
+const GEONETTECH_API_KEY = '42|tjhxBxaWWe4mPUpxXN1uIk0KTxypvlSqOIOQWz6K162aa0d6';
 
 // Create Geonettech client
 const geonetClient = axios.create({
@@ -29,7 +29,7 @@ router.get('/agent-balance', async (req, res) => {
   try {
     logOperation('AGENT_BALANCE_REQUEST', { timestamp: new Date() });
     
-    const response = await geonetClient.get('/wallet/balance');
+    const response = await geonetClient.get('/checkBalance');
     
     logOperation('AGENT_BALANCE_RESPONSE', {
       status: response.status,
@@ -241,7 +241,7 @@ router.post('/purchase-data', async (req, res) => {
 
     // If inventory is in stock, proceed with Geonettech API
     logOperation('AGENT_BALANCE_CHECK_PRE_PURCHASE', { timestamp: new Date() });
-    const agentBalanceResponse = await geonetClient.get('/wallet/balance');
+    const agentBalanceResponse = await geonetClient.get('/checkBalance');
     const agentBalance = parseFloat(agentBalanceResponse.data.data.balance.replace(/,/g, ''));
     
     logOperation('AGENT_BALANCE_RESULT', {
@@ -280,7 +280,7 @@ router.post('/purchase-data', async (req, res) => {
     
     logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
     
-    const geonetResponse = await geonetClient.post('/orders', geonetOrderPayload);
+    const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
     
     logOperation('GEONETTECH_ORDER_RESPONSE', {
       status: geonetResponse.status,
