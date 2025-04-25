@@ -271,12 +271,12 @@ router.post('/purchase-data', async (req, res) => {
     });
 
     // Place order with Geonettech
-    const geonetOrderPayload = [{
+    const geonetOrderPayload = {
       network_key: network,
       ref: orderReference,
       recipient: phoneNumber,
       capacity: capacity
-    }];
+    };
     
     logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
     
