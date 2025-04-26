@@ -153,6 +153,7 @@ export default function DataPurchases() {
   }, [searchTerm, filterStatus, filterNetwork, allPurchases]);
 
   /// Function to check status of a specific order
+// Function to check status of a specific order
 const checkOrderStatus = async (purchaseId, geonetReference, network) => {
   // Skip if there's no geonetReference or it's an AirtelTigo purchase
   if (!geonetReference || network === 'at') {
@@ -162,15 +163,15 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
   setCheckingStatus(prev => ({ ...prev, [purchaseId]: true }));
   
   try {
-    // Make request to Geonettech API to get current status with 'ref' as query parameter
+    // Replace :ref in the URL with the actual reference
+    const url = GEONETTECH_BASE_URL.replace(':ref', geonetReference);
+    
+    // Make request to Geonettech API to get current status
     const statusResponse = await axios.get(
-      `${GEONETTECH_BASE_URL}`, // Base URL without path parameter
+      url,
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`
-        },
-        params: {
-          ref: geonetReference // Add reference as query parameter
         }
       }
     );
