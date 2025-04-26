@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X } from 'lucide-react';
 
 // API constants
-const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1/checkOrderStatus';
+const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1/checkOrderStatus/:ref';
 const API_KEY = '42|tjhxBxaWWe4mPUpxXN1uIk0KTxypvlSqOIOQWz6K162aa0d6';
 const API_BASE_URL = 'https://datamartbackened.onrender.com/api/v1';
 
