@@ -154,6 +154,7 @@ export default function DataPurchases() {
 
   /// Function to check status of a specific order
 // Function to check status of a specific order
+// Function to check status of a specific order
 const checkOrderStatus = async (purchaseId, geonetReference, network) => {
   // Skip if there's no geonetReference or it's an AirtelTigo purchase
   if (!geonetReference || network === 'at') {
@@ -166,6 +167,9 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
     // Replace :ref in the URL with the actual reference
     const url = GEONETTECH_BASE_URL.replace(':ref', geonetReference);
     
+    console.log('Checking status with URL:', url);
+    console.log('Using geonetReference:', geonetReference);
+    
     // Make request to Geonettech API to get current status
     const statusResponse = await axios.get(
       url,
@@ -176,8 +180,13 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
       }
     );
     
-    // Extract status from response
-    const geonetStatus = statusResponse.data.data.order.status;
+    console.log('API Response:', statusResponse.data);
+    
+    // Extract status from response - updated path based on the actual response structure
+    // The status is directly in data.status, not in data.data.order.status
+    const geonetStatus = statusResponse.data.data.status;
+    
+    console.log('Extracted status:', geonetStatus);
     
     // Only update if we got a valid status back
     if (geonetStatus) {
@@ -243,6 +252,7 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
     
   } catch (error) {
     console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
+    console.error('Error details:', error.response?.data || 'No response data');
     
     // Update status to "error checking" on API failure
     const updatedPurchases = allPurchases.map(purchase => {
