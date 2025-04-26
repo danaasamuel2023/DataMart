@@ -152,98 +152,80 @@ export default function DataPurchases() {
     }
   }, [searchTerm, filterStatus, filterNetwork, allPurchases]);
 
-  // Function to check status of a specific order
-  const checkOrderStatus = async (purchaseId, geonetReference, network) => {
-    // Skip if there's no geonetReference or it's an AirtelTigo purchase
-    if (!geonetReference || network === 'at') {
-      return;
-    }
-    
-    setCheckingStatus(prev => ({ ...prev, [purchaseId]: true }));
-    
-    try {
-      // Make request to Geonettech API to get current status
-      const statusResponse = await axios.get(
-        `${GEONETTECH_BASE_URL}/${geonetReference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`
-          }
+  /// Function to check status of a specific order
+const checkOrderStatus = async (purchaseId, geonetReference, network) => {
+  // Skip if there's no geonetReference or it's an AirtelTigo purchase
+  if (!geonetReference || network === 'at') {
+    return;
+  }
+  
+  setCheckingStatus(prev => ({ ...prev, [purchaseId]: true }));
+  
+  try {
+    // Make request to Geonettech API to get current status with 'ref' as query parameter
+    const statusResponse = await axios.get(
+      `${GEONETTECH_BASE_URL}`, // Base URL without path parameter
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`
+        },
+        params: {
+          ref: geonetReference // Add reference as query parameter
         }
-      );
-      
-      // Extract status from response
-      const geonetStatus = statusResponse.data.data.order.status;
-      
-      // Only update if we got a valid status back
-      if (geonetStatus) {
-        // Update status in state
-        const updatedPurchases = allPurchases.map(purchase => {
-          if (purchase._id === purchaseId) {
-            return { ...purchase, status: geonetStatus };
-          }
-          return purchase;
-        });
-        
-        setAllPurchases(updatedPurchases);
-        
-        // Also update the filtered purchases list
-        const updatedFilteredPurchases = purchases.map(purchase => {
-          if (purchase._id === purchaseId) {
-            return { ...purchase, status: geonetStatus };
-          }
-          return purchase;
-        });
-        
-        setPurchases(updatedFilteredPurchases);
-
-        // Mark this status as checked
-        setCheckedStatuses(prev => ({
-          ...prev,
-          [purchaseId]: true
-        }));
-        
-        // If status is "completed", we would update our backend, but no endpoint exists
-        // Just log the status change for now
-        if (geonetStatus === 'completed') {
-          console.log(`Status for order ${purchaseId} is now completed`);
-          // When a real endpoint is available, uncomment the code below
-          /* 
-          try {
-            await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
-              status: 'completed'
-            });
-          } catch (updateError) {
-            console.error('Failed to update status in backend:', updateError);
-          }
-          */
-        }
-      } else {
-        // If no status returned, update with "unknown"
-        const updatedPurchases = allPurchases.map(purchase => {
-          if (purchase._id === purchaseId) {
-            return { ...purchase, status: "unknown" };
-          }
-          return purchase;
-        });
-        
-        setAllPurchases(updatedPurchases);
-        setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
-        
-        // Mark this status as checked
-        setCheckedStatuses(prev => ({
-          ...prev,
-          [purchaseId]: true
-        }));
       }
-      
-    } catch (error) {
-      console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
-      
-      // Update status to "error checking" on API failure
+    );
+    
+    // Extract status from response
+    const geonetStatus = statusResponse.data.data.order.status;
+    
+    // Only update if we got a valid status back
+    if (geonetStatus) {
+      // Update status in state
       const updatedPurchases = allPurchases.map(purchase => {
         if (purchase._id === purchaseId) {
-          return { ...purchase, status: "error checking" };
+          return { ...purchase, status: geonetStatus };
+        }
+        return purchase;
+      });
+      
+      setAllPurchases(updatedPurchases);
+      
+      // Also update the filtered purchases list
+      const updatedFilteredPurchases = purchases.map(purchase => {
+        if (purchase._id === purchaseId) {
+          return { ...purchase, status: geonetStatus };
+        }
+        return purchase;
+      });
+      
+      setPurchases(updatedFilteredPurchases);
+
+      // Mark this status as checked
+      setCheckedStatuses(prev => ({
+        ...prev,
+        [purchaseId]: true
+      }));
+      
+      // If status is "completed", we would update our backend, but no endpoint exists
+      // Just log the status change for now
+      if (geonetStatus === 'completed') {
+        console.log(`Status for order ${purchaseId} is now completed`);
+        // When a real endpoint is available, uncomment the code below
+        /* 
+        try {
+          await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
+            status: 'completed'
+          });
+        } catch (updateError) {
+          console.error('Failed to update status in backend:', updateError);
+        }
+        */
+      }
+    } else {
+      // If no status returned, update with "unknown"
+      const updatedPurchases = allPurchases.map(purchase => {
+        if (purchase._id === purchaseId) {
+          return { ...purchase, status: "unknown" };
         }
         return purchase;
       });
@@ -251,21 +233,42 @@ export default function DataPurchases() {
       setAllPurchases(updatedPurchases);
       setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
       
-      // Mark this status as checked even on error
+      // Mark this status as checked
       setCheckedStatuses(prev => ({
         ...prev,
         [purchaseId]: true
       }));
-      
-      // Automatically open the dropdown to show status when not already open
-      if (expandedId !== purchaseId) {
-        setExpandedId(purchaseId);
-      }
-      
-    } finally {
-      setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
     }
-  };
+    
+  } catch (error) {
+    console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
+    
+    // Update status to "error checking" on API failure
+    const updatedPurchases = allPurchases.map(purchase => {
+      if (purchase._id === purchaseId) {
+        return { ...purchase, status: "error checking" };
+      }
+      return purchase;
+    });
+    
+    setAllPurchases(updatedPurchases);
+    setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
+    
+    // Mark this status as checked even on error
+    setCheckedStatuses(prev => ({
+      ...prev,
+      [purchaseId]: true
+    }));
+    
+    // Automatically open the dropdown to show status when not already open
+    if (expandedId !== purchaseId) {
+      setExpandedId(purchaseId);
+    }
+    
+  } finally {
+    setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
+  }
+};
 
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {

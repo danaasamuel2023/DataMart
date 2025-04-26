@@ -16,6 +16,7 @@ const approveuser = require('./adim-aprove/approve.js')
 const registerFriend = require('./regsterFreinds/register.js')
 const bulkUpload = require('./bulkPurchase/bulk.js')
 const userStats = require('./userInfo/userInfo.js')
+const adminOrder = require('./allOrders/allorders.js')
 dotenv.config();
 
 // Initialize Express app
@@ -42,6 +43,7 @@ app.use('/api', approveuser)
 app.use('/api', registerFriend);
 app.use('/api', bulkUpload);
 app.use('/api/v1', userStats);
+app.use('/api', adminOrder);
 
 // Default Route
 app.get('/', (req, res) => {
@@ -49,7 +51,7 @@ app.get('/', (req, res) => {
 });
 
 // Start Server
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
