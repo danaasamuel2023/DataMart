@@ -24,6 +24,7 @@ const MobileNavbar = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeSection, setActiveSection] = useState("Dashboard");
   const [userRole, setUserRole] = useState("user"); // Default to regular user
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
   
   // Check system preference and local storage on initial load
   useEffect(() => {
@@ -37,14 +38,20 @@ const MobileNavbar = () => {
       document.documentElement.classList.remove('dark');
     }
     
-    // Check user role from localStorage
+    // Check user role and login status from localStorage
     try {
+      const authToken = localStorage.getItem('authToken');
       const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      
+      // Set login status based on authToken existence
+      setIsLoggedIn(!!authToken);
+      
       if (userData && userData.role) {
         setUserRole(userData.role);
       }
     } catch (error) {
       console.error("Error parsing user data:", error);
+      setIsLoggedIn(false);
     }
   }, []);
 
@@ -62,19 +69,27 @@ const MobileNavbar = () => {
     }
   };
 
-  // Logout function
+  // Enhanced Logout function
   const handleLogout = () => {
     console.log("Logout initiated");
     try {
-      // Clear auth data
+      // Clear all auth data
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
       
-      // Navigate to login page
-      window.location.href = '/SignIn';
+      // Remove the specific item you mentioned
+      localStorage.removeItem('data.user');
+      
+      // Clear any other potential auth-related items
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      
+      // Navigate to home page (root path)
+      window.location.href = '/';
     } catch (error) {
       console.error("Error during logout:", error);
-      window.location.href = '/SignIn';
+      // Fallback to home page if there's an error
+      window.location.href = '/';
     }
   };
 
@@ -191,10 +206,10 @@ const MobileNavbar = () => {
         <div className="flex justify-between items-center h-16 px-4">
           <div className="flex items-center">
             <span 
-              className="text-lg font-bold text-gray-800 dark:text-white cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
               onClick={() => router.push('/')}
             >
-              DATAMART 
+              <DatamartLogo width={100} height={30} />
             </span>
           </div>
           <div className="flex items-center space-x-2">
@@ -232,17 +247,18 @@ const MobileNavbar = () => {
           {/* Sidebar Header */}
           <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800">
             <span 
-              className="text-lg font-bold text-gray-800 dark:text-white cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
               onClick={() => {
                 router.push('/');
                 setIsMobileMenuOpen(false);
               }}
             >
-              DATAMART 
+              <DatamartLogo width={100} height={30} />
             </span>
             <button 
               onClick={() => setIsMobileMenuOpen(false)}
               className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Close menu"
             >
               <X size={20} />
             </button>
@@ -250,90 +266,117 @@ const MobileNavbar = () => {
 
           {/* Sidebar Content */}
           <div className="h-[calc(100vh-64px)] overflow-y-auto">
-            <div className="py-2">
-              <SectionHeading title="Dashboard" />
-              <NavItem 
-                icon={<Home size={18} />} 
-                text="Dashboard" 
-                path="/" 
-              />
-              {userRole === "admin" && (
-                <NavItem 
-                  icon={<LayoutDashboard size={18} />} 
-                  text="Admin Dashboard" 
-                  path="/admin" 
-                />
-              )}
-            </div>
-
-            <div className="py-2">
-              <SectionHeading title="Services" />
-              <NavItem 
-                icon={<Layers size={18} />} 
-                text="AT Business" 
-                path="/at-ishare" 
-              />
-              <NavItem 
-                icon={<Layers size={18} />} 
-                text="MTN Business" 
-                path="/mtnup2u" 
-              />
-              <NavItem 
-                icon={<Layers size={18} />} 
-                text="Telecel" 
-                path="/TELECEL" 
-              />
-              <NavItem 
-                icon={<Layers size={18} />} 
-                text="AT Big Time Bundles" 
-                path="/at-big-time"
-                disabled={userRole !== "admin"} 
-              />
-            </div>
-
-            <div className="py-2">
-              <SectionHeading title="Subscriptions" />
-              <NavItem 
-                icon={<BarChart2 size={18} />} 
-                text="Subscription" 
-                path="/subscription"
-                disabled={userRole !== "admin"}
-              />
-            </div>
-
-            <div className="py-2">
-              <SectionHeading title="Transaction" />
-              <NavItem 
-                icon={<ShoppingCart size={18} />} 
-                text="Histories" 
-                path="/myorders" 
-              />
-            </div>
-
-            {/* User Account Section */}
-            <div className="mt-4 p-4 border-t border-gray-200 dark:border-gray-800">
-              <div 
-                className="flex items-center p-3 mb-3 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={navigateToProfile}
-              >
-                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
-                  <User size={20} />
+            {isLoggedIn ? (
+              // Show these sections only when user is logged in
+              <>
+                <div className="py-2">
+                  <SectionHeading title="Dashboard" />
+                  <NavItem 
+                    icon={<Home size={18} />} 
+                    text="Dashboard" 
+                    path="/" 
+                  />
+                  {userRole === "admin" && (
+                    <NavItem 
+                      icon={<LayoutDashboard size={18} />} 
+                      text="Admin Dashboard" 
+                      path="/admin" 
+                    />
+                  )}
                 </div>
-                <div className="ml-3">
-                  <div className="font-medium text-sm dark:text-white">My Account</div>
-                  <div className="text-xs text-purple-600 dark:text-purple-400">Profile Settings</div>
+
+                <div className="py-2">
+                  <SectionHeading title="Services" />
+                  <NavItem 
+                    icon={<Layers size={18} />} 
+                    text="AT Business" 
+                    path="/at-ishare" 
+                  />
+                  <NavItem 
+                    icon={<Layers size={18} />} 
+                    text="MTN Business" 
+                    path="/mtnup2u" 
+                  />
+                  <NavItem 
+                    icon={<Layers size={18} />} 
+                    text="Telecel" 
+                    path="/TELECEL" 
+                  />
+                  <NavItem 
+                    icon={<Layers size={18} />} 
+                    text="AT Big Time Bundles" 
+                    path="/at-big-time"
+                    disabled={userRole !== "admin"} 
+                  />
                 </div>
-                <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
+
+                <div className="py-2">
+                  <SectionHeading title="Subscriptions" />
+                  <NavItem 
+                    icon={<BarChart2 size={18} />} 
+                    text="Subscription" 
+                    path="/subscription"
+                    disabled={userRole !== "admin"}
+                  />
+                </div>
+
+                <div className="py-2">
+                  <SectionHeading title="Transaction" />
+                  <NavItem 
+                    icon={<ShoppingCart size={18} />} 
+                    text="Histories" 
+                    path="/myorders" 
+                  />
+                </div>
+
+                {/* User Account Section */}
+                <div className="mt-4 p-4 border-t border-gray-200 dark:border-gray-800">
+                  <div 
+                    className="flex items-center p-3 mb-3 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={navigateToProfile}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
+                      <User size={20} />
+                    </div>
+                    <div className="ml-3">
+                      <div className="font-medium text-sm dark:text-white">My Account</div>
+                      <div className="text-xs text-purple-600 dark:text-purple-400">Profile Settings</div>
+                    </div>
+                    <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
+                  </div>
+                  
+                  <button
+                    onClick={handleLogout}
+                    className="w-full mt-4 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
+                  >
+                    <LogOut size={20} className="mr-2" strokeWidth={2.5} />
+                    <span className="font-semibold text-sm">Sign Out</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Show only these options when user is not logged in
+              <div className="p-4 flex flex-col items-center justify-center h-full">
+                <div className="text-center mb-6">
+                  <DatamartLogo width={120} height={40} />
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">Please sign in to access all features</p>
+                </div>
+                
+                <button
+                  onClick={() => router.push('/SignIn')}
+                  className="w-full mb-3 py-3 px-4 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-all duration-300"
+                >
+                  <span className="font-semibold text-sm">Sign In</span>
+                </button>
+                
+                <button
+                  onClick={() => router.push('/SignUp')}
+                  className="w-full py-3 px-4 bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 rounded-lg shadow-sm hover:bg-purple-50 dark:hover:bg-gray-700 transition-all duration-300"
+                >
+                  <span className="font-semibold text-sm">Create Account</span>
+                </button>
               </div>
-              
-              <button
-                onClick={handleLogout}
-                className="w-full mt-4 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
-              >
-                <LogOut size={20} className="mr-2" strokeWidth={2.5} />
-                <span className="font-semibold text-sm">Sign Out</span>
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </aside>
@@ -343,10 +386,8 @@ const MobileNavbar = () => {
         {/* Your content goes here */}
       </main>
 
-      {/* Removed bottom navigation as requested */}
-
-      {/* Styles for animations */}
-      <style jsx global>{`
+      {/* Animation styles using standard jsx prop - removed 'global' attribute */}
+      <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }

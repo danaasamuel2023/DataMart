@@ -182,8 +182,7 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
     
     console.log('API Response:', statusResponse.data);
     
-    // Extract status from response - updated path based on the actual response structure
-    // The status is directly in data.status, not in data.data.order.status
+    // Extract status from response
     const geonetStatus = statusResponse.data.data.status;
     
     console.log('Extracted status:', geonetStatus);
@@ -232,18 +231,8 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
         */
       }
     } else {
-      // If no status returned, update with "unknown"
-      const updatedPurchases = allPurchases.map(purchase => {
-        if (purchase._id === purchaseId) {
-          return { ...purchase, status: "unknown" };
-        }
-        return purchase;
-      });
-      
-      setAllPurchases(updatedPurchases);
-      setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
-      
-      // Mark this status as checked
+      // If no status returned, keep the original database status
+      // Mark this status as checked (but don't change the actual status)
       setCheckedStatuses(prev => ({
         ...prev,
         [purchaseId]: true
@@ -254,18 +243,8 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
     console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
     console.error('Error details:', error.response?.data || 'No response data');
     
-    // Update status to "error checking" on API failure
-    const updatedPurchases = allPurchases.map(purchase => {
-      if (purchase._id === purchaseId) {
-        return { ...purchase, status: "error checking" };
-      }
-      return purchase;
-    });
-    
-    setAllPurchases(updatedPurchases);
-    setPurchases(updatedPurchases.filter(p => purchases.some(fp => fp._id === p._id)));
-    
-    // Mark this status as checked even on error
+    // MODIFIED: Don't update the status on error - keep the original DB status
+    // Instead, just mark it as checked so the status badge shows the original status
     setCheckedStatuses(prev => ({
       ...prev,
       [purchaseId]: true
