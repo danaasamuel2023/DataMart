@@ -383,7 +383,7 @@ const MobileNavbar = () => {
 
       {/* Main Content Area (with padding to account for fixed header) */}
       <main className="pt-16">
-        {/* Your content goes here */}
+        {/* Your content goes herIM BACK */}
       </main>
 
       {/* Animation styles using standard jsx prop - removed 'global' attribute */}
