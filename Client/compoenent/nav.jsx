@@ -219,27 +219,42 @@ const MobileNavbar = () => {
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Sidebar Header */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800">
-          <span 
-            className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-            onClick={() => {
-              router.push('/');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            {/* Simplified DATAMART text logo */}
-            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-transparent bg-clip-text">
-              DATAMART
-            </h1>
-          </span>
-          <button 
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            aria-label="Close menu"
-          >
-            <X size={20} />
-          </button>
+        {/* Sidebar Header with Logout Button */}
+        <div className="border-b border-gray-200 dark:border-gray-800">
+          <div className="flex justify-between items-center p-4">
+            <span 
+              className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              onClick={() => {
+                router.push('/');
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              {/* Simplified DATAMART text logo */}
+              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-transparent bg-clip-text">
+                DATAMART
+              </h1>
+            </span>
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          
+          {/* Logout Button at Top */}
+          {isLoggedIn && (
+            <div className="px-4 pb-4">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300"
+              >
+                <LogOut size={20} className="mr-2" strokeWidth={2.5} />
+                <span className="font-semibold text-sm">Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Content */}
@@ -332,16 +347,7 @@ const MobileNavbar = () => {
                 </div>
               </div>
               
-              {/* Logout Button - Made more prominent and sticky */}
-              <div className="sticky bottom-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg">
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center py-4 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
-                >
-                  <LogOut size={22} className="mr-2" strokeWidth={2.5} />
-                  <span className="font-semibold text-base">Sign Out</span>
-                </button>
-              </div>
+              {/* Removed sticky logout button since it's now at the top */}
             </>
           ) : (
             // Show only these options when user is not logged in
