@@ -330,13 +330,16 @@ const MobileNavbar = () => {
                   </div>
                   <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>
-                
+              </div>
+              
+              {/* Logout Button - Made more prominent and sticky */}
+              <div className="sticky bottom-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg">
                 <button
                   onClick={handleLogout}
-                  className="w-full mt-4 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
+                  className="w-full flex items-center justify-center py-4 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
                 >
-                  <LogOut size={20} className="mr-2" strokeWidth={2.5} />
-                  <span className="font-semibold text-sm">Sign Out</span>
+                  <LogOut size={22} className="mr-2" strokeWidth={2.5} />
+                  <span className="font-semibold text-base">Sign Out</span>
                 </button>
               </div>
             </>
