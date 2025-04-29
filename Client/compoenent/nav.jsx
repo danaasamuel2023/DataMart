@@ -25,6 +25,7 @@ const MobileNavbar = () => {
   const [activeSection, setActiveSection] = useState("Dashboard");
   const [userRole, setUserRole] = useState("user"); // Default to regular user
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
+  const [userName, setUserName] = useState(""); // Track user name for display
   
   // Check system preference and local storage on initial load
   useEffect(() => {
@@ -42,12 +43,25 @@ const MobileNavbar = () => {
     try {
       const authToken = localStorage.getItem('authToken');
       const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      const dataUser = JSON.parse(localStorage.getItem('data.user') || '{}');
       
       // Set login status based on authToken existence
-      setIsLoggedIn(!!authToken);
+      const loggedIn = !!authToken;
+      setIsLoggedIn(loggedIn);
       
+      if (!loggedIn) {
+        return; // Don't try to get user info if not logged in
+      }
+      
+      // First try to get role from userData
       if (userData && userData.role) {
         setUserRole(userData.role);
+        setUserName(userData.name || '');
+      }
+      // Fallback to data.user if available
+      else if (dataUser && dataUser.role) {
+        setUserRole(dataUser.role);
+        setUserName(dataUser.name || '');
       }
     } catch (error) {
       console.error("Error parsing user data:", error);
@@ -76,13 +90,15 @@ const MobileNavbar = () => {
       // Clear all auth data
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
-      
-      // Remove the specific item you mentioned
       localStorage.removeItem('data.user');
       
       // Clear any other potential auth-related items
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      
+      // Update state to reflect logged out status
+      setIsLoggedIn(false);
+      setUserRole("user");
       
       // Navigate to home page (root path)
       window.location.href = '/';
@@ -115,52 +131,6 @@ const MobileNavbar = () => {
       document.body.style.overflow = 'auto';
     };
   }, [isMobileMenuOpen]);
-
-  // DATAMART PSK Logo SVG Component
-  const DatamartLogo = ({ width = 120, height = 40 }) => (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 150 50" 
-      width={width} 
-      height={height}
-      className="transition-opacity duration-200"
-    >
-      <path 
-        d="M62.5,15.2h4.5v8.1h8.4v-8.1h4.5v20h-4.5v-8.1h-8.4v8.1h-4.5V15.2z" 
-        fill="currentColor"
-        className="text-gray-800 dark:text-white"
-      />
-      <path 
-        d="M86.4,21.7v13.5h-4.2V21.7h-4.1v-3.7h4.1v-5.8h4.2v5.8h4.1v3.7H86.4z" 
-        fill="currentColor"
-        className="text-gray-800 dark:text-white"
-      />
-      <path 
-        d="M100.4,21.4c-1.2-1.2-2.8-1.8-4.6-1.8s-3.4,0.6-4.6,1.8c-1.2,1.2-1.8,2.7-1.8,4.5s0.6,3.3,1.8,4.5c1.2,1.2,2.8,1.8,4.6,1.8 s3.4-0.6,4.6-1.8c1.2-1.2,1.8-2.7,1.8-4.5S101.6,22.6,100.4,21.4z" 
-        fill="currentColor"
-        className="text-gray-800 dark:text-white"
-      />
-      <path 
-        d="M103.6,30.4c0-0.6,0.2-1.1,0.6-1.5c0.4-0.4,0.9-0.6,1.5-0.6s1.1,0.2,1.5,0.6c0.4,0.4,0.6,0.9,0.6,1.5s-0.2,1.1-0.6,1.5 c-0.4,0.4-0.9,0.6-1.5,0.6s-1.1-0.2-1.5-0.6C103.8,31.5,103.6,31,103.6,30.4z" 
-        fill="currentColor"
-        className="text-gray-800 dark:text-white"
-      />
-      <path 
-        d="M117.3,19.6c-1.9,0-3.3,0.6-4.3,1.9v-1.4h-4.2v15h4.2v-8.5c0-1.1,0.3-2,0.9-2.6c0.6-0.6,1.4-0.9,2.3-0.9 c0.9,0,1.7,0.3,2.3,0.9c0.6,0.6,0.9,1.5,0.9,2.6v8.5h4.2v-9.2c0-1.9-0.6-3.4-1.7-4.6C120.7,20.2,119.2,19.6,117.3,19.6z" 
-        fill="currentColor"
-        className="text-gray-800 dark:text-white"
-      />
-      <path 
-        d="M139.1,21.2c-1.1-1-2.6-1.6-4.3-1.6c-2,0-3.7,0.7-4.9,2c-1.2,1.3-1.9,3-1.9,5c0,2,0.6,3.7,1.9,5c1.3,1.3,2.9,2,4.9,2 c1.7,0,3.2-0.5,4.3-1.6v1.1h4.2V20.1h-4.2V21.2z M136.3,28.1c-0.7,0.7-1.6,1-2.6,1s-1.9-0.3-2.6-1c-0.7-0.7-1-1.5-1-2.5 s0.3-1.8,1-2.5c0.7-0.7,1.6-1,2.6-1s1.9,0.3,2.6,1c0.7,0.7,1,1.5,1,2.5S137,27.4,136.3,28.1z" 
-        fill="currentColor"
-        className="text-gray-800 dark:text-white"
-      />
-      <path 
-        d="M50.9,31.3l-7.4,12.8c-0.4,0.7-1.4,0.7-1.8,0L27.8,19.9c-0.4-0.7,0.1-1.6,0.9-1.6h9.2c0.4,0,0.7,0.2,0.9,0.5l5.7,9.9 c0.4,0.7,1.4,0.7,1.8,0l1.7-3c0.4-0.7,1.4-0.7,1.8,0l2.1,3.6C50.9,29.3,50.9,30.3,50.9,31.3L50.9,31.3z" 
-        fill="#9333ea"
-      />
-    </svg>
-  );
 
   // Navigation Item Component
   const NavItem = ({ icon, text, path, onClick, disabled = false }) => {
@@ -209,7 +179,11 @@ const MobileNavbar = () => {
               className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
               onClick={() => router.push('/')}
             >
-              <DatamartLogo width={100} height={30} />
+              {/* Simplified DATAMART text logo instead of SVG */}
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-transparent bg-clip-text">
+                DATAMART
+              </h1>
+              <span className="sr-only">Datamart</span>
             </span>
           </div>
           <div className="flex items-center space-x-2">
@@ -231,162 +205,181 @@ const MobileNavbar = () => {
         </div>
       </header>
 
+      {/* Mobile Menu Overlay - Reduced opacity and made dismissible */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 z-50 transition-opacity duration-300"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ${
-          isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`fixed right-0 top-0 h-full w-64 bg-white dark:bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out z-50 ${
+          isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
-        onClick={() => setIsMobileMenuOpen(false)}
       >
-        <div 
-          className={`absolute left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Sidebar Header */}
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800">
-            <span 
-              className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              onClick={() => {
-                router.push('/');
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              <DatamartLogo width={100} height={30} />
-            </span>
-            <button 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Close menu"
-            >
-              <X size={20} />
-            </button>
-          </div>
+        {/* Sidebar Header */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800">
+          <span 
+            className="cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+            onClick={() => {
+              router.push('/');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            {/* Simplified DATAMART text logo */}
+            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-transparent bg-clip-text">
+              DATAMART
+            </h1>
+          </span>
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-          {/* Sidebar Content */}
-          <div className="h-[calc(100vh-64px)] overflow-y-auto">
-            {isLoggedIn ? (
-              // Show these sections only when user is logged in
-              <>
-                <div className="py-2">
-                  <SectionHeading title="Dashboard" />
+        {/* Sidebar Content */}
+        <div className="h-[calc(100vh-64px)] overflow-y-auto">
+          {isLoggedIn ? (
+            // Show these sections only when user is logged in
+            <>
+              <div className="py-2">
+                <SectionHeading title="Dashboard" />
+                <NavItem 
+                  icon={<Home size={18} />} 
+                  text="Dashboard" 
+                  path="/" 
+                />
+                {userRole === "admin" && (
                   <NavItem 
-                    icon={<Home size={18} />} 
-                    text="Dashboard" 
-                    path="/" 
+                    icon={<LayoutDashboard size={18} />} 
+                    text="Admin Dashboard" 
+                    path="/admin" 
                   />
-                  {userRole === "admin" && (
-                    <NavItem 
-                      icon={<LayoutDashboard size={18} />} 
-                      text="Admin Dashboard" 
-                      path="/admin" 
-                    />
-                  )}
-                </div>
+                )}
+              </div>
 
-                <div className="py-2">
-                  <SectionHeading title="Services" />
-                  <NavItem 
-                    icon={<Layers size={18} />} 
-                    text="AT Business" 
-                    path="/at-ishare" 
-                  />
-                  <NavItem 
-                    icon={<Layers size={18} />} 
-                    text="MTN Business" 
-                    path="/mtnup2u" 
-                  />
-                  <NavItem 
-                    icon={<Layers size={18} />} 
-                    text="Telecel" 
-                    path="/TELECEL" 
-                  />
-                  <NavItem 
-                    icon={<Layers size={18} />} 
-                    text="AT Big Time Bundles" 
-                    path="/at-big-time"
-                    disabled={userRole !== "admin"} 
-                  />
-                </div>
+              <div className="py-2">
+                <SectionHeading title="Services" />
+                <NavItem 
+                  icon={<Layers size={18} />} 
+                  text="AT Business" 
+                  path="/at-ishare" 
+                />
+                <NavItem 
+                  icon={<Layers size={18} />} 
+                  text="MTN Business" 
+                  path="/mtnup2u" 
+                />
+                <NavItem 
+                  icon={<Layers size={18} />} 
+                  text="Telecel" 
+                  path="/TELECEL" 
+                />
+                <NavItem 
+                  icon={<CreditCard size={18} />} 
+                  text="Buy Foreign Number" 
+                  path="/foreign-number"
+                  disabled={true} 
+                />
+                <NavItem 
+                  icon={<Layers size={18} />} 
+                  text="AT Big Time Bundles" 
+                  path="/at-big-time"
+                  disabled={true} 
+                />
+              </div>
 
-                <div className="py-2">
-                  <SectionHeading title="Subscriptions" />
-                  <NavItem 
-                    icon={<BarChart2 size={18} />} 
-                    text="Subscription" 
-                    path="/subscription"
-                    disabled={userRole !== "admin"}
-                  />
-                </div>
+              <div className="py-2">
+                <SectionHeading title="Subscriptions" />
+                <NavItem 
+                  icon={<BarChart2 size={18} />} 
+                  text="Subscription" 
+                  path="/subscription"
+                  disabled={true}
+                />
+              </div>
 
-                <div className="py-2">
-                  <SectionHeading title="Transaction" />
-                  <NavItem 
-                    icon={<ShoppingCart size={18} />} 
-                    text="Histories" 
-                    path="/myorders" 
-                  />
-                </div>
+              <div className="py-2">
+                <SectionHeading title="Transaction" />
+                <NavItem 
+                  icon={<ShoppingCart size={18} />} 
+                  text="Histories" 
+                  path="/myorders" 
+                />
+              </div>
 
-                {/* User Account Section */}
-                <div className="mt-4 p-4 border-t border-gray-200 dark:border-gray-800">
-                  <div 
-                    className="flex items-center p-3 mb-3 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={navigateToProfile}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
-                      <User size={20} />
-                    </div>
-                    <div className="ml-3">
-                      <div className="font-medium text-sm dark:text-white">My Account</div>
-                      <div className="text-xs text-purple-600 dark:text-purple-400">Profile Settings</div>
-                    </div>
-                    <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
+              {/* User Account Section */}
+              <div className="mt-4 p-4 border-t border-gray-200 dark:border-gray-800">
+                <div 
+                  className="flex items-center p-3 mb-3 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={navigateToProfile}
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
+                    <User size={20} />
                   </div>
-                  
-                  <button
-                    onClick={handleLogout}
-                    className="w-full mt-4 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
-                  >
-                    <LogOut size={20} className="mr-2" strokeWidth={2.5} />
-                    <span className="font-semibold text-sm">Sign Out</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              // Show only these options when user is not logged in
-              <div className="p-4 flex flex-col items-center justify-center h-full">
-                <div className="text-center mb-6">
-                  <DatamartLogo width={120} height={40} />
-                  <p className="mt-4 text-gray-600 dark:text-gray-400">Please sign in to access all features</p>
+                  <div className="ml-3">
+                    <div className="font-medium text-sm dark:text-white">
+                      {userName ? userName : 'My Account'}
+                    </div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400">Profile Settings</div>
+                  </div>
+                  <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>
                 
                 <button
-                  onClick={() => router.push('/SignIn')}
-                  className="w-full mb-3 py-3 px-4 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-all duration-300"
+                  onClick={handleLogout}
+                  className="w-full mt-4 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
                 >
-                  <span className="font-semibold text-sm">Sign In</span>
-                </button>
-                
-                <button
-                  onClick={() => router.push('/SignUp')}
-                  className="w-full py-3 px-4 bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 rounded-lg shadow-sm hover:bg-purple-50 dark:hover:bg-gray-700 transition-all duration-300"
-                >
-                  <span className="font-semibold text-sm">Create Account</span>
+                  <LogOut size={20} className="mr-2" strokeWidth={2.5} />
+                  <span className="font-semibold text-sm">Sign Out</span>
                 </button>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            // Show only these options when user is not logged in
+            <div className="p-4 flex flex-col items-center justify-center h-full">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-transparent bg-clip-text">
+                  DATAMART
+                </h2>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Please sign in to access all features</p>
+              </div>
+              
+              <button
+                onClick={() => {
+                  router.push('/SignIn');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full mb-3 py-3 px-4 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-all duration-300"
+              >
+                <span className="font-semibold text-sm">Sign In</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  router.push('/SignUp');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full py-3 px-4 bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 rounded-lg shadow-sm hover:bg-purple-50 dark:hover:bg-gray-700 transition-all duration-300"
+              >
+                <span className="font-semibold text-sm">Create Account</span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
       {/* Main Content Area (with padding to account for fixed header) */}
       <main className="pt-16">
-        {/* Your content goes herIM BACK */}
+        {/* Your content goes here */}
       </main>
 
-      {/* Animation styles using standard jsx prop - removed 'global' attribute */}
+      {/* Animation styles */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; }
