@@ -134,7 +134,7 @@ export default function OrdersAdmin() {
       if (searchTerm) queryParams.append('search', searchTerm);
       queryParams.append('searchAllPages', 'true'); // Always search across all orders
       
-      const response = await axios.get(`http://localhost:5000/api/orders?${queryParams.toString()}`, {
+      const response = await axios.get(`http://localhost:5000/api/admin-orders?${queryParams.toString()}`, {
         headers: {
           'x-auth-token': `${localStorage.getItem('authToken')}` // Adjust based on your auth system
         }
@@ -183,7 +183,7 @@ export default function OrdersAdmin() {
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
       
-      const endpoint = processingExport ? 'http://localhost:5000/api/orders/export/processing' : 'http://localhost:5000/api/orders/export';
+      const endpoint = processingExport ? 'http://localhost:5000/api/export/processing' : 'http://localhost:5000/api/export';
       
       toast.loading('Generating export...');
       

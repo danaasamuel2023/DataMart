@@ -10,7 +10,7 @@ const XLSX = require('xlsx'); // You'll need to install this: npm install xlsx
  * @desc    Get all orders with filtering options
  * @access  Admin only
  */
-router.get('/',  adminAuth, async (req, res) => {
+router.get('/admin-orders',  adminAuth, async (req, res) => {
   try {
     const { status, network, startDate, endDate, limit = 100, page = 1 } = req.query;
     
@@ -94,7 +94,7 @@ router.get('/export',  adminAuth, async (req, res) => {
         'Phone': order.userId ? order.userId.phoneNumber : '',
         'Network': order.network || '',
         'Plan': order.plan || '',
-        'Amount': order.amount || 0,
+        'Amount': order.capacity || 0,
         'Status': order.status || '',
         'Created Date': order.createdAt ? new Date(order.createdAt).toLocaleString() : '',
         'Updated Date': order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '',
