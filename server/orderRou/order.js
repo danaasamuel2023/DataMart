@@ -161,6 +161,7 @@ async function checkTelecelOrderStatus(reference) {
 }
 
 // Modify the purchase-data route to include Telecel API handling
+// Modified purchase-data route to handle Geonettech verification errors
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -314,7 +315,6 @@ router.post('/purchase-data', async (req, res) => {
       orderResponse = telecelResponse.data;
       
       // IMPORTANT: Extract the actual order reference from API response
-      // This is the key change - use the order reference from the API response as georeference
       if (orderResponse.data && orderResponse.data.order && orderResponse.data.order.orderReference) {
         // Store the API-provided order reference instead of our generated one
         apiOrderId = orderResponse.data.order.orderReference;
@@ -336,38 +336,127 @@ router.post('/purchase-data', async (req, res) => {
     } 
     // For all other networks, use Geonettech API
     else {
-      logOperation('AGENT_BALANCE_CHECK_PRE_PURCHASE', { timestamp: new Date() });
-      const agentBalanceResponse = await geonetClient.get('/checkBalance');
-      const agentBalance = parseFloat(agentBalanceResponse.data.data.balance.replace(/,/g, ''));
-      
-      if (agentBalance < price) {
-        logOperation('AGENT_INSUFFICIENT_BALANCE', {
-          agentBalance,
-          requiredAmount: price
-        });
+      try {
+        logOperation('AGENT_BALANCE_CHECK_PRE_PURCHASE', { timestamp: new Date() });
+        const agentBalanceResponse = await geonetClient.get('/checkBalance');
+        const agentBalance = parseFloat(agentBalanceResponse.data.data.balance.replace(/,/g, ''));
         
-        return res.status(400).json({
-          status: 'error',
-          message: 'Service provider out of stock'
-        });
-      }
+        if (agentBalance < price) {
+          logOperation('AGENT_INSUFFICIENT_BALANCE', {
+            agentBalance,
+            requiredAmount: price
+          });
+          
+          return res.status(400).json({
+            status: 'error',
+            message: 'Service provider out of stock'
+          });
+        }
 
-      // Place order with Geonettech
-      const geonetOrderPayload = {
-        network_key: network,
-        ref: orderReference,
-        recipient: phoneNumber,
-        capacity: capacity
-      };
-      
-      const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
-      orderResponse = geonetResponse.data;
-      apiOrderId = orderResponse.data ? orderResponse.data.orderId : null;
-      
-      logOperation('GEONETTECH_ORDER_CREATED', {
-        orderId: apiOrderId,
-        responseData: orderResponse
-      });
+        // Place order with Geonettech
+        const geonetOrderPayload = {
+          network_key: network,
+          ref: orderReference,
+          recipient: phoneNumber,
+          capacity: capacity
+        };
+        
+        logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
+        
+        const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+        orderResponse = geonetResponse.data;
+        apiOrderId = orderResponse.data ? orderResponse.data.orderId : null;
+        
+        logOperation('GEONETTECH_ORDER_CREATED', {
+          orderId: apiOrderId,
+          responseData: orderResponse
+        });
+      } catch (error) {
+        // Check if this is a contact verification error from Geonettech
+        if (error.response && 
+            (error.response.status === 422 || error.response.status === 400) && 
+            error.response.data && 
+            ((error.response.data.message && error.response.data.message.includes('Contact not verified')) || 
+             (error.response.data.status === 'rejected'))) {
+          
+          logOperation('GEONETTECH_CONTACT_VERIFICATION_ERROR', {
+            phoneNumber,
+            errorMessage: error.response.data.message,
+            statusCode: error.response.status
+          });
+          
+          // Add 50p to the price if capacity is 1GB
+          let finalPrice = price;
+          if (capacity == 1) {  // Using == to handle both string and number types
+            finalPrice = price + 0.50;  // Add 50 pesewas (0.50 GHS)
+            
+            logOperation('1GB_VERIFICATION_PRICE_ADJUSTMENT', {
+              originalPrice: price,
+              adjustedPrice: finalPrice,
+              adjustment: 0.50
+            });
+          }
+          
+          // Create Transaction with possibly adjusted price
+          const transaction = new Transaction({
+            userId,
+            type: 'purchase',
+            amount: finalPrice, // Use adjusted price
+            status: 'completed',
+            reference: transactionReference,
+            gateway: 'wallet'
+          });
+
+          // Create Data Purchase with possibly adjusted price
+          const dataPurchase = new DataPurchase({
+            userId,
+            phoneNumber,
+            network,
+            capacity,
+            gateway: 'wallet',
+            method: 'web',
+            price: finalPrice, // Use adjusted price
+            status: 'waiting',
+            geonetReference: orderReference,
+            errorDetails: {
+              type: 'verification_error',
+              message: error.response.data.message || 'Contact not verified',
+              code: error.response.status
+            }
+          });
+
+          // Update user wallet with possibly adjusted price
+          const previousBalance = user.walletBalance;
+          user.walletBalance -= finalPrice; // Use adjusted price
+
+          // Save all documents
+          await transaction.save({ session });
+          await dataPurchase.save({ session });
+          await user.save({ session });
+
+          // Commit transaction
+          await session.commitTransaction();
+
+          return res.status(201).json({
+            status: 'success',
+            message: capacity == 1 ? 
+              'Data bundle order placed in waiting queue. Note: An additional 50p fee has been added for verification.' :
+              'Data bundle order placed in waiting queue pending number verification',
+            data: {
+              transaction,
+              dataPurchase,
+              newWalletBalance: user.walletBalance,
+              waitingForVerification: true,
+              priceAdjusted: capacity == 1,
+              finalPrice: finalPrice,
+              errorDetails: error.response.data
+            }
+          });
+        } else {
+          // Re-throw other errors
+          throw error;
+        }
+      }
     }
 
     // Create Transaction

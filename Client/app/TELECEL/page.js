@@ -374,7 +374,7 @@ const TelecelBundleCards = () => {
                 <span className="bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-full shadow-lg">
                   OUT OF STOCK
                 </span>
-              </div>
+              </div> 
             )}
             
             <div 
