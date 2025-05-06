@@ -298,8 +298,8 @@ const MobileNavbar = () => {
                 <NavItem 
                   icon={<CreditCard size={18} />} 
                   text="Buy Foreign Number" 
-                  path="/foreign-number"
-                  disabled={true} 
+                  path="/verification-services"
+                
                 />
                 <NavItem 
                   icon={<Layers size={18} />} 

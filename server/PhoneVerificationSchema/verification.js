@@ -1,11 +1,14 @@
+// Updated TextVerifiedService class with wallet deduction only (no refunds)
 const mongoose = require("mongoose");
 const axios = require("axios");
 const crypto = require("crypto");
+const { User, Transaction } = require('../schema/schema'); // Adjust path as needed
 
 // TextVerified API Configuration
 const TEXTVERIFIED_API_URL = "https://www.textverified.com/api/pub/v2";
 const API_USERNAME = 'unimarketgh@gmail.com';
 const API_KEY = 'NbBsj5YTOnzZx24ubGiqkD0x5U6UdAthZavYAFSvvKYvQeQhvwbqZOGExJEpjYvi';
+const VERIFICATION_COST = 21; // Fixed cost in Ghana Cedis
 
 // Token storage schema - for caching bearer tokens
 const TokenSchema = new mongoose.Schema({
@@ -58,7 +61,8 @@ const PhoneVerificationSchema = new mongoose.Schema({
     type: [String]
   },
   totalCost: {
-    type: Number
+    type: Number,
+    default: VERIFICATION_COST // Set default cost to 21 GH₵
   },
   // Used only if the service isn't in TextVerified's list
   serviceNotListedName: {
@@ -69,6 +73,16 @@ const PhoneVerificationSchema = new mongoose.Schema({
     messageId: { type: String },
     receivedAt: { type: Date },
     content: { type: String }
+  },
+  // Payment tracking
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "paid"],
+    default: "pending"
+  },
+  transactionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Transaction"
   }
 });
 
@@ -143,7 +157,7 @@ class TextVerifiedService {
       const response = await axios.get(`${TEXTVERIFIED_API_URL}/services`, {
         params: {
           reservationType: type,
-          numberType: numberType  // Add this required parameter
+          numberType: numberType
         },
         headers: {
           'Authorization': `Bearer ${token}`
@@ -156,6 +170,7 @@ class TextVerifiedService {
       throw error;
     }
   }
+  
   /**
    * Create a new phone verification
    * @param {Object} data - Verification request data
@@ -163,6 +178,16 @@ class TextVerifiedService {
    */
   static async createVerification(data) {
     try {
+      // First check if user has sufficient balance
+      const user = await User.findById(data.userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      if (user.walletBalance < VERIFICATION_COST) {
+        throw new Error(`Insufficient wallet balance. Required: ${VERIFICATION_COST} GH₵, Available: ${user.walletBalance} GH₵`);
+      }
+      
       const token = await this.getBearerToken();
       
       // Create verification with TextVerified API
@@ -186,6 +211,21 @@ class TextVerifiedService {
       // Get verification details
       const verificationDetails = await this.getVerificationDetails(textVerifiedId);
       
+      // Deduct from user's wallet
+      user.walletBalance -= VERIFICATION_COST;
+      await user.save();
+      
+      // Create transaction record for this payment
+      const transaction = await Transaction.create({
+        userId: data.userId,
+        type: 'purchase',
+        amount: VERIFICATION_COST,
+        status: 'completed',
+        reference: `verification_${textVerifiedId}`,
+        gateway: 'wallet',
+        description: `Payment for ${data.serviceName} verification service`
+      });
+      
       // Create verification record in our database
       const phoneVerification = new PhoneVerification({
         userId: data.userId,
@@ -197,11 +237,16 @@ class TextVerifiedService {
         areaCodeSelectOption: data.areaCodeSelectOption,
         carrierSelectOption: data.carrierSelectOption,
         serviceNotListedName: data.serviceNotListedName,
-        totalCost: verificationDetails.totalCost,
-        expiresAt: new Date(verificationDetails.endsAt)
+        totalCost: VERIFICATION_COST, // Fixed cost in Ghana Cedis
+        expiresAt: new Date(verificationDetails.endsAt),
+        paymentStatus: 'paid',
+        transactionId: transaction._id
       });
       
       await phoneVerification.save();
+      
+      console.log(`[createVerification] Deducted ${VERIFICATION_COST} GH₵ from user ${data.userId} wallet. New balance: ${user.walletBalance} GH₵`);
+      
       return phoneVerification;
     } catch (error) {
       console.error('Error creating verification:', error);
@@ -224,119 +269,10 @@ class TextVerifiedService {
         }
       });
       
+      console.log(`[getVerificationDetails] Details for ${id}:`, JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error) {
       console.error(`Error getting verification details for ID ${id}:`, error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Reactivate an existing verification
-   * @param {string} id - TextVerified verification ID
-   * @returns {Promise<Object>} Reactivated verification
-   */
-  static async reactivateVerification(id) {
-    try {
-      const token = await this.getBearerToken();
-      
-      const response = await axios.post(`${TEXTVERIFIED_API_URL}/verifications/${id}/reactivate`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Update our verification record
-      const verification = await PhoneVerification.findOne({ textVerifiedId: id });
-      if (verification) {
-        verification.status = 'active';
-        verification.expiresAt = new Date(Date.now() + 15 * 60000); // 15 minutes from now
-        await verification.save();
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error(`Error reactivating verification ${id}:`, error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Report a problem with a verification
-   * @param {string} id - TextVerified verification ID
-   * @returns {Promise<Object>} Report result
-   */
-  static async reportVerification(id) {
-    try {
-      const token = await this.getBearerToken();
-      
-      const response = await axios.post(`${TEXTVERIFIED_API_URL}/verifications/${id}/report`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Update our verification record
-      const verification = await PhoneVerification.findOne({ textVerifiedId: id });
-      if (verification) {
-        verification.status = 'failed';
-        await verification.save();
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error(`Error reporting verification ${id}:`, error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Cancel a verification
-   * @param {string} id - TextVerified verification ID
-   * @returns {Promise<Object>} Cancel result
-   */
-  static async cancelVerification(id) {
-    try {
-      const token = await this.getBearerToken();
-      
-      const response = await axios.post(`${TEXTVERIFIED_API_URL}/verifications/${id}/cancel`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Update our verification record
-      const verification = await PhoneVerification.findOne({ textVerifiedId: id });
-      if (verification) {
-        verification.status = 'canceled';
-        await verification.save();
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error(`Error canceling verification ${id}:`, error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Reuse a verification
-   * @param {string} id - TextVerified verification ID
-   * @returns {Promise<Object>} Reuse result
-   */
-  static async reuseVerification(id) {
-    try {
-      const token = await this.getBearerToken();
-      
-      const response = await axios.post(`${TEXTVERIFIED_API_URL}/verifications/${id}/reuse`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      return response.data;
-    } catch (error) {
-      console.error(`Error reusing verification ${id}:`, error);
       throw error;
     }
   }
@@ -350,97 +286,61 @@ class TextVerifiedService {
     try {
       const token = await this.getBearerToken();
       
+      // Make request to fetch SMS messages using proper pagination endpoints
       const response = await axios.get(`${TEXTVERIFIED_API_URL}/sms`, {
         params: {
-          reservationId: id
+          reservationId: id,
+          reservationType: 'verification'
         },
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
-      // Update our verification record with the message
-      if (response.data && response.data.length > 0) {
+      console.log(`[listSms] Response for ID ${id}:`, JSON.stringify(response.data, null, 2));
+      
+      // Check if we got valid SMS data
+      if (!response.data || !response.data.data || !Array.isArray(response.data.data)) {
+        console.log(`[listSms] No SMS messages found for ID ${id}`);
+        return [];
+      }
+      
+      const messages = response.data.data.map(sms => ({
+        id: sms.id,
+        from: sms.from,
+        to: sms.to,
+        receivedAt: sms.createdAt,
+        body: sms.smsContent || sms.parsedCode,
+        parsedCode: sms.parsedCode
+      }));
+      
+      console.log(`[listSms] Found ${messages.length} messages for ID ${id}`);
+      
+      // Update our verification record with the message if available
+      if (messages && messages.length > 0) {
         const verification = await PhoneVerification.findOne({ textVerifiedId: id });
         if (verification) {
           verification.status = 'verified';
-          verification.verificationCode = response.data[0].body;
+          // Use parsedCode if available, otherwise use the full SMS content
+          verification.verificationCode = messages[0].parsedCode || messages[0].body;
           verification.messageDetails = {
-            messageId: response.data[0].id,
-            receivedAt: new Date(response.data[0].receivedAt),
-            content: response.data[0].body
+            messageId: messages[0].id,
+            receivedAt: new Date(messages[0].receivedAt),
+            content: messages[0].body
           };
           await verification.save();
+          console.log(`[listSms] Updated verification ${id} with code: ${verification.verificationCode}`);
         }
       }
       
-      return response.data;
+      return messages;
     } catch (error) {
-      console.error(`Error listing SMS for verification ${id}:`, error);
+      console.error(`[listSms] Error listing SMS for verification ${id}:`, error);
+      if (error.response) {
+        console.error(`[listSms] Error response status: ${error.response.status}`);
+        console.error(`[listSms] Error response data:`, error.response.data);
+      }
       throw error;
-    }
-  }
-  
-  /**
-   * Poll for verification messages
-   * @param {string} id - TextVerified verification ID
-   * @param {number} maxAttempts - Maximum polling attempts
-   * @param {number} interval - Polling interval in milliseconds
-   * @returns {Promise<string|null>} Verification code if received, null otherwise
-   */
-  static async pollForVerification(id, maxAttempts = 12, interval = 5000) {
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        const messages = await this.listSms(id);
-        if (messages && messages.length > 0) {
-          return messages[0].body;
-        }
-        
-        // Wait before next attempt
-        await new Promise(resolve => setTimeout(resolve, interval));
-      } catch (error) {
-        console.error(`Error during polling attempt ${i + 1} for verification ${id}:`, error);
-      }
-    }
-    
-    // No verification code received after all attempts
-    const verification = await PhoneVerification.findOne({ textVerifiedId: id });
-    if (verification) {
-      verification.status = 'expired';
-      await verification.save();
-    }
-    
-    return null;
-  }
-}
-
-// Webhook handler for TextVerified callbacks (if their service supports it)
-class WebhookHandler {
-  static async handleSmsWebhook(req, res) {
-    try {
-      const { reservationId, messageId, body, receivedAt } = req.body;
-      
-      // Find the verification record
-      const verification = await PhoneVerification.findOne({ textVerifiedId: reservationId });
-      if (!verification) {
-        return res.status(404).json({ error: 'Verification not found' });
-      }
-      
-      // Update verification record
-      verification.status = 'verified';
-      verification.verificationCode = body;
-      verification.messageDetails = {
-        messageId,
-        receivedAt: new Date(receivedAt),
-        content: body
-      };
-      await verification.save();
-      
-      // Send success response
-      res.status(200).json({ success: true });
-    } catch (error) {
-      console.error('Error handling webhook:', error);
-      res.status(500).json({ error: 'Internal server error' });
     }
   }
 }
@@ -448,6 +348,6 @@ class WebhookHandler {
 module.exports = { 
   PhoneVerification, 
   Token, 
-  TextVerifiedService, 
-  WebhookHandler 
+  TextVerifiedService,
+  VERIFICATION_COST
 };

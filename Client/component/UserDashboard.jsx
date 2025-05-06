@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye } from 'lucide-react';
+import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AnimatedCounter, CurrencyCounter } from './Animation'; // Adjust the import path as necessary
 import DailySalesChart from '@/app/week/page';
@@ -35,8 +35,13 @@ const DashboardPage = () => {
   const navigateToTopup = () => {
     router.push('/topup');
   };
-  const navigateToregisterFriend=() =>{
+  
+  const navigateToregisterFriend = () => {
     router.push('/registerFriend');
+  }
+  
+  const navigateToVerificationServices = () => {
+    router.push('/verification-services');
   }
 
   const navigateToNetwork = (network) => {
@@ -376,7 +381,7 @@ const DashboardPage = () => {
           <div className="h-1 sm:h-2 bg-gradient-to-r from-yellow-400 via-red-500 to-blue-600"></div>
           <div className="p-3 sm:p-5">
             <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 sm:mb-4">Place New Order</h2>
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="grid grid-cols-4 gap-2 sm:gap-4">
               {/* MTN Button */}
               <button 
                 onClick={() => navigateToNetwork('mtn')}
@@ -411,6 +416,18 @@ const DashboardPage = () => {
                   <span className="text-white font-bold text-xs sm:text-xl">Tel</span>
                 </div>
                 <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Telecel Data</span>
+              </button>
+              
+              {/* Foreign Number Verification - NEW BUTTON */}
+              <button 
+                onClick={navigateToVerificationServices}
+                className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 transform hover:scale-105"
+                style={{ backgroundColor: `rgba(75, 85, 99, 0.1)` }} // Gray background
+              >
+                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
+                  <Globe className="text-white w-4 h-4 sm:w-8 sm:h-8" />
+                </div>
+                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Foreign Number</span>
               </button>
             </div>
           </div>
@@ -524,7 +541,7 @@ const DashboardPage = () => {
           <div className="p-3 sm:p-5">
             <div className="flex items-center justify-between mb-2 sm:mb-4">
               <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100">Recent Transactions</h2>
-              <button className="text-xs sm:text-sm hover:text-yellow-600 font-medium flex items-center transition-colors duration-300" style={{ color: mtnYellow }} onClick={ViewAll}>
+              <button className="text-xs sm:text-sm hover:text-yellow-600 dark:hover:text-yellow-400 font-medium flex items-center transition-colors duration-300" style={{ color: mtnYellow }} onClick={ViewAll}>
                 View All 
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -533,7 +550,7 @@ const DashboardPage = () => {
             </div>
             <div className="overflow-x-auto -mx-3 sm:mx-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Phone #
@@ -598,10 +615,10 @@ const DashboardPage = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
           <div className="h-1 sm:h-2" style={{ backgroundColor: mtnYellow }}></div>
           <div className="p-3 sm:p-5">
-            <h2 className="text-sm sm:text-lg font-bold text-gray-900 mb-2 sm:mb-4">Quick Actions</h2>
+            <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 sm:mb-4">Quick Actions</h2>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 sm:gap-4">
               <button 
                 onClick={() => router.push('/datamart')}
@@ -640,11 +657,11 @@ const DashboardPage = () => {
                 <span className="text-xs sm:text-sm font-medium">Trans</span>
               </button>
               <button 
-                onClick={navigateToTopup}
+                onClick={navigateToVerificationServices}
                 className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
-                <PlusCircle className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Deposit</span>
+                style={{ backgroundColor: `rgba(124, 58, 237, 0.1)`, color: '#7c3aed' }}>
+                <Globe className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
+                <span className="text-xs sm:text-sm font-medium">Foreign</span>
               </button>
             </div>
           </div>
