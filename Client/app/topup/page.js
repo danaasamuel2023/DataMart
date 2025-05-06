@@ -14,14 +14,12 @@ export default function DepositPage() {
   const [success, setSuccess] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
-  const [isAuthenticated, setIsAuthenqticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [accountStatus, setAccountStatus] = useState('');
   const [disableReason, setDisableReason] = useState('');
   const [copySuccess, setCopySuccess] = useState('');
   const [showPaystackWarningModal, setShowPaystackWarningModal] = useState(false);
-  // Add new state for network availability
-  const [showNetworkWarningModal, setShowNetworkWarningModal] = useState(false);
   
   const router = useRouter();
   
@@ -74,13 +72,6 @@ export default function DepositPage() {
       return;
     }
     
-    // Show network warning before Paystack warning
-    setShowNetworkWarningModal(true);
-  };
-  
-  // Function to proceed after network warning
-  const proceedAfterNetworkWarning = () => {
-    setShowNetworkWarningModal(false);
     setShowPaystackWarningModal(true);
   };
   
@@ -144,56 +135,7 @@ export default function DepositPage() {
   
   return (
     <div className="max-w-md mx-auto my-10 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-      {/* Network Warning Modal */}
-      {showNetworkWarningModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full">
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center">
-                <AlertTriangle size={20} className="text-yellow-500 mr-2" />
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Network Notice</h2>
-              </div>
-              <button 
-                onClick={() => setShowNetworkWarningModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div className="bg-red-50 dark:bg-red-900/30 p-3 rounded-lg mb-4">
-              <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                ⚠️ MTN and Telecel networks are currently out of stock
-              </p>
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                You may experience issues when depositing with these networks.
-              </p>
-            </div>
-            
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-              You can still proceed with your deposit if you wish to continue.
-            </p>
-            
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowNetworkWarningModal(false)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded text-sm"
-              >
-                Cancel
-              </button>
-              
-              <button
-                onClick={proceedAfterNetworkWarning}
-                className="flex-1 bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded text-sm"
-              >
-                Proceed Anyway
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Paystack Warning Modal */}
+      {/* Paystack Warning Modal - Simplified */}
       {showPaystackWarningModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full">
@@ -245,7 +187,7 @@ export default function DepositPage() {
         </div>
       )}
       
-      {/* Account Status Modal */}
+      {/* Account Status Modal - Simplified */}
       {showApprovalModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full">
@@ -332,22 +274,7 @@ export default function DepositPage() {
         </Link>
       </div>
       
-      {/* Network Warning Banner */}
-      <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-        <div className="flex items-start">
-          <AlertTriangle size={18} className="text-red-600 dark:text-red-500 mr-2 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-red-800 dark:text-red-300">
-              MTN and Telecel networks currently out of stock
-            </p>
-            <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-              You may proceed with your deposit, but be aware that these networks may experience issues.
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Info banner */}
+      {/* Info banner - simplified */}
       <div className="mb-4 p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg text-xs">
         <div className="flex items-center">
           <Info size={16} className="text-yellow-600 dark:text-yellow-500 mr-2 flex-shrink-0" />
