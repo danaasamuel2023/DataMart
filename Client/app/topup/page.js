@@ -14,14 +14,14 @@ export default function DepositPage() {
   const [success, setSuccess] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenqticated] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [accountStatus, setAccountStatus] = useState('');
   const [disableReason, setDisableReason] = useState('');
   const [copySuccess, setCopySuccess] = useState('');
   const [showPaystackWarningModal, setShowPaystackWarningModal] = useState(false);
   // Add new state for network availability
-  const [showNetworkWarningModal, setShowNetworkWarningModal] = useState(true);
+  const [showNetworkWarningModal, setShowNetworkWarningModal] = useState(false);
   
   const router = useRouter();
   
