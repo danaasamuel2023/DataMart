@@ -327,6 +327,126 @@ const AdminOrders = () => {
     XLSX.writeFile(workbook, fileName);
   };
 
+  // Export all phone numbers to Excel
+  const exportPhoneNumbersToExcel = async () => {
+    setLoading(true);
+    const authToken = localStorage.getItem("authToken");
+    if (!authToken) {
+      alert("Unauthorized access!");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // For large datasets, we need to fetch in batches
+      const batchSize = 5000;
+      let currentPage = 1;
+      let hasMoreData = true;
+      let allPhoneNumbers = new Set(); // Using Set for automatic deduplication
+      
+      // Setup progress UI
+      const progressDiv = document.createElement('div');
+      progressDiv.style.position = 'fixed';
+      progressDiv.style.top = '50%';
+      progressDiv.style.left = '50%';
+      progressDiv.style.transform = 'translate(-50%, -50%)';
+      progressDiv.style.backgroundColor = 'white';
+      progressDiv.style.padding = '20px';
+      progressDiv.style.borderRadius = '8px';
+      progressDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+      progressDiv.style.zIndex = '1000';
+      progressDiv.innerHTML = `
+        <div style="text-align: center;">
+          <h3 style="margin-bottom: 10px;">Exporting Phone Numbers</h3>
+          <div style="margin-bottom: 15px;">
+            <div id="progress-bar" style="height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
+              <div id="progress-fill" style="height: 100%; width: 5%; background-color: #4f46e5; transition: width 0.3s;"></div>
+            </div>
+          </div>
+          <div id="progress-text">Fetching data... (0%)</div>
+        </div>
+      `;
+      document.body.appendChild(progressDiv);
+      
+      // Helper function to update progress UI
+      const updateProgress = (percent, statusText) => {
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        if (progressFill && progressText) {
+          progressFill.style.width = `${percent}%`;
+          progressText.textContent = statusText;
+        }
+      };
+      
+      // Batch fetching to handle large dataset
+      while (hasMoreData) {
+        updateProgress(Math.min((currentPage * 5), 95), `Fetching data batch ${currentPage}...`);
+        
+        const res = await fetch(`https://datamartbackened.onrender.com/api/orders?page=${currentPage}&limit=${batchSize}`, {
+          headers: {
+            'x-auth-token': authToken
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch orders batch ${currentPage}`);
+        }
+
+        const data = await res.json();
+        
+        if (data.orders && Array.isArray(data.orders)) {
+          // Extract phone numbers from this batch and add to Set
+          data.orders.forEach(order => {
+            if (order.phoneNumber) {
+              allPhoneNumbers.add(order.phoneNumber);
+            }
+          });
+          
+          // Check if we need to fetch more data
+          hasMoreData = data.orders.length === batchSize && currentPage < Math.ceil(120000 / batchSize); // Using your total count
+          currentPage++;
+        } else {
+          console.error("Unexpected response format:", data);
+          hasMoreData = false;
+        }
+      }
+      
+      updateProgress(98, "Preparing Excel file...");
+      
+      // Convert Set to Array and create data structure for Excel
+      const phoneNumbersArray = Array.from(allPhoneNumbers);
+      const dataToExport = phoneNumbersArray.map(phone => ({
+        'Phone Number': phone,
+      }));
+      
+      // Create worksheet from data
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      
+      // Set column width for better readability
+      worksheet['!cols'] = [{ wch: 20 }]; // Width for phone number column
+      
+      // Create workbook and add the worksheet
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Phone Numbers');
+      
+      // Generate Excel file and trigger download
+      const fileName = `all_phone_numbers_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      // Cleanup and notification
+      document.body.removeChild(progressDiv);
+      alert(`Successfully exported ${phoneNumbersArray.length} unique phone numbers`);
+    } catch (error) {
+      console.error("Error exporting phone numbers:", error);
+      alert("Error exporting phone numbers: " + error.message);
+      // Clean up UI in case of error
+      const progressDiv = document.getElementById('progress-div');
+      if (progressDiv) document.body.removeChild(progressDiv);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Function to filter for today's orders
   const setTodayFilter = () => {
     const today = new Date();
@@ -556,13 +676,24 @@ const AdminOrders = () => {
               Clear All Filters
             </button>
             
-            {/* Excel Export Button */}
-            <button
-              onClick={exportToExcel}
-              className="px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md ml-auto"
-            >
-              Export to Excel
-            </button>
+            {/* Export Buttons Container */}
+            <div className="flex space-x-2 ml-auto">
+              {/* Export Phone Numbers Button */}
+              <button
+                onClick={exportPhoneNumbersToExcel}
+                className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md"
+              >
+                Export Phone Numbers
+              </button>
+              
+              {/* Export to Excel Button */}
+              <button
+                onClick={exportToExcel}
+                className="px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md"
+              >
+                Export Full Data
+              </button>
+            </div>
           </div>
           
           {/* Bulk Actions */}

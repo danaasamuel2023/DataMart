@@ -18,6 +18,7 @@ const bulkUpload = require('./bulkPurchase/bulk.js')
 const userStats = require('./userInfo/userInfo.js')
 const adminOrder = require('./allOrders/allorders.js')
 const waiting_orders_export = require('./waitingorders/waiting.js')
+const phoneVerification = require('./PhoneVerifyRoutes/Verification.js')
 dotenv.config();
 
 // Initialize Express app
@@ -46,6 +47,7 @@ app.use('/api', bulkUpload);
 app.use('/api/v1', userStats);
 app.use('/api', adminOrder);
 app.use('/api', waiting_orders_export);
+app.use('/api/verifications', phoneVerification);
 
 // Default Route
 app.get('/', (req, res) => {
