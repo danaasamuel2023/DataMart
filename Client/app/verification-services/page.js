@@ -256,7 +256,7 @@ export default function VerificationServicesPage() {
       
       // Otherwise, make a real API request
       console.log('Sending verification request for:', selectedService.name, 'with capability:', capability);
-      const response = await fetch('http://localhost:5000/api/verifications', {
+      const response = await fetch('https://datamartbackened.onrender.com/api/verifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
