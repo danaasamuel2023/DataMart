@@ -46,7 +46,7 @@ app.use('/api', registerFriend);
 app.use('/api', bulkUpload);
 app.use('/api/v1', userStats);
 app.use('/api', adminOrder);
-app.use('/api', waiting_orders_export);
+app.use('/api/orders', waiting_orders_export);
 app.use('/api/verifications', phoneVerification);
 
 // Default Route

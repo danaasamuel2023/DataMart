@@ -1,4 +1,4 @@
-// pages/admin/waiting-orders.js
+// pages/admin/order-management.js
 'use client'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -22,20 +22,32 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Loader,
-  Clipboard,
-  Copy
+  Copy,
+  BarChart,
+  Home
 } from 'lucide-react';
 
 // API base URL - update as needed
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-export default function WaitingOrdersPage() {
+// Status tabs definition with colors and tooltips
+const STATUS_TABS = [
+  { id: 'waiting', label: 'Waiting', color: 'yellow', tooltip: 'Orders waiting for approval' },
+  { id: 'pending', label: 'Pending', color: 'blue', tooltip: 'Orders pending processing' },
+  { id: 'processing', label: 'Processing', color: 'purple', tooltip: 'Orders currently being processed' },
+  { id: 'completed', label: 'Completed', color: 'green', tooltip: 'Successfully completed orders' },
+  { id: 'failed', label: 'Failed', color: 'red', tooltip: 'Failed orders' },
+  { id: 'on', label: 'On', color: 'indigo', tooltip: 'Orders that are active/on' }
+];
+
+export default function OrderManagementPage() {
   const router = useRouter();
   
   // State for theme
   const [darkMode, setDarkMode] = useState(false);
   
   // State management
+  const [activeTab, setActiveTab] = useState('waiting');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -51,7 +63,7 @@ export default function WaitingOrdersPage() {
     startDate: '',
     endDate: '',
     limit: 20,
-    todayOnly: false  // New filter for today's orders only
+    todayOnly: false
   });
   
   // Selected orders for bulk actions
@@ -68,10 +80,12 @@ export default function WaitingOrdersPage() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [customPageSize, setCustomPageSize] = useState('');
   
+  // Dashboard data for counts
+  const [statusCounts, setStatusCounts] = useState({});
+  
   // Networks from schema
   const networks = ['YELLO', 'TELECEL', 'AT_PREMIUM', 'airteltigo', 'at'];
-  const statuses = ['pending', 'completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on'];
-
+  
   // Toggle dark mode
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -90,8 +104,40 @@ export default function WaitingOrdersPage() {
     }
   }, []);
 
-  // Fetch waiting orders
-  const fetchOrders = async () => {
+  // Fetch dashboard data for tab counts
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.get(`${API_BASE_URL}/orders/today`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      const ordersByStatus = response.data.orders.byStatus;
+      setStatusCounts(ordersByStatus);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      // Don't set error state here to avoid disrupting the main UI
+    }
+  };
+
+  // Handle tab change
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setSelectedOrders([]);
+    setSelectAll(false);
+    setPagination({
+      total: 0,
+      page: 1,
+      pages: 1
+    });
+    fetchOrders(tabId);
+  };
+
+  // Fetch orders based on status
+  const fetchOrders = async (status = activeTab) => {
     setLoading(true);
     setError(null);
     
@@ -107,7 +153,7 @@ export default function WaitingOrdersPage() {
       
       const token = localStorage.getItem('token'); // Assuming token-based auth
       
-      const response = await axios.get(`${API_BASE_URL}/waiting?${queryParams.toString()}`, {
+      const response = await axios.get(`${API_BASE_URL}/orders/${status}?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -116,8 +162,8 @@ export default function WaitingOrdersPage() {
       setOrders(response.data.orders);
       setPagination(response.data.pagination);
     } catch (err) {
-      console.error('Error fetching waiting orders:', err);
-      setError(err.response?.data?.msg || 'Error fetching waiting orders');
+      console.error(`Error fetching ${status} orders:`, err);
+      setError(err.response?.data?.msg || `Error fetching ${status} orders`);
     } finally {
       setLoading(false);
     }
@@ -162,8 +208,11 @@ export default function WaitingOrdersPage() {
     try {
       const token = localStorage.getItem('token');
       
+      // Use the specific route for the current tab if available
+      const updateEndpoint = `${API_BASE_URL}/orders/${activeTab}/update-status`;
+      
       const response = await axios.put(
-        `${API_BASE_URL}/waiting/update-status`,
+        updateEndpoint,
         {
           orderIds: selectedOrders,
           newStatus,
@@ -189,8 +238,9 @@ export default function WaitingOrdersPage() {
       setNewStatus('');
       setStatusNotes('');
       
-      // Refresh orders list
+      // Refresh orders list and dashboard data
       fetchOrders();
+      fetchDashboardData();
     } catch (err) {
       console.error('Error updating order status:', err);
       // More detailed error message that includes response data if available
@@ -208,8 +258,8 @@ export default function WaitingOrdersPage() {
     }
   };
   
-  // Export waiting orders
-  const exportOrders = (changeStatus = false) => {
+  // Export orders
+  const exportOrders = () => {
     const token = localStorage.getItem('token');
     
     // If we have selected orders, use the selected orders export
@@ -217,14 +267,13 @@ export default function WaitingOrdersPage() {
       // For selected orders, we need to use POST with a body
       const formData = new FormData();
       formData.append('orderIds', JSON.stringify(selectedOrders));
-      formData.append('changeStatus', changeStatus);
       
       // Create headers
       const headers = new Headers();
       headers.append('Authorization', `Bearer ${token}`);
       
       // Create request
-      const request = new Request(`${API_BASE_URL}/waiting/export-selected`, {
+      const request = new Request(`${API_BASE_URL}/orders/export-selected`, {
         method: 'POST',
         headers: headers,
         body: formData
@@ -244,17 +293,10 @@ export default function WaitingOrdersPage() {
           const a = document.createElement('a');
           a.style.display = 'none';
           a.href = url;
-          a.download = 'selected_waiting_orders.xlsx';
+          a.download = `selected_${activeTab}_orders.xlsx`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
-          
-          // If status was changed, refresh the orders list
-          if (changeStatus) {
-            setSelectedOrders([]);
-            setSelectAll(false);
-            fetchOrders();
-          }
         })
         .catch(err => {
           console.error('Error exporting selected orders:', err);
@@ -267,17 +309,9 @@ export default function WaitingOrdersPage() {
       if (filters.network) queryParams.append('network', filters.network);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
-      if (changeStatus) queryParams.append('changeStatus', 'true');
       
       // Using window.open for file download
-      window.open(`${API_BASE_URL}//waiting/export?${queryParams.toString()}&token=${token}`, '_blank');
-      
-      // If status was changed, refresh the orders list after a short delay
-      if (changeStatus) {
-        setTimeout(() => {
-          fetchOrders();
-        }, 1000);
-      }
+      window.open(`${API_BASE_URL}/orders/export/${activeTab}?${queryParams.toString()}&token=${token}`, '_blank');
     }
   };
   
@@ -363,9 +397,24 @@ export default function WaitingOrdersPage() {
     }
   };
   
+  // Get status color
+  const getStatusColor = (status) => {
+    const statusTab = STATUS_TABS.find(tab => tab.id === status);
+    return statusTab ? statusTab.color : 'gray';
+  };
+  
+  // Get available statuses for current tab
+  const getAvailableStatuses = () => {
+    // Each status can be changed to any other status except itself
+    return STATUS_TABS
+      .filter(tab => tab.id !== activeTab)
+      .map(tab => ({ id: tab.id, label: tab.label }));
+  };
+  
   // Initial fetch
   useEffect(() => {
     fetchOrders();
+    fetchDashboardData();
   }, [pagination.page]); // Fetch when page changes
   
   // Update selectAll when all items are manually selected
@@ -380,14 +429,14 @@ export default function WaitingOrdersPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-200">
       <Head>
-        <title>Waiting Orders | Admin Dashboard</title>
-        <meta name="description" content="Manage waiting orders" />
+        <title>Order Management | Admin Dashboard</title>
+        <meta name="description" content="Manage orders by status" />
       </Head>
       
       {/* Header */}
       <header className="p-4 border-b bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-          <h1 className="text-2xl font-bold mb-4 md:mb-0">Waiting Orders Management</h1>
+          <h1 className="text-2xl font-bold mb-4 md:mb-0">Order Management</h1>
           
           <div className="flex items-center space-x-4">
             <button
@@ -416,6 +465,22 @@ export default function WaitingOrdersPage() {
             </button>
             
             <button
+              onClick={() => router.push('/admin/dashboard')}
+              className="px-3 py-2 rounded-md flex items-center bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+            >
+              <BarChart className="h-5 w-5 mr-2" />
+              Dashboard
+            </button>
+            
+            <button
+              onClick={() => router.push('/admin')}
+              className="px-3 py-2 rounded-md flex items-center bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+            >
+              <Home className="h-5 w-5 mr-2" />
+              Admin Home
+            </button>
+            
+            <button
               onClick={toggleDarkMode}
               className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
               aria-label="Toggle dark mode"
@@ -431,6 +496,70 @@ export default function WaitingOrdersPage() {
       </header>
       
       <main className="container mx-auto py-6 px-4">
+        {/* Status Tabs */}
+        <div className="mb-6 overflow-x-auto">
+          <div className="flex space-x-1 border-b border-gray-200 dark:border-gray-700 min-w-max">
+            {STATUS_TABS.map(tab => {
+              const active = activeTab === tab.id;
+              const count = statusCounts[tab.id] || 0;
+              
+              let bgColor, textColor, hoverBg;
+              
+              if (active) {
+                switch(tab.color) {
+                  case 'red':
+                    bgColor = 'bg-red-500';
+                    textColor = 'text-white';
+                    break;
+                  case 'green':
+                    bgColor = 'bg-green-500';
+                    textColor = 'text-white';
+                    break;
+                  case 'blue':
+                    bgColor = 'bg-blue-500';
+                    textColor = 'text-white';
+                    break;
+                  case 'yellow':
+                    bgColor = 'bg-yellow-500';
+                    textColor = 'text-gray-900';
+                    break;
+                  case 'purple':
+                    bgColor = 'bg-purple-500';
+                    textColor = 'text-white';
+                    break;
+                  case 'indigo':
+                    bgColor = 'bg-indigo-500';
+                    textColor = 'text-white';
+                    break;
+                  default:
+                    bgColor = 'bg-gray-500';
+                    textColor = 'text-white';
+                }
+              } else {
+                bgColor = 'bg-white dark:bg-gray-800';
+                textColor = 'text-gray-800 dark:text-gray-200';
+                hoverBg = 'hover:bg-gray-100 dark:hover:bg-gray-700';
+              }
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`px-4 py-2 font-medium rounded-t-lg focus:outline-none flex items-center transition-colors ${bgColor} ${textColor} ${hoverBg || ''}`}
+                  title={tab.tooltip}
+                >
+                  <span>{tab.label}</span>
+                  {count > 0 && (
+                    <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${active ? 'bg-white bg-opacity-20 text-white' : `bg-${tab.color}-100 text-${tab.color}-800 dark:bg-${tab.color}-900 dark:bg-opacity-30 dark:text-${tab.color}-200`}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
         {/* Copy success message */}
         {copySuccess && (
           <div className="mb-6 p-4 rounded-lg bg-green-100 dark:bg-green-900 dark:bg-opacity-20 text-green-600 dark:text-green-400 flex items-center">
@@ -567,9 +696,9 @@ export default function WaitingOrdersPage() {
                   onChange={e => setNewStatus(e.target.value)}
                   className="p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
                 >
-                  <option value="">Select Status</option>
-                  {statuses.map(status => (
-                    <option key={status} value={status}>{status}</option>
+                  <option value="">Select New Status</option>
+                  {getAvailableStatuses().map(status => (
+                    <option key={status.id} value={status.id}>{status.label}</option>
                   ))}
                 </select>
                 
@@ -643,9 +772,9 @@ export default function WaitingOrdersPage() {
             </div>
           ) : orders.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-lg">No waiting orders found</p>
+              <p className="text-lg">No {activeTab} orders found</p>
               <button 
-                onClick={fetchOrders}
+                onClick={() => fetchOrders()}
                 className="mt-4 px-4 py-2 rounded flex items-center mx-auto bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white transition-colors"
               >
                 <RefreshCw className="h-5 w-5 mr-2" />
@@ -694,6 +823,9 @@ export default function WaitingOrdersPage() {
                         <ArrowUpDown className="h-4 w-4 ml-1" />
                       </div>
                     </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                      Notes
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -733,6 +865,9 @@ export default function WaitingOrdersPage() {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {formatDate(order.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 text-sm max-w-xs truncate">
+                        {order.adminNotes || 'No notes'}
                       </td>
                     </tr>
                   ))}
@@ -871,4 +1006,4 @@ export default function WaitingOrdersPage() {
       </main>
     </div>
   );
-} 
+}
