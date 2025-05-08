@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 // API base URL - update as needed
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://datamartbackened.onrender.com/api';
 
 // Status tabs definition with colors and tooltips
 const STATUS_TABS = [
