@@ -1,4 +1,4 @@
-// Updated TextVerifiedService class with wallet deduction only (no refunds)
+// Updated TextVerifiedService class with wallet deduction and refund capability
 const mongoose = require("mongoose");
 const axios = require("axios");
 const crypto = require("crypto");
@@ -44,7 +44,7 @@ const PhoneVerificationSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ["pending", "active", "verified", "failed", "canceled", "expired"],
+    enum: ["pending", "active", "verified", "failed", "canceled", "expired", "refunded"],
     default: "pending"
   },
   createdAt: { 
@@ -77,10 +77,14 @@ const PhoneVerificationSchema = new mongoose.Schema({
   // Payment tracking
   paymentStatus: {
     type: String,
-    enum: ["pending", "paid"],
+    enum: ["pending", "paid", "refunded"],
     default: "pending"
   },
   transactionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Transaction"
+  },
+  refundTransactionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Transaction"
   }
@@ -341,6 +345,303 @@ class TextVerifiedService {
         console.error(`[listSms] Error response data:`, error.response.data);
       }
       throw error;
+    }
+  }
+  
+  /**
+   * Process refund for expired verification with no code
+   * @param {string} verificationId - Database ID of verification to refund
+   * @returns {Promise<Object>} Refund result
+   */
+  static async processRefundForExpiredVerification(verificationId) {
+    try {
+      console.log(`[processRefundForExpiredVerification] Processing refund for verification ${verificationId}`);
+      
+      // Find the verification
+      const verification = await PhoneVerification.findById(verificationId);
+      
+      if (!verification) {
+        throw new Error(`Verification with ID ${verificationId} not found`);
+      }
+      
+      // Check if refund is needed and valid
+      if (verification.status === 'refunded') {
+        console.log(`[processRefundForExpiredVerification] Verification ${verificationId} already refunded`);
+        return { 
+          success: false, 
+          message: 'Already refunded', 
+          verification 
+        };
+      }
+      
+      if (verification.status === 'verified') {
+        console.log(`[processRefundForExpiredVerification] Verification ${verificationId} is verified, no refund needed`);
+        return {
+          success: false,
+          message: 'Verification is verified, no refund needed',
+          verification
+        };
+      }
+      
+      // Double-check with the API to ensure it's really expired/failed
+      try {
+        const apiDetails = await this.getVerificationDetails(verification.textVerifiedId);
+        
+        // If the API shows it's actually verified, don't refund
+        if (apiDetails.state === 'verified') {
+          // Try to get the verification code
+          const messages = await this.listSms(verification.textVerifiedId);
+          
+          // If we got a code, update and don't refund
+          if (messages && messages.length > 0) {
+            console.log(`[processRefundForExpiredVerification] Found verification code for ${verificationId}, no refund needed`);
+            return {
+              success: false,
+              message: 'Verification code found, no refund needed',
+              verification
+            };
+          }
+        }
+        
+        // If API state doesn't match our expected states for refund, don't refund
+        const refundableStates = ['expired', 'failed', 'canceled'];
+        if (!refundableStates.includes(apiDetails.state) && 
+            !refundableStates.includes(verification.status)) {
+          console.log(`[processRefundForExpiredVerification] Verification ${verificationId} state (${apiDetails.state}) not eligible for refund`);
+          return {
+            success: false,
+            message: `Verification state (${apiDetails.state}) not eligible for refund`,
+            verification
+          };
+        }
+      } catch (apiError) {
+        console.error(`[processRefundForExpiredVerification] Error checking API state:`, apiError);
+        // Continue with refund if we can't check API (assume it's expired)
+      }
+      
+      // Find the user to refund
+      const user = await User.findById(verification.userId);
+      
+      if (!user) {
+        throw new Error(`User with ID ${verification.userId} not found`);
+      }
+      
+      // Create refund transaction
+      const refundTransaction = await Transaction.create({
+        userId: verification.userId,
+        type: 'refund',
+        amount: verification.totalCost,
+        status: 'completed',
+        reference: `refund_verification_${verification.textVerifiedId}`,
+        gateway: 'wallet',
+        description: `Refund for expired verification service: ${verification.serviceName}`
+      });
+      
+      // Add money back to user's wallet
+      user.walletBalance += verification.totalCost;
+      await user.save();
+      
+      // Update verification record
+      verification.status = 'refunded';
+      verification.paymentStatus = 'refunded';
+      verification.refundTransactionId = refundTransaction._id;
+      await verification.save();
+      
+      console.log(`[processRefundForExpiredVerification] Refunded ${verification.totalCost} GH₵ to user ${verification.userId}. New balance: ${user.walletBalance} GH₵`);
+      
+      return {
+        success: true,
+        message: `Refunded ${verification.totalCost} GH₵ for expired verification`,
+        verification,
+        refundTransaction,
+        newBalance: user.walletBalance
+      };
+    } catch (error) {
+      console.error(`[processRefundForExpiredVerification] Error processing refund:`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Poll for verification code with a timeout
+   * @param {string} id - TextVerified verification ID
+   * @param {number} maxAttempts - Maximum number of attempts
+   * @param {number} interval - Interval between attempts in ms
+   * @returns {Promise<string|null>} Verification code or null
+   */
+  static async pollForVerification(id, maxAttempts = 5, interval = 2000) {
+    console.log(`[pollForVerification] Starting poll for ${id}, max attempts: ${maxAttempts}, interval: ${interval}ms`);
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        console.log(`[pollForVerification] Attempt ${attempt + 1}/${maxAttempts} for ${id}`);
+        
+        // Check API state first
+        const apiDetails = await this.getVerificationDetails(id);
+        console.log(`[pollForVerification] API state: ${apiDetails.state}`);
+        
+        // If the API state indicates the verification is no longer active
+        if (apiDetails.state !== 'active' && apiDetails.state !== 'verificationPending') {
+          // If it's verified, try to get the code
+          if (apiDetails.state === 'verified') {
+            const messages = await this.listSms(id);
+            
+            if (messages && messages.length > 0) {
+              const verification = await PhoneVerification.findOne({ textVerifiedId: id });
+              console.log(`[pollForVerification] Found code for ${id} on attempt ${attempt + 1}: ${verification.verificationCode}`);
+              return verification.verificationCode;
+            }
+          }
+          
+          // If expired/canceled/failed, update our record
+          const mappedStatus = this.mapApiStateToStatus(apiDetails.state);
+          const verification = await PhoneVerification.findOne({ textVerifiedId: id });
+          
+          if (verification && verification.status !== mappedStatus) {
+            verification.status = mappedStatus;
+            await verification.save();
+            console.log(`[pollForVerification] Updated status to ${mappedStatus} for ${id}`);
+            
+            // If verification expired without code, process refund
+            if (mappedStatus === 'expired' || mappedStatus === 'failed') {
+              // Check if there's a code first
+              const messages = await this.listSms(id);
+              
+              if (!messages || messages.length === 0) {
+                console.log(`[pollForVerification] Verification ${id} expired without code, will process refund`);
+                // Don't wait for refund processing to complete here
+                this.processRefundForExpiredVerification(verification._id)
+                  .then(result => console.log(`[pollForVerification] Refund processing result:`, result))
+                  .catch(err => console.error(`[pollForVerification] Refund processing error:`, err));
+              }
+            }
+          }
+          
+          // No point in continuing to poll
+          return null;
+        }
+        
+        // Check for SMS messages
+        const messages = await this.listSms(id);
+        
+        if (messages && messages.length > 0) {
+          // Get the updated verification with the code
+          const verification = await PhoneVerification.findOne({ textVerifiedId: id });
+          
+          if (verification && verification.verificationCode) {
+            console.log(`[pollForVerification] Found code for ${id} on attempt ${attempt + 1}: ${verification.verificationCode}`);
+            return verification.verificationCode;
+          }
+        }
+        
+        // If this is not the last attempt, wait before trying again
+        if (attempt < maxAttempts - 1) {
+          await new Promise(resolve => setTimeout(resolve, interval));
+        }
+      } catch (error) {
+        console.error(`[pollForVerification] Error on attempt ${attempt + 1}:`, error);
+        // Continue to next attempt despite error
+      }
+    }
+    
+    console.log(`[pollForVerification] No code found for ${id} after ${maxAttempts} attempts`);
+    return null;
+  }
+  
+  /**
+   * Check for expired verifications that need refunds
+   * @returns {Promise<Object>} Refund processing results
+   */
+  static async checkAndProcessPendingRefunds() {
+    try {
+      console.log(`[checkAndProcessPendingRefunds] Checking for expired verifications to refund`);
+      
+      // Find expired or failed verifications that haven't been refunded
+      const expiredVerifications = await PhoneVerification.find({
+        status: { $in: ['expired', 'failed'] },
+        paymentStatus: { $ne: 'refunded' }
+      });
+      
+      console.log(`[checkAndProcessPendingRefunds] Found ${expiredVerifications.length} expired verifications to check`);
+      
+      const results = {
+        total: expiredVerifications.length,
+        processed: 0,
+        refunded: 0,
+        errors: 0,
+        details: []
+      };
+      
+      // Process each verification
+      for (const verification of expiredVerifications) {
+        try {
+          results.processed++;
+          
+          // Check if this verification already has a code
+          if (verification.verificationCode) {
+            console.log(`[checkAndProcessPendingRefunds] Verification ${verification._id} has a code, not refunding`);
+            results.details.push({
+              id: verification._id,
+              result: 'skipped',
+              reason: 'Has verification code'
+            });
+            continue;
+          }
+          
+          // Process the refund
+          const refundResult = await this.processRefundForExpiredVerification(verification._id);
+          
+          if (refundResult.success) {
+            results.refunded++;
+            results.details.push({
+              id: verification._id,
+              result: 'refunded',
+              amount: verification.totalCost
+            });
+          } else {
+            results.details.push({
+              id: verification._id,
+              result: 'skipped',
+              reason: refundResult.message
+            });
+          }
+        } catch (error) {
+          console.error(`[checkAndProcessPendingRefunds] Error processing refund for ${verification._id}:`, error);
+          results.errors++;
+          results.details.push({
+            id: verification._id,
+            result: 'error',
+            error: error.message
+          });
+        }
+      }
+      
+      console.log(`[checkAndProcessPendingRefunds] Results: ${results.refunded} refunded, ${results.errors} errors`);
+      return results;
+    } catch (error) {
+      console.error(`[checkAndProcessPendingRefunds] Error checking for refunds:`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Map TextVerified API states to our status values
+   * @param {string} apiState - API state
+   * @returns {string} Mapped status
+   */
+  static mapApiStateToStatus(apiState) {
+    switch (apiState) {
+      case 'active':
+      case 'verificationPending': 
+        return 'active';
+      case 'verified': 
+        return 'verified';
+      case 'canceled': 
+        return 'canceled';
+      case 'expired': 
+        return 'expired';
+      default: 
+        return 'failed';
     }
   }
 }

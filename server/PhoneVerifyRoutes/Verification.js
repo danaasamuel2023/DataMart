@@ -5,7 +5,7 @@ const { PhoneVerification, TextVerifiedService } = require('../PhoneVerification
 const router = express.Router();
 
 /**
- * Phone Verification Controller and Routes in one file
+ * Phone Verification Controller and Routes with Refund Support
  * =================================================== 
  */
 
@@ -69,7 +69,8 @@ router.get('/history', async (req, res) => {
         createdAt: v.createdAt,
         expiresAt: v.expiresAt,
         verificationCode: v.verificationCode || null,
-        totalCost: v.totalCost
+        totalCost: v.totalCost,
+        paymentStatus: v.paymentStatus
       }))
     });
   } catch (error) {
@@ -98,7 +99,6 @@ router.post(
  * @desc    Initialize a new phone verification
  * @access  Public
  */
-// Updated POST route for creating a new verification with wallet balance check
 router.post(
     '/',
     [
@@ -198,11 +198,6 @@ router.post(
  * @desc    Get verification details
  * @access  Public
  */
-/**
- * @route   GET /api/verifications/:id
- * @desc    Get verification details
- * @access  Public
- */
 router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
@@ -261,8 +256,33 @@ router.get('/:id', async (req, res) => {
         }
       }
       
+      // Check if verification has expired without a code and process refund if needed
+      const needsRefund = apiDetails.state === 'expired' && 
+                          !verification.verificationCode && 
+                          verification.status !== 'refunded' &&
+                          verification.paymentStatus !== 'refunded';
+      
+      if (needsRefund) {
+        console.log(`[GET /:id] Verification expired without code, processing refund`);
+        try {
+          // Process refund asynchronously, don't wait for it to complete to respond
+          TextVerifiedService.processRefundForExpiredVerification(id)
+            .then(result => {
+              console.log(`[GET /:id] Refund processed:`, result);
+            })
+            .catch(error => {
+              console.error(`[GET /:id] Error processing refund:`, error);
+            });
+            
+          // Mark verification as pending refund for the current response
+          verification.status = 'refunded';
+        } catch (refundError) {
+          console.error(`[GET /:id] Error initiating refund:`, refundError);
+        }
+      }
+      
       // Update verification status based on API state if needed
-      if (apiDetails.state && verification.status !== 'verified') {
+      if (apiDetails.state && verification.status !== 'verified' && verification.status !== 'refunded') {
         const mappedStatus = mapApiStateToStatus(apiDetails.state);
         
         if (mappedStatus !== verification.status) {
@@ -290,6 +310,7 @@ router.get('/:id', async (req, res) => {
           verificationCode: verification.verificationCode || null,
           messageDetails: verification.messageDetails || null,
           totalCost: verification.totalCost,
+          paymentStatus: verification.paymentStatus,
           apiDetails: {
             state: apiDetails.state,
             number: apiDetails.number,
@@ -321,6 +342,7 @@ router.get('/:id', async (req, res) => {
         return 'failed';
     }
   }
+  
 /**
  * @route   GET /api/verifications/:id/code
  * @desc    Get verification code (polls until code is received or timeout)
@@ -362,6 +384,16 @@ router.get('/:id/code', async (req, res) => {
         });
       }
       
+      // If already refunded, return the refund status
+      if (verification.status === 'refunded' || verification.paymentStatus === 'refunded') {
+        console.log(`[GET /:id/code] Verification has been refunded`);
+        return res.status(200).json({
+          success: false,
+          message: 'Verification has expired without code and was refunded',
+          status: 'refunded'
+        });
+      }
+      
       // Check the current API state before attempting to poll
       try {
         const apiDetails = await TextVerifiedService.getVerificationDetails(verification.textVerifiedId);
@@ -388,6 +420,30 @@ router.get('/:id/code', async (req, res) => {
             }
           } catch (smsError) {
             console.error(`[GET /:id/code] Error fetching SMS for verified state:`, smsError);
+          }
+        }
+        
+        // If the API state is expired and there's no code, process refund
+        if (apiDetails.state === 'expired' && !verification.verificationCode) {
+          console.log(`[GET /:id/code] Verification expired without code, processing refund`);
+          
+          try {
+            // Process refund (don't wait for completion to respond to the request)
+            TextVerifiedService.processRefundForExpiredVerification(id)
+              .then(result => {
+                console.log(`[GET /:id/code] Refund processed:`, result);
+              })
+              .catch(error => {
+                console.error(`[GET /:id/code] Error processing refund:`, error);
+              });
+            
+            return res.status(200).json({
+              success: false,
+              message: 'Verification has expired without code and is being refunded',
+              status: 'refunded'
+            });
+          } catch (refundError) {
+            console.error(`[GET /:id/code] Error initiating refund:`, refundError);
           }
         }
         
@@ -460,6 +516,31 @@ router.get('/:id/code', async (req, res) => {
         const updatedVerification = await PhoneVerification.findById(id);
         
         console.log(`[GET /:id/code] No code from poll, current status: ${updatedVerification.status}`);
+        
+        // If it's expired now, initiate a refund
+        if (updatedVerification.status === 'expired' && !updatedVerification.verificationCode) {
+          console.log(`[GET /:id/code] Verification expired after polling, processing refund`);
+          
+          try {
+            // Process refund asynchronously
+            TextVerifiedService.processRefundForExpiredVerification(id)
+              .then(result => {
+                console.log(`[GET /:id/code] Refund processed after polling:`, result);
+              })
+              .catch(error => {
+                console.error(`[GET /:id/code] Error processing refund after polling:`, error);
+              });
+            
+            return res.status(200).json({
+              success: false,
+              message: 'Verification has expired without code and is being refunded',
+              status: 'refunded'
+            });
+          } catch (refundError) {
+            console.error(`[GET /:id/code] Error initiating refund after polling:`, refundError);
+          }
+        }
+        
         return res.status(200).json({
           success: false,
           message: 'Verification code not received yet',
@@ -471,23 +552,116 @@ router.get('/:id/code', async (req, res) => {
       res.status(500).json({ error: 'Failed to get verification code' });
     }
   });
-  
-  // Helper function to map TextVerified API states to our status values
-  function mapApiStateToStatus(apiState) {
-    switch (apiState) {
-      case 'active':
-      case 'verificationPending': 
-        return 'active';
-      case 'verified': 
-        return 'verified';
-      case 'canceled': 
-        return 'canceled';
-      case 'expired': 
-        return 'expired';
-      default: 
-        return 'failed';
+
+/**
+ * @route   POST /api/verifications/:id/refund
+ * @desc    Manually request a refund for a verification
+ * @access  Public
+ */
+router.post('/:id/refund', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.body.userId; // Get userId from request body
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
+    
+    console.log(`[POST /:id/refund] Processing refund request for verification ${id}, user ${userId}`);
+    
+    // Find verification
+    const verification = await PhoneVerification.findById(id);
+    
+    if (!verification) {
+      return res.status(404).json({ error: 'Verification not found' });
+    }
+    
+    // Make sure the user can only access their own verifications
+    if (verification.userId.toString() !== userId) {
+      return res.status(403).json({ error: 'Unauthorized access to verification' });
+    }
+    
+    // Check if already refunded
+    if (verification.status === 'refunded' || verification.paymentStatus === 'refunded') {
+      return res.status(400).json({ 
+        error: 'Verification has already been refunded',
+        verification: {
+          id: verification._id,
+          status: verification.status,
+          paymentStatus: verification.paymentStatus
+        }
+      });
+    }
+    
+    // Check if verification is verified
+    if (verification.status === 'verified' && verification.verificationCode) {
+      return res.status(400).json({ 
+        error: 'Verification is already verified and cannot be refunded',
+        verification: {
+          id: verification._id,
+          status: verification.status
+        }
+      });
+    }
+    
+    // Process refund
+    const refundResult = await TextVerifiedService.processRefundForExpiredVerification(id);
+    
+    // Return result
+    if (refundResult.success) {
+      return res.status(200).json({
+        success: true,
+        message: `Refunded ${verification.totalCost} GH₵ for verification`,
+        refundAmount: verification.totalCost,
+        newBalance: refundResult.newBalance,
+        verification: {
+          id: verification._id,
+          status: 'refunded',
+          paymentStatus: 'refunded'
+        }
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: refundResult.message,
+        verification: {
+          id: verification._id,
+          status: verification.status,
+          paymentStatus: verification.paymentStatus
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    res.status(500).json({ error: 'Failed to process refund' });
   }
+});
+
+/**
+ * @route   GET /api/verifications/check-pending-refunds
+ * @desc    Check and process all pending refunds (admin/cron endpoint)
+ * @access  Restricted
+ */
+router.get('/check-pending-refunds', async (req, res) => {
+  try {
+    // This should be a protected endpoint, only accessible by admins or cron jobs
+    // Add authentication/authorization middleware as needed
+    
+    console.log('[GET /check-pending-refunds] Starting batch refund check');
+    
+    // Process all pending refunds
+    const results = await TextVerifiedService.checkAndProcessPendingRefunds();
+    
+    res.status(200).json({
+      success: true,
+      results
+    });
+  } catch (error) {
+    console.error('Error checking pending refunds:', error);
+    res.status(500).json({ error: 'Failed to check pending refunds' });
+  }
+});
+
 /**
  * @route   POST /api/verifications/:id/report
  * @desc    Report a verification problem
@@ -557,11 +731,42 @@ router.post('/:id/cancel', async (req, res) => {
     // Cancel verification
     const result = await TextVerifiedService.cancelVerification(verification.textVerifiedId);
     
-    res.status(200).json({
-      success: true,
-      message: 'Verification cancelled successfully',
-      details: result
-    });
+    // If cancellation was successful, process a refund
+    if (result && result.success) {
+      try {
+        const refundResult = await TextVerifiedService.processRefundForExpiredVerification(id);
+        
+        if (refundResult.success) {
+          return res.status(200).json({
+            success: true,
+            message: 'Verification cancelled and refunded successfully',
+            refundAmount: verification.totalCost,
+            newBalance: refundResult.newBalance
+          });
+        } else {
+          return res.status(200).json({
+            success: true,
+            message: 'Verification cancelled successfully but refund failed',
+            refundError: refundResult.message,
+            details: result
+          });
+        }
+      } catch (refundError) {
+        console.error('Error processing refund after cancellation:', refundError);
+        return res.status(200).json({
+          success: true,
+          message: 'Verification cancelled successfully but refund failed',
+          refundError: refundError.message,
+          details: result
+        });
+      }
+    } else {
+      res.status(200).json({
+        success: true,
+        message: 'Verification cancelled successfully',
+        details: result
+      });
+    }
   } catch (error) {
     console.error('Error cancelling verification:', error);
     res.status(500).json({ error: 'Failed to cancel verification' });
