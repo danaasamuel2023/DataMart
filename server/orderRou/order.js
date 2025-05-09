@@ -161,7 +161,8 @@ async function checkTelecelOrderStatus(reference) {
 }
 
 // Modify the purchase-data route to include Telecel API handling
-// Modified purchase-data route to check for verified numbers
+// Modified purchase-data route to remove phone number verification check and GB verification fee
+
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -292,89 +293,8 @@ router.post('/purchase-data', async (req, res) => {
         }
       });
     }
-    
-    // NEW: Check if this phone number exists in any previous purchases
-    // Search for any previous purchases with this phone number, regardless of status
-    const previousPurchases = await DataPurchase.find({
-      phoneNumber: '0246783840'
-    }).session(session);
-    
-    logOperation('PHONE_NUMBER_VERIFICATION_CHECK', {
-      phoneNumber,
-      existsInSystem: previousPurchases.length > 0,
-      previousPurchasesCount: previousPurchases.length
-    });
-    
-    // If this is a new/unverified number, don't interact with API, store as waiting and add 50p charge
-    if (previousPurchases.length === 0) {
-      logOperation('UNVERIFIED_PHONE_NUMBER', {
-        phoneNumber,
-        skipApiProcessing: true
-      });
-      
-      // Add 50p to the price for verification
-      let finalPrice = price + 0.50;  // Add 50 pesewas (0.50 GHS)
-      
-      logOperation('VERIFICATION_PRICE_ADJUSTMENT', {
-        originalPrice: price,
-        adjustedPrice: finalPrice,
-        adjustment: 0.50
-      });
-      
-      // Create Transaction with adjusted price
-      const transaction = new Transaction({
-        userId,
-        type: 'purchase',
-        amount: finalPrice,
-        status: 'completed',
-        reference: transactionReference,
-        gateway: 'wallet'
-      });
 
-      // Create Data Purchase in waiting status
-      const dataPurchase = new DataPurchase({
-        userId,
-        phoneNumber,
-        network,
-        capacity,
-        gateway: 'wallet',
-        method: 'web',
-        price: finalPrice, // Use adjusted price with verification fee
-        status: 'waiting', // Set status to waiting
-        geonetReference: orderReference,
-        errorDetails: {
-          type: 'verification_required',
-          message: 'Phone number requires verification',
-          code: 'VERIFICATION_REQUIRED'
-        }
-      });
-
-      // Update user wallet with adjusted price
-      user.walletBalance -= finalPrice;
-
-      // Save all documents
-      await transaction.save({ session });
-      await dataPurchase.save({ session });
-      await user.save({ session });
-
-      // Commit transaction
-      await session.commitTransaction();
-
-      return res.status(201).json({
-        status: 'success',
-        message: 'Data bundle order placed in waiting queue. An additional 50p fee has been added for verification.',
-        data: {
-          transaction,
-          dataPurchase,
-          newWalletBalance: user.walletBalance,
-          waitingForVerification: true,
-          priceAdjusted: true,
-          finalPrice: finalPrice
-        }
-      });
-    }
-
-    // PROCESSING SECTION - NUMBER IS VERIFIED AND INVENTORY IS IN STOCK
+    // PROCESSING SECTION - INVENTORY IS IN STOCK
     let orderResponse = null;
     let apiOrderId = null;
     
@@ -453,42 +373,27 @@ router.post('/purchase-data', async (req, res) => {
           responseData: orderResponse
         });
       } catch (error) {
-        // Check if this is a contact verification error from Geonettech
+        // Handle generic API errors from Geonettech
         if (error.response && 
-            (error.response.status === 422 || error.response.status === 400) && 
-            error.response.data && 
-            ((error.response.data.message && error.response.data.message.includes('Contact not verified')) || 
-             (error.response.data.status === 'rejected'))) {
+            (error.response.status === 422 || error.response.status === 400)) {
           
-          logOperation('GEONETTECH_CONTACT_VERIFICATION_ERROR', {
+          logOperation('GEONETTECH_API_ERROR', {
             phoneNumber,
             errorMessage: error.response.data.message,
             statusCode: error.response.status
           });
           
-          // Add 50p to the price if capacity is 1GB
-          let finalPrice = price;
-          if (capacity == 1) {  // Using == to handle both string and number types
-            finalPrice = price + 0.50;  // Add 50 pesewas (0.50 GHS)
-            
-            logOperation('1GB_VERIFICATION_PRICE_ADJUSTMENT', {
-              originalPrice: price,
-              adjustedPrice: finalPrice,
-              adjustment: 0.50
-            });
-          }
-          
-          // Create Transaction with possibly adjusted price
+          // Create Transaction
           const transaction = new Transaction({
             userId,
             type: 'purchase',
-            amount: finalPrice, // Use adjusted price
+            amount: price, // Use original price
             status: 'completed',
             reference: transactionReference,
             gateway: 'wallet'
           });
 
-          // Create Data Purchase with possibly adjusted price
+          // Create Data Purchase
           const dataPurchase = new DataPurchase({
             userId,
             phoneNumber,
@@ -496,19 +401,19 @@ router.post('/purchase-data', async (req, res) => {
             capacity,
             gateway: 'wallet',
             method: 'web',
-            price: finalPrice, // Use adjusted price
+            price: price, // Use original price
             status: 'waiting',
             geonetReference: orderReference,
             errorDetails: {
-              type: 'verification_error',
-              message: error.response.data.message || 'Contact not verified',
+              type: 'api_error',
+              message: error.response.data.message || 'API Error',
               code: error.response.status
             }
           });
 
-          // Update user wallet with possibly adjusted price
+          // Update user wallet
           const previousBalance = user.walletBalance;
-          user.walletBalance -= finalPrice; // Use adjusted price
+          user.walletBalance -= price; // Use original price
 
           // Save all documents
           await transaction.save({ session });
@@ -520,16 +425,12 @@ router.post('/purchase-data', async (req, res) => {
 
           return res.status(201).json({
             status: 'success',
-            message: capacity == 1 ? 
-              'Data bundle order placed in waiting queue. Note: An additional 50p fee has been added for verification.' :
-              'Data bundle order placed in waiting queue pending number verification',
+            message: 'Data bundle order placed in waiting queue due to API error',
             data: {
               transaction,
               dataPurchase,
               newWalletBalance: user.walletBalance,
-              waitingForVerification: true,
-              priceAdjusted: capacity == 1,
-              finalPrice: finalPrice,
+              waitingForRetry: true,
               errorDetails: error.response.data
             }
           });
