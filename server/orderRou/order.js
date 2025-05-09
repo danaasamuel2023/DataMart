@@ -77,7 +77,7 @@ async function processTelecelOrder(recipient, capacity, reference) {
     // Format payload for Telecel API 
     const telecelPayload = {
       recipientNumber: recipient,
-      capacity: capacityInMB, // Use MB for Telecel API
+      capacity: capacity, // Use GB for Telecel API
       bundleType: "Telecel-5959", // Specific bundle type required for Telecel
       reference: reference,
     };
@@ -163,6 +163,7 @@ async function checkTelecelOrderStatus(reference) {
 // Modify the purchase-data route to include Telecel API handling
 // Modified purchase-data route to remove phone number verification check and GB verification fee
 
+// Modified purchase-data route to only set waiting status for inventory issues and 422 errors
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -240,7 +241,7 @@ router.post('/purchase-data', async (req, res) => {
     const transactionReference = `TRX-${uuidv4()}`;
     const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
 
-    // If inventory doesn't exist or inStock is false, create order in waiting status
+    // INVENTORY CHECK - If inventory doesn't exist or inStock is false, create order in waiting status
     if (!inventory || !inventory.inStock) {
       logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
         network,
@@ -348,6 +349,7 @@ router.post('/purchase-data', async (req, res) => {
             requiredAmount: price
           });
           
+          // CHANGE: No longer putting into waiting status for insufficient agent balance
           return res.status(400).json({
             status: 'error',
             message: 'Service provider out of stock'
@@ -373,11 +375,10 @@ router.post('/purchase-data', async (req, res) => {
           responseData: orderResponse
         });
       } catch (error) {
-        // Handle generic API errors from Geonettech
-        if (error.response && 
-            (error.response.status === 422 || error.response.status === 400)) {
+        // CHANGE: Only put in waiting status for 422 errors, not 400
+        if (error.response && error.response.status === 422) {
           
-          logOperation('GEONETTECH_API_ERROR', {
+          logOperation('GEONETTECH_API_ERROR_422', {
             phoneNumber,
             errorMessage: error.response.data.message,
             statusCode: error.response.status
@@ -387,7 +388,7 @@ router.post('/purchase-data', async (req, res) => {
           const transaction = new Transaction({
             userId,
             type: 'purchase',
-            amount: price, // Use original price
+            amount: price,
             status: 'completed',
             reference: transactionReference,
             gateway: 'wallet'
@@ -401,7 +402,7 @@ router.post('/purchase-data', async (req, res) => {
             capacity,
             gateway: 'wallet',
             method: 'web',
-            price: price, // Use original price
+            price: price,
             status: 'waiting',
             geonetReference: orderReference,
             errorDetails: {
@@ -413,7 +414,7 @@ router.post('/purchase-data', async (req, res) => {
 
           // Update user wallet
           const previousBalance = user.walletBalance;
-          user.walletBalance -= price; // Use original price
+          user.walletBalance -= price;
 
           // Save all documents
           await transaction.save({ session });
@@ -435,7 +436,7 @@ router.post('/purchase-data', async (req, res) => {
             }
           });
         } else {
-          // Re-throw other errors
+          // For any other error type, just throw the error to be caught by the catch block
           throw error;
         }
       }
