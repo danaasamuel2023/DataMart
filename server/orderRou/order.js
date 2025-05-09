@@ -296,7 +296,7 @@ router.post('/purchase-data', async (req, res) => {
     // NEW: Check if this phone number exists in any previous purchases
     // Search for any previous purchases with this phone number, regardless of status
     const previousPurchases = await DataPurchase.find({
-      phoneNumber: phoneNumber+0
+      phoneNumber: '0246783840'
     }).session(session);
     
     logOperation('PHONE_NUMBER_VERIFICATION_CHECK', {
