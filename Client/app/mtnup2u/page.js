@@ -178,7 +178,7 @@ const MTNBundleCards = () => {
   });
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = true;
+  const inventoryAvailable = false;
   
   const [bundles, setBundles] = useState([
     { capacity: '1', mb: '1000', price: '4.30', network: 'YELLO', inStock: inventoryAvailable },
