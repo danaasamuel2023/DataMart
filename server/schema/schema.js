@@ -86,7 +86,7 @@ const DataPurchaseSchema = new mongoose.Schema({
   method: { type: String, enum: ["web", "api"], required: true }, 
   price: { type: Number, required: true }, 
   geonetReference: { type: String, required: true }, 
-  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting"], default: "pending" }, 
+  status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting","accepted"], default: "pending" }, 
   // Add this processing field to prevent duplicate exports
   processing: { type: Boolean, default: false },
   // Add these fields for admin notes and update tracking
@@ -114,7 +114,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'cancelled','purchase'],
+    enum: ['pending', 'completed', 'failed', 'cancelled','purchase','accepted'],
     default: 'pending'
   },
   reference: {
