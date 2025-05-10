@@ -636,6 +636,8 @@ export default function OrderManagementPage() {
                       <option value="20">20</option>
                       <option value="50">50</option>
                       <option value="100">100</option>
+                      <option value="2000">2000</option>
+
                     </select>
                   </div>
                 </div>
