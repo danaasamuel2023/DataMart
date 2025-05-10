@@ -164,6 +164,8 @@ async function checkTelecelOrderStatus(reference) {
 // Modified purchase-data route to remove phone number verification check and GB verification fee
 
 // Modified purchase-data route with simplified error handling
+// Modified purchase-data route with direct error handling
+// Complete updated purchase-data route with clean error handling
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -198,6 +200,9 @@ router.post('/purchase-data', async (req, res) => {
         }
       });
       
+      await session.abortTransaction();
+      session.endSession();
+      
       return res.status(400).json({
         status: 'error',
         message: 'Missing required fields'
@@ -208,7 +213,14 @@ router.post('/purchase-data', async (req, res) => {
     const user = await User.findById(userId).session(session);
     if (!user) {
       logOperation('DATA_PURCHASE_USER_NOT_FOUND', { userId });
-      throw new Error('User not found');
+      
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
     }
 
     // Check user wallet balance
@@ -220,6 +232,9 @@ router.post('/purchase-data', async (req, res) => {
         shortfall: price - user.walletBalance
       });
       
+      await session.abortTransaction();
+      session.endSession();
+      
       return res.status(400).json({
         status: 'error',
         message: 'Insufficient wallet balance',
@@ -228,7 +243,7 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
-    // Check if the network is in stock - KEEP THIS CHECK AS REQUESTED
+    // Check if the network is in stock
     const inventory = await DataInventory.findOne({ network }).session(session);
     
     logOperation('DATA_INVENTORY_CHECK', {
@@ -237,63 +252,25 @@ router.post('/purchase-data', async (req, res) => {
       inStock: inventory ? inventory.inStock : false
     });
     
-    // Generate unique references
-    const transactionReference = `TRX-${uuidv4()}`;
-    const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
-
-    // If inventory doesn't exist or inStock is false, create order in waiting status
+    // If inventory doesn't exist or inStock is false, return error immediately
     if (!inventory || !inventory.inStock) {
       logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
         network,
-        skipProcessing: true
+        inventoryExists: !!inventory
       });
       
-      // Create Transaction
-      const transaction = new Transaction({
-        userId,
-        type: 'purchase',
-        amount: price,
-        status: 'completed', // Still complete the transaction
-        reference: transactionReference,
-        gateway: 'wallet'
-      });
-
-      // Create Data Purchase in waiting status
-      const dataPurchase = new DataPurchase({
-        userId,
-        phoneNumber,
-        network,
-        capacity,
-        gateway: 'wallet',
-        method: 'web',
-        price,
-        status: 'waiting', // Set status to waiting
-        geonetReference: orderReference
-      });
-
-      // Update user wallet
-      const previousBalance = user.walletBalance;
-      user.walletBalance -= price;
-
-      // Save all documents
-      await transaction.save({ session });
-      await dataPurchase.save({ session });
-      await user.save({ session });
-
-      // Commit transaction
-      await session.commitTransaction();
-
-      return res.status(201).json({
-        status: 'success',
-        message: 'Data bundle order placed in waiting queue',
-        data: {
-          transaction,
-          dataPurchase,
-          newWalletBalance: user.walletBalance,
-          waitingForInventory: true
-        }
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: `${network} data bundles are currently out of stock. Please try again later or choose another network.`
       });
     }
+    
+    // Generate unique references
+    const transactionReference = `TRX-${uuidv4()}`;
+    const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
 
     // PROCESSING SECTION - INVENTORY IS IN STOCK
     let orderResponse = null;
@@ -308,45 +285,78 @@ router.post('/purchase-data', async (req, res) => {
         orderReference
       });
       
-      // Try to process the Telecel order
+      // Try to process the Telecel order but don't suppress errors
       try {
         const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
         
-        // Even if there's an error, we'll proceed instead of putting it in waiting
-        orderResponse = telecelResponse.data || { message: "Telecel processing attempt made" };
+        // If the API call failed, abort the transaction and return error
+        if (!telecelResponse.success) {
+          logOperation('TELECEL_API_ERROR', {
+            error: telecelResponse.error,
+            orderReference
+          });
+          
+          await session.abortTransaction();
+          session.endSession();
+          
+          // Extract the exact error message from Telecel if available
+          let errorMessage = 'Could not complete your purchase. Please try again later.';
+          
+          // Use the exact message from the API if available
+          if (telecelResponse.error && telecelResponse.error.message) {
+            errorMessage = telecelResponse.error.message;
+          }
+          
+          // If there's a more specific message in the details, use that
+          if (telecelResponse.error && telecelResponse.error.details && 
+              typeof telecelResponse.error.details === 'object' && 
+              telecelResponse.error.details.message) {
+            errorMessage = telecelResponse.error.details.message;
+          }
+          
+          return res.status(400).json({
+            status: 'error',
+            message: errorMessage
+          });
+        }
+        
+        // If we got here, the API call succeeded
+        orderResponse = telecelResponse.data;
         
         // Extract order ID if available
-        if (telecelResponse.success && telecelResponse.data && 
-            telecelResponse.data.data && telecelResponse.data.data.order && 
+        if (telecelResponse.data && 
+            telecelResponse.data.data && 
+            telecelResponse.data.data.order && 
             telecelResponse.data.data.order.orderReference) {
           apiOrderId = telecelResponse.data.data.order.orderReference;
         } else {
-          // Fallback to response ID or generated reference
           apiOrderId = telecelResponse.orderId || orderReference;
         }
         
-        logOperation('TELECEL_ORDER_ATTEMPT', {
-          success: telecelResponse.success,
+        logOperation('TELECEL_ORDER_SUCCESS', {
           orderId: apiOrderId,
           orderReference
         });
       } catch (telecelError) {
-        // Log the error but continue processing
-        logOperation('TELECEL_API_ERROR_PROCEEDING', {
+        // Log the error and abort transaction
+        logOperation('TELECEL_API_EXCEPTION', {
           error: telecelError.message,
+          stack: telecelError.stack,
           orderReference
         });
         
-        // Set defaults to continue processing
-        apiOrderId = orderReference;
-        orderResponse = { message: "Processed despite Telecel API error" };
+        await session.abortTransaction();
+        session.endSession();
+        
+        return res.status(400).json({
+          status: 'error',
+          message: 'Unable to process your order. Please try again later.'
+        });
       }
     } 
     // For all other networks, use Geonettech API
     else {
       try {
-        // Skip agent balance check as requested
-        
         // Place order with Geonettech
         const geonetOrderPayload = {
           network_key: network,
@@ -357,40 +367,92 @@ router.post('/purchase-data', async (req, res) => {
         
         logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
         
-        // Try to place order but don't put in waiting state if it fails
+        // Place order but don't suppress errors
         try {
           const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
           orderResponse = geonetResponse.data;
-          apiOrderId = orderResponse.data ? orderResponse.data.orderId : null;
           
-          logOperation('GEONETTECH_ORDER_CREATED', {
+          // Check if the response indicates success
+          if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+            logOperation('GEONETTECH_API_UNSUCCESSFUL_RESPONSE', {
+              response: orderResponse,
+              orderReference
+            });
+            
+            await session.abortTransaction();
+            session.endSession();
+            
+            // Extract the message but don't expose API details
+            let errorMessage = 'Could not complete your purchase. Please try again later.';
+            
+            // If there's a specific message from the API, parse it to make it user-friendly
+            if (orderResponse && orderResponse.message) {
+              const msg = orderResponse.message.toLowerCase();
+              
+              if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+                errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+              } else if (msg.includes('invalid') || msg.includes('phone')) {
+                errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+              } else {
+                // Pass the original message directly if it's user-friendly
+                errorMessage = orderResponse.message;
+              }
+            }
+            
+            return res.status(400).json({
+              status: 'error',
+              message: errorMessage
+            });
+          }
+          
+          apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+          
+          logOperation('GEONETTECH_ORDER_SUCCESS', {
             orderId: apiOrderId,
             responseData: orderResponse
           });
         } catch (apiError) {
-          // Log the error but continue with processing
-          logOperation('GEONETTECH_API_ERROR_PROCEEDING', {
+          // Log the error and abort transaction
+          logOperation('GEONETTECH_API_ERROR', {
             error: apiError.message,
+            response: apiError.response ? apiError.response.data : null,
             orderReference
           });
           
-          // Set defaults to continue processing
-          apiOrderId = orderReference;
-          orderResponse = { message: "Processed despite Geonettech API error" };
+          await session.abortTransaction();
+          session.endSession();
+          
+          // Just pass through the exact error message from the API without any modification
+          let errorMessage = 'Could not complete your purchase. Please try again later.';
+          
+          // If there's a specific message from the API, use it directly
+          if (apiError.response && apiError.response.data && apiError.response.data.message) {
+            errorMessage = apiError.response.data.message;
+          }
+          
+          return res.status(400).json({
+            status: 'error',
+            message: errorMessage
+          });
         }
       } catch (error) {
-        // Log any other error but continue processing
-        logOperation('GENERAL_ERROR_PROCEEDING', {
+        // Log any other error and abort transaction
+        logOperation('GENERAL_ERROR', {
           error: error.message,
           orderReference
         });
         
-        // Set defaults to continue processing
-        apiOrderId = orderReference;
-        orderResponse = { message: "Processed despite general error" };
+        await session.abortTransaction();
+        session.endSession();
+        
+        return res.status(500).json({
+          status: 'error',
+          message: 'An unexpected error occurred. Please try again later.'
+        });
       }
     }
 
+    // If we've made it this far, create the transaction records
     // Create Transaction
     const transaction = new Transaction({
       userId,
@@ -401,7 +463,7 @@ router.post('/purchase-data', async (req, res) => {
       gateway: 'wallet'
     });
 
-    // Create Data Purchase - Always mark as completed if inventory is in stock
+    // Create Data Purchase - Only created if API calls succeeded
     const dataPurchase = new DataPurchase({
       userId,
       phoneNumber,
@@ -410,10 +472,10 @@ router.post('/purchase-data', async (req, res) => {
       gateway: 'wallet',
       method: 'web',
       price,
-      status: 'completed', // Always completed when inventory is in stock
+      status: 'completed',
       geonetReference: orderReference,
-      apiOrderId: apiOrderId || orderReference,
-      apiResponse: orderResponse || { message: "Processed with minimal validation" }
+      apiOrderId: apiOrderId,
+      apiResponse: orderResponse
     });
 
     // Update user wallet
@@ -427,6 +489,7 @@ router.post('/purchase-data', async (req, res) => {
 
     // Commit transaction
     await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json({
       status: 'success',
@@ -434,14 +497,14 @@ router.post('/purchase-data', async (req, res) => {
       data: {
         transaction,
         dataPurchase,
-        newWalletBalance: user.walletBalance,
-        apiResponse: orderResponse
+        newWalletBalance: user.walletBalance
       }
     });
 
   } catch (error) {
     // Rollback transaction
     await session.abortTransaction();
+    session.endSession();
     
     logOperation('DATA_PURCHASE_ERROR', {
       message: error.message,
@@ -455,12 +518,8 @@ router.post('/purchase-data', async (req, res) => {
 
     res.status(500).json({
       status: 'error',
-      message: 'Failed to purchase data bundle',
-      details: error.response ? error.response.data : error.message
+      message: 'Could not complete your purchase. Please try again later.'
     });
-  } finally {
-    // End the session
-    session.endSession();
   }
 });
 // Check Order Status
