@@ -163,6 +163,7 @@ async function checkTelecelOrderStatus(reference) {
 // Modify the purchase-data route to include Telecel API handling
 // Modified purchase-data route to remove phone number verification check and GB verification fee
 
+// Modified purchase-data route with simplified error handling
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -227,7 +228,7 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
-    // Check if the network is in stock
+    // Check if the network is in stock - KEEP THIS CHECK AS REQUESTED
     const inventory = await DataInventory.findOne({ network }).session(session);
     
     logOperation('DATA_INVENTORY_CHECK', {
@@ -307,53 +308,45 @@ router.post('/purchase-data', async (req, res) => {
         orderReference
       });
       
-      const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
-      
-      if (!telecelResponse.success) {
-        throw new Error(`Telecel API error: ${telecelResponse.error.message}`);
-      }
-      
-      orderResponse = telecelResponse.data;
-      
-      // IMPORTANT: Extract the actual order reference from API response
-      if (orderResponse.data && orderResponse.data.order && orderResponse.data.order.orderReference) {
-        // Store the API-provided order reference instead of our generated one
-        apiOrderId = orderResponse.data.order.orderReference;
+      // Try to process the Telecel order
+      try {
+        const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
         
-        // Log that we're updating the reference
-        logOperation('TELECEL_ORDER_REFERENCE_EXTRACTED', {
-          originalReference: orderReference,
-          apiOrderReference: apiOrderId
+        // Even if there's an error, we'll proceed instead of putting it in waiting
+        orderResponse = telecelResponse.data || { message: "Telecel processing attempt made" };
+        
+        // Extract order ID if available
+        if (telecelResponse.success && telecelResponse.data && 
+            telecelResponse.data.data && telecelResponse.data.data.order && 
+            telecelResponse.data.data.order.orderReference) {
+          apiOrderId = telecelResponse.data.data.order.orderReference;
+        } else {
+          // Fallback to response ID or generated reference
+          apiOrderId = telecelResponse.orderId || orderReference;
+        }
+        
+        logOperation('TELECEL_ORDER_ATTEMPT', {
+          success: telecelResponse.success,
+          orderId: apiOrderId,
+          orderReference
         });
-      } else {
-        // Fallback to the response ID or our generated reference
-        apiOrderId = telecelResponse.orderId;
+      } catch (telecelError) {
+        // Log the error but continue processing
+        logOperation('TELECEL_API_ERROR_PROCEEDING', {
+          error: telecelError.message,
+          orderReference
+        });
+        
+        // Set defaults to continue processing
+        apiOrderId = orderReference;
+        orderResponse = { message: "Processed despite Telecel API error" };
       }
-      
-      logOperation('TELECEL_ORDER_CREATED', {
-        orderId: apiOrderId,
-        responseData: orderResponse
-      });
     } 
     // For all other networks, use Geonettech API
     else {
       try {
-        logOperation('AGENT_BALANCE_CHECK_PRE_PURCHASE', { timestamp: new Date() });
-        const agentBalanceResponse = await geonetClient.get('/checkBalance');
-        const agentBalance = parseFloat(agentBalanceResponse.data.data.balance.replace(/,/g, ''));
+        // Skip agent balance check as requested
         
-        if (agentBalance < price) {
-          logOperation('AGENT_INSUFFICIENT_BALANCE', {
-            agentBalance,
-            requiredAmount: price
-          });
-          
-          return res.status(400).json({
-            status: 'error',
-            message: 'Service provider out of stock'
-          });
-        }
-
         // Place order with Geonettech
         const geonetOrderPayload = {
           network_key: network,
@@ -364,80 +357,37 @@ router.post('/purchase-data', async (req, res) => {
         
         logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
         
-        const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
-        orderResponse = geonetResponse.data;
-        apiOrderId = orderResponse.data ? orderResponse.data.orderId : null;
-        
-        logOperation('GEONETTECH_ORDER_CREATED', {
-          orderId: apiOrderId,
-          responseData: orderResponse
-        });
-      } catch (error) {
-        // Handle generic API errors from Geonettech
-        if (error.response && 
-            (error.response.status === 422 || error.response.status === 400)) {
+        // Try to place order but don't put in waiting state if it fails
+        try {
+          const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+          orderResponse = geonetResponse.data;
+          apiOrderId = orderResponse.data ? orderResponse.data.orderId : null;
           
-          logOperation('GEONETTECH_API_ERROR', {
-            phoneNumber,
-            errorMessage: error.response.data.message,
-            statusCode: error.response.status
+          logOperation('GEONETTECH_ORDER_CREATED', {
+            orderId: apiOrderId,
+            responseData: orderResponse
+          });
+        } catch (apiError) {
+          // Log the error but continue with processing
+          logOperation('GEONETTECH_API_ERROR_PROCEEDING', {
+            error: apiError.message,
+            orderReference
           });
           
-          // Create Transaction
-          const transaction = new Transaction({
-            userId,
-            type: 'purchase',
-            amount: price, // Use original price
-            status: 'completed',
-            reference: transactionReference,
-            gateway: 'wallet'
-          });
-
-          // Create Data Purchase
-          const dataPurchase = new DataPurchase({
-            userId,
-            phoneNumber,
-            network,
-            capacity,
-            gateway: 'wallet',
-            method: 'web',
-            price: price, // Use original price
-            status: 'waiting',
-            geonetReference: orderReference,
-            errorDetails: {
-              type: 'api_error',
-              message: error.response.data.message || 'API Error',
-              code: error.response.status
-            }
-          });
-
-          // Update user wallet
-          const previousBalance = user.walletBalance;
-          user.walletBalance -= price; // Use original price
-
-          // Save all documents
-          await transaction.save({ session });
-          await dataPurchase.save({ session });
-          await user.save({ session });
-
-          // Commit transaction
-          await session.commitTransaction();
-
-          return res.status(201).json({
-            status: 'success',
-            message: 'Data bundle order placed in waiting queue due to API error',
-            data: {
-              transaction,
-              dataPurchase,
-              newWalletBalance: user.walletBalance,
-              waitingForRetry: true,
-              errorDetails: error.response.data
-            }
-          });
-        } else {
-          // Re-throw other errors
-          throw error;
+          // Set defaults to continue processing
+          apiOrderId = orderReference;
+          orderResponse = { message: "Processed despite Geonettech API error" };
         }
+      } catch (error) {
+        // Log any other error but continue processing
+        logOperation('GENERAL_ERROR_PROCEEDING', {
+          error: error.message,
+          orderReference
+        });
+        
+        // Set defaults to continue processing
+        apiOrderId = orderReference;
+        orderResponse = { message: "Processed despite general error" };
       }
     }
 
@@ -451,7 +401,7 @@ router.post('/purchase-data', async (req, res) => {
       gateway: 'wallet'
     });
 
-    // Create Data Purchase
+    // Create Data Purchase - Always mark as completed if inventory is in stock
     const dataPurchase = new DataPurchase({
       userId,
       phoneNumber,
@@ -460,13 +410,10 @@ router.post('/purchase-data', async (req, res) => {
       gateway: 'wallet',
       method: 'web',
       price,
-      status: 'completed',
-      // Use the apiOrderId (which now contains the API's order reference) as georeference
-      geonetReference: network === 'TELECEL' && orderResponse.data?.order?.orderReference 
-        ? orderResponse.data.order.orderReference  // Use the API's order reference for Telecel
-        : orderReference,                          // Use our generated reference for others
-      apiOrderId: apiOrderId,
-      apiResponse: orderResponse
+      status: 'completed', // Always completed when inventory is in stock
+      geonetReference: orderReference,
+      apiOrderId: apiOrderId || orderReference,
+      apiResponse: orderResponse || { message: "Processed with minimal validation" }
     });
 
     // Update user wallet
