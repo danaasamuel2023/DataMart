@@ -19,7 +19,7 @@ export default function DepositPage() {
   const [accountStatus, setAccountStatus] = useState('');
   const [disableReason, setDisableReason] = useState('');
   const [copySuccess, setCopySuccess] = useState('');
-  const [showPaystackWarningModal, setShowPaystackWarningModal] = useState(false);
+  const [showPaystackWarningModal, setShowPaystackWarningModal] = useState(true);
   
   const router = useRouter();
   
