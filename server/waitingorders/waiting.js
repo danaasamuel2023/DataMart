@@ -872,6 +872,136 @@ router.put('/pending/update-status', async (req, res) => {
 });
 
 /**
+ * @route   PUT /api/orders/completed/update-status
+ * @desc    Update status of completed orders
+ * @access  Admin only
+ */
+router.put('/completed/update-status', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { 
+      orderIds, 
+      newStatus, 
+      notes,
+      network, 
+      startDate, 
+      endDate 
+    } = req.body;
+    
+    // Validate status
+    const validStatuses = ['pending', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
+    if (!validStatuses.includes(newStatus)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ msg: 'Invalid status value' });
+    }
+    
+    // Build filter object
+    let filter = { status: 'completed' };
+    
+    // If specific order IDs are provided, use them
+    if (orderIds && Array.isArray(orderIds) && orderIds.length > 0) {
+      filter = { _id: { $in: orderIds }, status: 'completed' };
+    }
+    
+    // Additional filters
+    if (network) filter.network = network;
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+    
+    // Check how many orders will be affected
+    const affectedCount = await DataPurchase.countDocuments(filter);
+    
+    if (affectedCount === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ 
+        msg: 'No completed orders found matching the criteria', 
+        filter 
+      });
+    }
+    
+    // Get user ID for record keeping, set to null if not available
+    let updatedById = null;
+    if (req.user && (req.user._id || req.user.id)) {
+      updatedById = req.user._id || req.user.id;
+    }
+    
+    // Update orders - use MongoDB update operation structure
+    const updateOperation = {
+      $set: {
+        status: newStatus,
+        processing: newStatus === 'processing', // Set processing flag based on new status
+        adminNotes: notes || `Updated from 'completed' to '${newStatus}'`,
+        updatedAt: new Date()
+      }
+    };
+    
+    // Only add updatedBy if we have a valid user ID
+    if (updatedById) {
+      updateOperation.$set.updatedBy = updatedById;
+    }
+    
+    // Update orders
+    const updateResult = await DataPurchase.updateMany(
+      filter,
+      updateOperation,
+      { session }
+    );
+    
+    // If moving from completed to another status, we may need to update related transactions as well
+    // Get all references
+    const references = await DataPurchase.find(filter, 'geonetReference', { session })
+      .distinct('geonetReference');
+    
+    // Filter out empty references
+    const validReferences = references.filter(ref => ref);
+    
+    if (validReferences.length > 0) {
+      await Transaction.updateMany(
+        {
+          reference: { $in: validReferences },
+          type: 'purchase',
+          status: 'completed'
+        },
+        {
+          $set: {
+            status: newStatus === 'pending' ? 'pending' : 
+                   newStatus === 'refunded' || newStatus === 'refund' ? 'refunded' : 
+                   newStatus === 'failed' ? 'failed' : 'completed',
+            updatedAt: new Date()
+          }
+        },
+        { session }
+      );
+    }
+    
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.json({
+      msg: `Successfully updated ${updateResult.modifiedCount} completed orders to status "${newStatus}"`,
+      affected: affectedCount,
+      updated: updateResult.modifiedCount,
+      filter
+    });
+    
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Error updating completed orders:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+/**
  * @route   GET /api/orders/export/:status
  * @desc    Export orders by status as Excel file
  * @access  Admin only
