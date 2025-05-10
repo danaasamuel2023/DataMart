@@ -126,7 +126,7 @@ const TelecelBundleCards = () => {
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
   const inventoryAvailable = false; 
-  
+  ``
   const [bundles, setBundles] = useState([
     { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: false},
     // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
