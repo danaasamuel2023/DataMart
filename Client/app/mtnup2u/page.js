@@ -178,7 +178,7 @@ const MTNBundleCards = () => {
   });
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = true; // Change to false to simulate out of stock
+  const inventoryAvailable = false; // Change to false to simulate out of stock
   
   const [bundles, setBundles] = useState([
     { capacity: '1', mb: '1000', price: '4.40', network: 'YELLO', inStock: inventoryAvailable },
@@ -372,7 +372,7 @@ const MTNBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
+      const response = await axios.post('http://localhost:5000/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network,
