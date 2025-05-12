@@ -259,95 +259,64 @@ class TextVerifiedService {
   }
   
   /**
-   * Get verification details from TextVerified
-   * @param {string} id - TextVerified verification ID
-   * @returns {Promise<Object>} Verification details
-   */
-  static async getVerificationDetails(id) {
-    try {
-      const token = await this.getBearerToken();
+ * Get verification details from TextVerified
+ * @param {string} id - TextVerified verification ID
+ * @returns {Promise<Object>} Verification details
+ */
+static async getVerificationDetails(id) {
+  try {
+    const token = await this.getBearerToken();
+    
+    const response = await axios.get(`${TEXTVERIFIED_API_URL}/verifications/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log(`[getVerificationDetails] Details for ${id}:`, JSON.stringify(response.data, null, 2));
+    return response.data;
+  } catch (error) {
+    console.error(`Error getting verification details for ID ${id}:`, error);
+    
+    // Try to find the verification in our database
+    const verification = await PhoneVerification.findOne({ textVerifiedId: id });
+    
+    if (verification && verification.status === 'active' && verification.paymentStatus === 'paid') {
+      // Find the user to refund
+      const user = await User.findById(verification.userId);
       
-      const response = await axios.get(`${TEXTVERIFIED_API_URL}/verifications/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      console.log(`[getVerificationDetails] Details for ${id}:`, JSON.stringify(response.data, null, 2));
-      return response.data;
-    } catch (error) {
-      console.error(`Error getting verification details for ID ${id}:`, error);
-      throw error;
+      if (user) {
+        // Create refund transaction
+        const refundTransaction = await Transaction.create({
+          userId: verification.userId,
+          type: 'refund',
+          amount: verification.totalCost,
+          status: 'completed',
+          reference: `refund_service_check_failed_${id}`,
+          gateway: 'wallet',
+          description: `Refund for failed service check: ${verification.serviceName}`
+        });
+        
+        // Add money back to user's wallet
+        user.walletBalance += verification.totalCost;
+        await user.save();
+        
+        // Update verification record
+        verification.status = 'refunded';
+        verification.paymentStatus = 'refunded';
+        verification.refundTransactionId = refundTransaction._id;
+        await verification.save();
+        
+        console.log(`[getVerificationDetails] Refunded ${verification.totalCost} GH₵ to user ${verification.userId}. New balance: ${user.walletBalance} GH₵`);
+      } else {
+        console.error(`[getVerificationDetails] User ${verification.userId} not found for refund`);
+      }
     }
+    
+    // Re-throw the original error
+    throw error;
   }
-  
-  /**
-   * List SMS messages for a verification
-   * @param {string} id - TextVerified verification ID
-   * @returns {Promise<Array>} List of SMS messages
-   */
-  static async listSms(id) {
-    try {
-      const token = await this.getBearerToken();
-      
-      // Make request to fetch SMS messages using proper pagination endpoints
-      const response = await axios.get(`${TEXTVERIFIED_API_URL}/sms`, {
-        params: {
-          reservationId: id,
-          reservationType: 'verification'
-        },
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      console.log(`[listSms] Response for ID ${id}:`, JSON.stringify(response.data, null, 2));
-      
-      // Check if we got valid SMS data
-      if (!response.data || !response.data.data || !Array.isArray(response.data.data)) {
-        console.log(`[listSms] No SMS messages found for ID ${id}`);
-        return [];
-      }
-      
-      const messages = response.data.data.map(sms => ({
-        id: sms.id,
-        from: sms.from,
-        to: sms.to,
-        receivedAt: sms.createdAt,
-        body: sms.smsContent || sms.parsedCode,
-        parsedCode: sms.parsedCode
-      }));
-      
-      console.log(`[listSms] Found ${messages.length} messages for ID ${id}`);
-      
-      // Update our verification record with the message if available
-      if (messages && messages.length > 0) {
-        const verification = await PhoneVerification.findOne({ textVerifiedId: id });
-        if (verification) {
-          verification.status = 'verified';
-          // Use parsedCode if available, otherwise use the full SMS content
-          verification.verificationCode = messages[0].parsedCode || messages[0].body;
-          verification.messageDetails = {
-            messageId: messages[0].id,
-            receivedAt: new Date(messages[0].receivedAt),
-            content: messages[0].body
-          };
-          await verification.save();
-          console.log(`[listSms] Updated verification ${id} with code: ${verification.verificationCode}`);
-        }
-      }
-      
-      return messages;
-    } catch (error) {
-      console.error(`[listSms] Error listing SMS for verification ${id}:`, error);
-      if (error.response) {
-        console.error(`[listSms] Error response status: ${error.response.status}`);
-        console.error(`[listSms] Error response data:`, error.response.data);
-      }
-      throw error;
-    }
-  }
-  
+}
   /**
    * Process refund for expired verification with no code
    * @param {string} verificationId - Database ID of verification to refund
