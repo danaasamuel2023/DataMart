@@ -125,20 +125,20 @@ const TelecelBundleCards = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = false; 
+  const inventoryAvailable = true; 
   ``
   const [bundles, setBundles] = useState([
     { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: false},
     // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
     // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '10', mb: '10000', price: '37.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '10', mb: '10000', price: '40.50', network: 'TELECEL', inStock: inventoryAvailable },
     // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '15', mb: '15000', price: '55.50', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '20', mb: '20000', price: '75.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '25', mb: '25000', price: '92.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '30', mb: '30000', price: '110.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '40', mb: '40000', price: '145.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '50', mb: '50000', price: '180.00', network: 'TELECEL', inStock: inventoryAvailable }
+    { capacity: '15', mb: '15000', price: '60.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '20', mb: '20000', price: '81.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '25', mb: '25000', price: '99.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '30', mb: '30000', price: '118.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '40', mb: '40000', price: '155.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '50', mb: '50000', price: '195.00', network: 'TELECEL', inStock: inventoryAvailable }
   ]);
 
   // Get user data from localStorage on component mount 
