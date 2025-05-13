@@ -166,9 +166,6 @@ async function checkTelecelOrderStatus(reference) {
 // Modified purchase-data route with simplified error handling
 // Modified purchase-data route with direct error handling
 // Complete updated purchase-data route with clean error handling
-// Updated purchase-data route with Telecel waiting feature
-// This updates only the inventory check section in the existing route
-
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -255,67 +252,8 @@ router.post('/purchase-data', async (req, res) => {
       inStock: inventory ? inventory.inStock : false
     });
     
-    // *** MODIFIED SECTION START ***
-    // Special handling for TELECEL - if out of stock, save as waiting
-    if (network === 'TELECEL' && (!inventory || !inventory.inStock)) {
-      logOperation('TELECEL_INVENTORY_OUT_OF_STOCK_WAITING', {
-        network,
-        inventoryExists: !!inventory
-      });
-      
-      // Generate unique references
-      const transactionReference = `TRX-${uuidv4()}`;
-      const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
-      
-      // Create Transaction in pending state (don't charge wallet yet)
-      const transaction = new Transaction({
-        userId,
-        type: 'purchase',
-        amount: price,
-        status: 'pending',  // Mark as pending for waiting orders
-        reference: transactionReference,
-        gateway: 'wallet'
-      });
-
-      // Create Data Purchase with waiting status
-      const dataPurchase = new DataPurchase({
-        userId,
-        phoneNumber,
-        network,
-        capacity,
-        gateway: 'wallet',
-        method: 'web',
-        price,
-        status: 'waiting',  // Set status to waiting
-        geonetReference: orderReference,
-        apiOrderId: null,
-        apiResponse: {
-          message: "Order placed in waiting queue due to inventory shortage"
-        }
-      });
-
-      // Save all documents (without deducting wallet balance)
-      await transaction.save({ session });
-      await dataPurchase.save({ session });
-
-      // Commit transaction
-      await session.commitTransaction();
-      session.endSession();
-
-      res.status(202).json({
-        status: 'waiting',
-        message: 'Telecel data bundle currently out of stock. Your order has been placed in the waiting queue and will be processed once inventory is available.',
-        data: {
-          transaction,
-          dataPurchase,
-          walletBalance: user.walletBalance  // Unchanged wallet balance
-        }
-      });
-      
-      return; // Exit early
-    }
-    // For non-Telecel networks or if inventory doesn't exist or is out of stock
-    else if (!inventory || !inventory.inStock) {
+    // If inventory doesn't exist or inStock is false, return error immediately
+    if (!inventory || !inventory.inStock) {
       logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
         network,
         inventoryExists: !!inventory
@@ -329,9 +267,8 @@ router.post('/purchase-data', async (req, res) => {
         message: `${network} data bundles are currently out of stock. Please try again later or choose another network.`
       });
     }
-    // *** MODIFIED SECTION END ***
     
-    // Generate unique references for normal processing (inventory is in stock)
+    // Generate unique references
     const transactionReference = `TRX-${uuidv4()}`;
     const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
 
