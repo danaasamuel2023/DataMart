@@ -59,7 +59,7 @@ router.get('/agent-balance', async (req, res) => {
 
 // Purchase Data Bundle with Inventory Check
 const TELECEL_API_URL = 'https://iget.onrender.com/api/developer/orders/place';
-const TELECEL_API_KEY = '46f53e22fb968d0da2c8486ce98da9ff0268a971db7c6bac0277ef183ac93222';
+const TELECEL_API_KEY = '4cb6763274e86173d2c22c120493ca67b6185039f826f4aa43bb3057db50f858';
 
 // Helper function for Telecel API integration - can be placed at the top of your router file
 async function processTelecelOrder(recipient, capacity, reference) {
