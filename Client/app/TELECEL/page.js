@@ -128,7 +128,7 @@ const TelecelBundleCards = () => {
   const inventoryAvailable = true; 
   ``
   const [bundles, setBundles] = useState([
-    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: false},
+    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: true},
     // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
     // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
     { capacity: '10', mb: '10000', price: '40.50', network: 'TELECEL', inStock: inventoryAvailable },
