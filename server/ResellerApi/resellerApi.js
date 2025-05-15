@@ -21,11 +21,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'DatAmArt';
 const GEONETTECH_BASE_URL = 'https://posapi.geonettech.com/api/v1';
 const GEONETTECH_API_KEY = process.env.GEONETTECH_API_KEY || '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
 
+// Add Telcel API constants
+const TELCEL_API_URL = 'https://iget.onrender.com/api/developer/orders';
+const TELCEL_API_KEY = '4cb6763274e86173d2c22c120493ca67b6185039f826f4aa43bb3057db50f858';
+
 // Create Geonettech client
 const geonetClient = axios.create({
   baseURL: GEONETTECH_BASE_URL,
   headers: {
     'Authorization': `Bearer ${GEONETTECH_API_KEY}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+// Create Telcel client
+const telcelClient = axios.create({
+  baseURL: TELCEL_API_URL,
+  headers: {
+    'X-API-Key': TELCEL_API_KEY,
     'Content-Type': 'application/json'
   }
 });
@@ -560,30 +573,9 @@ router.post('/purchase', async (req, res, next) => {
                 }
             });
         } else {
-            // For other networks, continue with the original Geonettech flow
+            // For other networks (YELLO or TELECEL)
             
-            // Check agent wallet balance (only needed for Geonettech)
-            const agentBalance = await checkAgentBalance();
-            
-            logOperation('AGENT_BALANCE_RESULT', {
-                balance: agentBalance,
-                requiredAmount: price,
-                sufficient: agentBalance >= price
-            });
-            
-            if (agentBalance < price) {
-                logOperation('AGENT_INSUFFICIENT_BALANCE', {
-                    agentBalance,
-                    requiredAmount: price
-                });
-                
-                return res.status(400).json({
-                    status: 'error',
-                    message: 'Service provider out of stock'
-                });
-            }
-
-            // Create Data Purchase with Geonet reference
+            // Create Data Purchase with reference
             const dataPurchase = new DataPurchase({
                 userId: req.user._id,
                 phoneNumber,
@@ -619,58 +611,154 @@ router.post('/purchase', async (req, res, next) => {
                 userUpdated: req.user._id
             });
 
-            // Place order with Geonettech
-            logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
-                network_key: network,
-                ref: orderReference,
-                recipient: phoneNumber,
-                capacity: capacity,
-                timestamp: new Date()
-            });
+            // Determine which API to use based on network
+            if (network === 'TELECEL') {
+                // Place order with Telcel API
+                logOperation('TELCEL_ORDER_REQUEST_PREPARED', {
+                    phoneNumber,
+                    dataAmount: capacity,
+                    reference: orderReference,
+                    timestamp: new Date()
+                });
 
-            const geonetOrderPayload = [{
-                network_key: network,
-                ref: orderReference,
-                recipient: phoneNumber,
-                capacity: capacity
-            }];
-            
-            logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
-            
-            const geonetResponse = await geonetClient.post('/orders', geonetOrderPayload);
-            
-            logOperation('GEONETTECH_ORDER_RESPONSE', {
-                status: geonetResponse.status,
-                statusText: geonetResponse.statusText,
-                headers: geonetResponse.headers,
-                data: geonetResponse.data,
-                timestamp: new Date()
-            });
+                // Prepare Telcel API request payload
+                const telcelOrderPayload = {
+                    phone: phoneNumber,
+                    volume: parseFloat(capacity) * 1000, // Convert GB to MB
+                    reference: orderReference
+                };
+                
+                logOperation('TELCEL_ORDER_REQUEST', telcelOrderPayload);
+                
+                try {
+                    // Make request to Telcel API
+                    const telcelResponse = await axios.post(
+                        'https://iget.onrender.com/api/developer/orders', 
+                        telcelOrderPayload,
+                        {
+                            headers: {
+                                'X-API-Key': TELCEL_API_KEY,
+                                'Content-Type': 'application/json'
+                            }
+                        }
+                    );
+                    
+                    logOperation('TELCEL_ORDER_RESPONSE', {
+                        status: telcelResponse.status,
+                        statusText: telcelResponse.statusText,
+                        data: telcelResponse.data,
+                        timestamp: new Date()
+                    });
 
-            // Update status if successful
-            dataPurchase.status = 'completed';
-            transaction.status = 'completed';
-            
-            await dataPurchase.save({ session });
-            await transaction.save({ session });
+                    // Update status if successful
+                    dataPurchase.status = 'completed';
+                    transaction.status = 'completed';
+                    
+                    await dataPurchase.save({ session });
+                    await transaction.save({ session });
 
-            // Commit transaction
-            await session.commitTransaction();
-            logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
+                    // Commit transaction
+                    await session.commitTransaction();
+                    logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
 
-            res.status(201).json({
-                status: 'success',
-                data: {
-                    purchaseId: dataPurchase._id,
-                    transactionReference: transaction.reference,
-                    network,
-                    capacity,
-                    mb: dataPackage.mb,
-                    price,
-                    remainingBalance: req.user.walletBalance,
-                    geonetechResponse: geonetResponse.data
+                    res.status(201).json({
+                        status: 'success',
+                        data: {
+                            purchaseId: dataPurchase._id,
+                            transactionReference: transaction.reference,
+                            network,
+                            capacity,
+                            mb: dataPackage.mb,
+                            price,
+                            remainingBalance: req.user.walletBalance,
+                            telcelResponse: telcelResponse.data
+                        }
+                    });
+                } catch (telcelError) {
+                    logOperation('TELCEL_ORDER_ERROR', {
+                        message: telcelError.message,
+                        response: telcelError.response ? telcelError.response.data : null,
+                        stack: telcelError.stack
+                    });
+                    
+                    throw telcelError; // Propagate to the outer catch block for consistent error handling
                 }
-            });
+            } else {
+                // Place order with Geonettech (for YELLO network)
+                // Check agent wallet balance (only needed for Geonettech)
+                const agentBalance = await checkAgentBalance();
+                
+                logOperation('AGENT_BALANCE_RESULT', {
+                    balance: agentBalance,
+                    requiredAmount: price,
+                    sufficient: agentBalance >= price
+                });
+                
+                if (agentBalance < price) {
+                    logOperation('AGENT_INSUFFICIENT_BALANCE', {
+                        agentBalance,
+                        requiredAmount: price
+                    });
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'Service provider out of stock'
+                    });
+                }
+
+                // Place order with Geonettech
+                logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
+                    network_key: network,
+                    ref: orderReference,
+                    recipient: phoneNumber,
+                    capacity: capacity,
+                    timestamp: new Date()
+                });
+
+                const geonetOrderPayload = [{
+                    network_key: network,
+                    ref: orderReference,
+                    recipient: phoneNumber,
+                    capacity: capacity
+                }];
+                
+                logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
+                
+                const geonetResponse = await geonetClient.post('/orders', geonetOrderPayload);
+                
+                logOperation('GEONETTECH_ORDER_RESPONSE', {
+                    status: geonetResponse.status,
+                    statusText: geonetResponse.statusText,
+                    headers: geonetResponse.headers,
+                    data: geonetResponse.data,
+                    timestamp: new Date()
+                });
+
+                // Update status if successful
+                dataPurchase.status = 'completed';
+                transaction.status = 'completed';
+                
+                await dataPurchase.save({ session });
+                await transaction.save({ session });
+
+                // Commit transaction
+                await session.commitTransaction();
+                logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
+
+                res.status(201).json({
+                    status: 'success',
+                    data: {
+                        purchaseId: dataPurchase._id,
+                        transactionReference: transaction.reference,
+                        network,
+                        capacity,
+                        mb: dataPackage.mb,
+                        price,
+                        remainingBalance: req.user.walletBalance,
+                        geonetechResponse: geonetResponse.data
+                    }
+                });
+            }
         }
 
     } catch (error) {
@@ -710,6 +798,50 @@ router.post('/purchase', async (req, res, next) => {
 
 
 // Get Purchase History (support both authentication methods)
+router.get('/purchase-history/:userId', async (req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey) {
+        return authenticateApiKey(req, res, next);
+    }
+    return authenticateUser(req, res, next);
+}, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { page = 1, limit = 20 } = req.query;
+
+        // Ensure user can only access their own purchase history
+        if (req.user._id.toString() !== userId) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized access to purchase history'
+            });
+        }
+
+        const purchases = await DataPurchase.find({ userId })
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
+
+        const total = await DataPurchase.countDocuments({ userId });
+
+        res.json({
+            status: 'success',
+            data: {
+                purchases,
+                pagination: {
+                    currentPage: Number(page),
+                    totalPages: Math.ceil(total / limit),
+                    totalItems: total
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
 
 // Get Transaction History (support both authentication methods)
 router.get('/transactions', async (req, res, next) => {
