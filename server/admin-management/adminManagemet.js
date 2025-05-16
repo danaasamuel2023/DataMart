@@ -1380,5 +1380,117 @@ router.get('/daily-summary', auth, adminAuth, async (req, res) => {
   }
 });
 
+router.get('/user-orders/:userId', auth, adminAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 100 } = req.query;
+    
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ msg: 'Invalid user ID' });
+    }
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    
+    // Fetch orders for the user
+    const orders = await DataPurchase.find({ userId })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .sort({ createdAt: -1 });
+    
+    const total = await DataPurchase.countDocuments({ userId });
+    
+    // Calculate total spent by the user
+    const totalSpent = await DataPurchase.aggregate([
+      { $match: { userId: mongoose.Types.ObjectId(userId), status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
+    ]);
+    
+    res.json({
+      orders,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      totalOrders: total,
+      totalSpent: totalSpent.length > 0 ? totalSpent[0].total : 0
+    });
+  } catch (err) {
+    console.error('Error fetching user orders:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   GET /api/admin/dashboard/statistics
+ * @desc    Get admin dashboard statistics
+ * @access  Admin
+ */
+router.get('/dashboard/statistics', auth, adminAuth, async (req, res) => {
+  try {
+    // Get total users count
+    const totalUsers = await User.countDocuments();
+    
+    // Get total wallet balance across all users
+    const walletBalance = await User.aggregate([
+      { $group: { _id: null, total: { $sum: '$walletBalance' } } }
+    ]);
+    const totalWalletBalance = walletBalance.length > 0 ? walletBalance[0].total : 0;
+    
+    // Get total completed orders
+    const completedOrders = await DataPurchase.countDocuments({ status: 'completed' });
+    
+    // Get total revenue from completed orders
+    const revenue = await DataPurchase.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
+    ]);
+    const totalRevenue = revenue.length > 0 ? revenue[0].total : 0;
+    
+    // Get total by network
+    const networkStats = await DataPurchase.aggregate([
+      { $match: { status: 'completed' } },
+      { 
+        $group: { 
+          _id: '$network',
+          count: { $sum: 1 },
+          revenue: { $sum: '$price' }
+        }
+      },
+      { $sort: { revenue: -1 } }
+    ]);
+    
+    // Get recent orders
+    const recentOrders = await DataPurchase.find()
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('userId', 'name email');
+    
+    res.json({
+      userStats: {
+        totalUsers,
+        totalWalletBalance
+      },
+      orderStats: {
+        totalOrders: await DataPurchase.countDocuments(),
+        completedOrders,
+        pendingOrders: await DataPurchase.countDocuments({ status: 'pending' }),
+        failedOrders: await DataPurchase.countDocuments({ status: 'failed' })
+      },
+      financialStats: {
+        totalRevenue,
+        averageOrderValue: completedOrders > 0 ? totalRevenue / completedOrders : 0
+      },
+      networkStats,
+      recentOrders
+    });
+  } catch (err) {
+    console.error('Error fetching dashboard statistics:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 
 module.exports = router;

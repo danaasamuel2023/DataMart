@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Calendar, ArrowUp, ArrowDown, Database, Users, Activity, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation'; // Import for navigation
 
 // Fetch dashboard data
 const getDashboardData = async (date) => {
@@ -22,42 +23,66 @@ const getDashboardData = async (date) => {
     });
     
     if (!response.ok) {
+      // Handle 401 Unauthorized error
+      if (response.status === 401) {
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        if (!userData || userData.role !== 'admin') {
+          // Redirect non-admin users on 401
+          throw new Error('unauthorized-redirect');
+        }
+      }
       throw new Error(`Failed to fetch dashboard data: ${response.status}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    
+    // Store user info if provided
+    if (data.user) {
+      localStorage.setItem('userData', JSON.stringify({
+        id: data.user._id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role
+      }));
+    }
+    
+    return data;
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     // Return mock data as fallback for preview purposes
-    return {
-      date: date,
-      summary: {
-        totalOrders: 45,
-        totalRevenue: 2350.75,
-        totalDeposits: 3100.25,
-        totalCapacityGB: 125,
-        uniqueCustomers: 32
-      },
-      networkSummary: [
-        { network: 'YELLO', count: 25, totalGB: 62, revenue: 1200.50 },
-        { network: 'TELECEL', count: 15, totalGB: 45, revenue: 850.25 },
-        { network: 'AT_PREMIUM', count: 5, totalGB: 18, revenue: 300.00 }
-      ],
-      capacityDetails: [
-        { network: 'YELLO', capacity: 1, count: 5, totalGB: 5 },
-        { network: 'YELLO', capacity: 2, count: 10, totalGB: 20 },
-        { network: 'YELLO', capacity: 5, count: 6, totalGB: 30 },
-        { network: 'TELECEL', capacity: 2, count: 7, totalGB: 14 },
-        { network: 'TELECEL', capacity: 5, count: 3, totalGB: 15 },
-        { network: 'AT_PREMIUM', capacity: 3, count: 3, totalGB: 9 },
-        { network: 'AT_PREMIUM', capacity: 5, count: 1, totalGB: 5 }
-      ],
-      statusSummary: [
-        { status: 'completed', count: 38 },
-        { status: 'pending', count: 5 },
-        { status: 'processing', count: 2 }
-      ]
-    };
+    if (error.message !== 'unauthorized-redirect') {
+      return {
+        date: date,
+        summary: {
+          totalOrders: 45,
+          totalRevenue: 2350.75,
+          totalDeposits: 3100.25,
+          totalCapacityGB: 125,
+          uniqueCustomers: 32
+        },
+        networkSummary: [
+          { network: 'YELLO', count: 25, totalGB: 62, revenue: 1200.50 },
+          { network: 'TELECEL', count: 15, totalGB: 45, revenue: 850.25 },
+          { network: 'AT_PREMIUM', count: 5, totalGB: 18, revenue: 300.00 }
+        ],
+        capacityDetails: [
+          { network: 'YELLO', capacity: 1, count: 5, totalGB: 5 },
+          { network: 'YELLO', capacity: 2, count: 10, totalGB: 20 },
+          { network: 'YELLO', capacity: 5, count: 6, totalGB: 30 },
+          { network: 'TELECEL', capacity: 2, count: 7, totalGB: 14 },
+          { network: 'TELECEL', capacity: 5, count: 3, totalGB: 15 },
+          { network: 'AT_PREMIUM', capacity: 3, count: 3, totalGB: 9 },
+          { network: 'AT_PREMIUM', capacity: 5, count: 1, totalGB: 5 }
+        ],
+        statusSummary: [
+          { status: 'completed', count: 38 },
+          { status: 'pending', count: 5 },
+          { status: 'processing', count: 2 }
+        ]
+      };
+    }
+    // Re-throw the error to handle in component
+    throw error;
   }
 };
 
@@ -67,6 +92,7 @@ const DailyDashboard = () => {
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter(); // Initialize router for navigation
   
   // Format currency for display (GHS - Ghanaian Cedi)
   const formatCurrency = (amount) => {
@@ -85,7 +111,11 @@ const DailyDashboard = () => {
       setError(null);
     } catch (err) {
       console.error('Failed to refresh data:', err);
-      setError(err.message);
+      if (err.message === 'unauthorized-redirect') {
+        router.push('/'); // Redirect to home page on auth error
+      } else {
+        setError(err.message);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -99,14 +129,18 @@ const DailyDashboard = () => {
         setData(dashboardData);
         setError(null);
       } catch (err) {
-        setError(err.message);
+        if (err.message === 'unauthorized-redirect') {
+          router.push('/'); // Redirect to home page on auth error
+        } else {
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
     };
     
     fetchData();
-  }, [selectedDate]);
+  }, [selectedDate, router]);
   
   // Array of colors for the charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
