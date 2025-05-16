@@ -268,19 +268,57 @@ export default function VerificationServicesPage() {
         }),
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Failed to initialize verification: ${response.status} ${errorData.message || ''}`);
+        // Check for specific error conditions
+        if (data.errorCode === 'Unavailable' || 
+            (data.message && data.message.includes('Out of stock or unavailable'))) {
+          throw new Error(`The service "${selectedService.name}" is temporarily unavailable or out of stock. Please try another service.`);
+        }
+        
+        // Check for insufficient balance
+        if (data.error === 'Insufficient wallet balance') {
+          throw new Error(`You don't have enough balance for this verification. Required: ${data.required} GH₵, Current balance: ${data.current} GH₵`);
+        }
+        
+        throw new Error(`Failed to initialize verification: ${response.status} ${data.message || data.error || ''}`);
       }
       
-      const data = await response.json();
       console.log('Verification created:', data);
+      
+      // Update services to mark this one as potentially unavailable for next time
+      if (data.error && data.error === 'Service unavailable') {
+        const updatedServices = services.map(service => {
+          if (service.name === selectedService.name) {
+            return { ...service, availability: false };
+          }
+          return service;
+        });
+        setServices(updatedServices);
+      }
       
       // Redirect to verification detail page
       router.push(`/verification/${data.verificationId}`);
     } catch (err) {
       console.error('Error requesting verification:', err);
-      setError(`Failed to request verification: ${err.message}. Please try again.`);
+      
+      // Specific handling for known error patterns
+      if (err.message && err.message.includes('out of stock') || err.message.includes('unavailable')) {
+        // Mark the selected service as unavailable
+        const updatedServices = services.map(service => {
+          if (service.name === selectedService.name) {
+            return { ...service, availability: false };
+          }
+          return service;
+        });
+        setServices(updatedServices);
+        
+        // Clear the selected service
+        setSelectedService(null);
+      }
+      
+      setError(`${err.message}. Please try again or select a different service.`);
     }
   };
   

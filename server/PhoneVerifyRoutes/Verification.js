@@ -146,46 +146,52 @@ router.post(
         
         // At this point, user has sufficient balance
         // The wallet deduction is handled inside TextVerifiedService.createVerification
-        try {
-          // Create verification
-          const verification = await TextVerifiedService.createVerification({
-            userId,
-            serviceName,
-            capability: capability || 'sms',
-            areaCodeSelectOption,
-            carrierSelectOption,
-            serviceNotListedName
-          });
-          
-          // Return verification details
-          res.status(201).json({
-            success: true,
-            verificationId: verification._id,
-            textVerifiedId: verification.textVerifiedId,
-            phoneNumber: verification.phoneNumber,
-            expiresAt: verification.expiresAt,
-            status: verification.status,
-            totalCost: verification.totalCost,
-            walletDeduction: verificationCost,
-            remainingBalance: user.walletBalance - verificationCost // Show the updated balance in response
-          });
-        } catch (verificationError) {
-          console.error('Error in verification creation:', verificationError);
-          
-          // Handle specific error for insufficient balance
-          if (verificationError.message && verificationError.message.includes('Insufficient wallet balance')) {
-            return res.status(400).json({ 
-              error: 'Insufficient wallet balance',
-              message: verificationError.message
-            });
-          }
-          
-          // Handle other errors
-          return res.status(500).json({ 
-            error: 'Failed to initialize phone verification',
-            message: verificationError.message
-          });
-        }
+       // Update this section in your verification.js route handler
+try {
+  // Create verification
+  const verification = await TextVerifiedService.createVerification({
+    userId,
+    serviceName,
+    capability: capability || 'sms',
+    areaCodeSelectOption,
+    carrierSelectOption,
+    serviceNotListedName
+  });
+  
+  // Return verification details
+  res.status(201).json({
+    success: true,
+    verificationId: verification._id,
+    // Rest of your success response...
+  });
+} catch (verificationError) {
+  console.error('Error in verification creation:', verificationError);
+  
+  // Handle specific error for insufficient balance
+  if (verificationError.message && verificationError.message.includes('Insufficient wallet balance')) {
+    return res.status(400).json({ 
+      error: 'Insufficient wallet balance',
+      message: verificationError.message
+    });
+  }
+  
+  // Handle "out of stock" errors from TextVerified API
+  if (verificationError.response && 
+      verificationError.response.data && 
+      verificationError.response.data.errorCode === 'Unavailable') {
+    return res.status(400).json({ 
+      error: 'Service unavailable',
+      errorCode: 'Unavailable',
+      message: `The service "${serviceName}" is currently out of stock or unavailable. Please try another service.`
+    });
+  }
+  
+  // Handle other errors
+  return res.status(500).json({ 
+    error: 'Failed to initialize phone verification',
+    message: verificationError.message
+  });
+}
       } catch (error) {
         console.error('Error initializing verification:', error);
         res.status(500).json({ error: 'Failed to initialize phone verification' });
