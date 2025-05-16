@@ -1249,4 +1249,136 @@ router.put('/users/:id/toggle-status', auth, adminAuth, async (req, res) => {
   }
 });
 
+router.get('/daily-summary', auth, adminAuth, async (req, res) => {
+  try {
+    const { date = new Date().toISOString().split('T')[0] } = req.query;
+    
+    // Create date range for the specified date (full day)
+    const startDate = new Date(date);
+    const endDate = new Date(date);
+    endDate.setDate(endDate.getDate() + 1);
+    
+    // Query filter for the date range
+    const dateFilter = {
+      createdAt: {
+        $gte: startDate,
+        $lt: endDate
+      }
+    };
+    
+    // Get total orders for the day
+    const totalOrders = await DataPurchase.countDocuments(dateFilter);
+    
+    // Get total revenue from completed orders
+    const revenueAgg = await DataPurchase.aggregate([
+      { $match: { ...dateFilter, status: 'completed' } },
+      { $group: { _id: null, totalRevenue: { $sum: '$price' } } }
+    ]);
+    const totalRevenue = revenueAgg.length > 0 ? revenueAgg[0].totalRevenue : 0;
+    
+    // Get total deposits
+    const depositsAgg = await Transaction.aggregate([
+      { $match: { ...dateFilter, type: 'deposit', status: 'completed' } },
+      { $group: { _id: null, totalDeposits: { $sum: '$amount' } } }
+    ]);
+    const totalDeposits = depositsAgg.length > 0 ? depositsAgg[0].totalDeposits : 0;
+    
+    // Get total data capacity sold for each network & capacity
+    const capacityByNetworkAgg = await DataPurchase.aggregate([
+      { $match: { ...dateFilter, status: 'completed' } },
+      { 
+        $group: { 
+          _id: {
+            network: '$network',
+            capacity: '$capacity'
+          },
+          count: { $sum: 1 },
+          totalCapacity: { $sum: '$capacity' }
+        }
+      },
+      { $sort: { '_id.network': 1, '_id.capacity': 1 } }
+    ]);
+    
+    // Format the capacity data for easier frontend consumption
+    const capacityData = capacityByNetworkAgg.map(item => ({
+      network: item._id.network,
+      capacity: item._id.capacity,
+      count: item.count,
+      totalGB: item.totalCapacity
+    }));
+    
+    // Get summary by network
+    const networkSummaryAgg = await DataPurchase.aggregate([
+      { $match: { ...dateFilter, status: 'completed' } },
+      { 
+        $group: { 
+          _id: '$network',
+          count: { $sum: 1 },
+          totalCapacity: { $sum: '$capacity' },
+          totalRevenue: { $sum: '$price' }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+    
+    const networkSummary = networkSummaryAgg.map(item => ({
+      network: item._id,
+      count: item.count,
+      totalGB: item.totalCapacity,
+      revenue: item.totalRevenue
+    }));
+    
+    // Get total capacity for all networks
+    const totalCapacityAgg = await DataPurchase.aggregate([
+      { $match: { ...dateFilter, status: 'completed' } },
+      { $group: { _id: null, totalGB: { $sum: '$capacity' } } }
+    ]);
+    const totalCapacity = totalCapacityAgg.length > 0 ? totalCapacityAgg[0].totalGB : 0;
+    
+    // Get order statuses summary
+    const statusSummaryAgg = await DataPurchase.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const statusSummary = statusSummaryAgg.map(item => ({
+      status: item._id,
+      count: item.count
+    }));
+    
+    // Count unique customers for the day
+    const uniqueCustomersAgg = await DataPurchase.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: '$userId' } },
+      { $count: 'uniqueCustomers' }
+    ]);
+    const uniqueCustomers = uniqueCustomersAgg.length > 0 ? uniqueCustomersAgg[0].uniqueCustomers : 0;
+    
+    // Compile the complete response
+    res.json({
+      date,
+      summary: {
+        totalOrders,
+        totalRevenue,
+        totalDeposits,
+        totalCapacityGB: totalCapacity,
+        uniqueCustomers
+      },
+      networkSummary,
+      capacityDetails: capacityData,
+      statusSummary
+    });
+    
+  } catch (err) {
+    console.error('Dashboard error:', err.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching dashboard data',
+      error: err.message
+    });
+  }
+});
+
+
 module.exports = router;
