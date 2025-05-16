@@ -1,13 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { Phone, MessageCircle, RefreshCw, AlertTriangle, Check, X, Search, Moon, Sun, Info, AlertCircle, History, Clock } from 'lucide-react';
+import { Phone, MessageCircle, RefreshCw, AlertTriangle, Check, X, Search, Moon, Sun, Info, AlertCircle, History, Clock, Loader } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function VerificationServicesPage() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [requestLoading, setRequestLoading] = useState(false); // New state for tracking request loading
   const [error, setError] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [capability, setCapability] = useState('sms');
@@ -235,6 +236,10 @@ export default function VerificationServicesPage() {
         return;
       }
       
+      // Set loading state to true when starting the request
+      setRequestLoading(true);
+      setError(null);
+      
       const userData = localStorage.getItem('userData');
       const user = userData ? JSON.parse(userData) : null;
       
@@ -248,6 +253,9 @@ export default function VerificationServicesPage() {
         // Create a mock verification response
         const mockVerificationId = 'mock_' + Math.random().toString(36).substring(2, 15);
         console.log('Created mock verification ID:', mockVerificationId);
+        
+        // Add a delay to simulate network request
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Simulate redirect after "successful" creation
         router.push(`/verification/${mockVerificationId}`);
@@ -319,6 +327,9 @@ export default function VerificationServicesPage() {
       }
       
       setError(`${err.message}. Please try again or select a different service.`);
+    } finally {
+      // Always reset loading state when done
+      setRequestLoading(false);
     }
   };
   
@@ -685,17 +696,24 @@ export default function VerificationServicesPage() {
           
           <button
             onClick={handleRequestVerification}
-            disabled={!selectedService}
+            disabled={!selectedService || requestLoading}
             className={`
-              px-6 py-3 rounded-md text-white font-medium transition-colors
+              px-6 py-3 rounded-md text-white font-medium transition-colors flex items-center
               ${
-                selectedService
+                selectedService && !requestLoading
                   ? 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-slate-900'
                   : 'bg-slate-300 dark:bg-slate-600 cursor-not-allowed'
               }
             `}
           >
-            Request Verification
+            {requestLoading ? (
+              <>
+                <Loader size={20} className="animate-spin mr-2" />
+                Processing...
+              </>
+            ) : (
+              'Request Verification'
+            )}
           </button>
         </div>
       </div>
