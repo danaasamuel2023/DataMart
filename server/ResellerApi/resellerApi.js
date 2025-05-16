@@ -620,20 +620,21 @@ router.post('/purchase', async (req, res, next) => {
                     reference: orderReference,
                     timestamp: new Date()
                 });
-
-                // Prepare Telcel API request payload
+            
+                // Prepare Telcel API request payload with updated format
                 const telcelOrderPayload = {
-                    phone: phoneNumber,
-                    volume: parseFloat(capacity) * 1000, // Convert GB to MB
+                    recipientNumber: phoneNumber,
+                    capacity: capacity, // Send capacity in GB
+                    bundleType: "Telecel-5959", // Required bundle type for Telecel
                     reference: orderReference
                 };
                 
                 logOperation('TELCEL_ORDER_REQUEST', telcelOrderPayload);
                 
                 try {
-                    // Make request to Telcel API
+                    // Make request to Telcel API with updated endpoint
                     const telcelResponse = await axios.post(
-                        'https://iget.onrender.com/api/developer/orders', 
+                        'https://iget.onrender.com/api/developer/orders/place', 
                         telcelOrderPayload,
                         {
                             headers: {
@@ -649,18 +650,18 @@ router.post('/purchase', async (req, res, next) => {
                         data: telcelResponse.data,
                         timestamp: new Date()
                     });
-
+            
                     // Update status if successful
                     dataPurchase.status = 'completed';
                     transaction.status = 'completed';
                     
                     await dataPurchase.save({ session });
                     await transaction.save({ session });
-
+            
                     // Commit transaction
                     await session.commitTransaction();
                     logOperation('DATABASE_TRANSACTION_COMMITTED', { timestamp: new Date() });
-
+            
                     res.status(201).json({
                         status: 'success',
                         data: {
@@ -680,7 +681,7 @@ router.post('/purchase', async (req, res, next) => {
                         response: telcelError.response ? telcelError.response.data : null,
                         stack: telcelError.stack
                     });
-                    
+             
                     throw telcelError; // Propagate to the outer catch block for consistent error handling
                 }
             } else {
