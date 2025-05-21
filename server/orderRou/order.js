@@ -252,66 +252,26 @@ router.post('/purchase-data', async (req, res) => {
       inStock: inventory ? inventory.inStock : false
     });
     
-    // Generate unique references
-    const transactionReference = `TRX-${uuidv4()}`;
-    const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
-
-    // If inventory doesn't exist or inStock is false, store order as "waiting"
+    // If inventory doesn't exist or inStock is false, return error immediately
     if (!inventory || !inventory.inStock) {
-      logOperation('DATA_INVENTORY_OUT_OF_STOCK_CREATING_WAITING_ORDER', {
+      logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
         network,
         inventoryExists: !!inventory
       });
       
-      // Create Transaction
-      const transaction = new Transaction({
-        userId,
-        type: 'purchase',
-        amount: price,
-        status: 'pending', // Set to pending until the order is fulfilled
-        reference: transactionReference,
-        gateway: 'wallet'
-      });
-
-      // Create Data Purchase with status "waiting"
-      const dataPurchase = new DataPurchase({
-        userId,
-        phoneNumber,
-        network,
-        capacity,
-        gateway: 'wallet',
-        method: 'web',
-        price,
-        status: 'waiting', // Set status to waiting
-        geonetReference: orderReference,
-        // Don't set apiOrderId or apiResponse as we haven't contacted the API
-        waitingSince: new Date()  // Add a timestamp to track waiting time
-      });
-
-      // No need to deduct from user wallet yet - wait until the order is processed
-      // We'll keep the wallet balance the same until the order can be fulfilled
-
-      // Save transaction and purchase records
-      await transaction.save({ session });
-      await dataPurchase.save({ session });
-
-      // Commit transaction
-      await session.commitTransaction();
+      await session.abortTransaction();
       session.endSession();
-
-      // Return success with waiting status
-      return res.status(202).json({
-        status: 'success',
-        message: `${network} data bundles are currently out of stock. Your order has been placed in waiting status and will be processed automatically when stock becomes available.`,
-        data: {
-          transaction,
-          dataPurchase,
-          status: 'waiting',
-          walletBalance: user.walletBalance // Balance remains unchanged
-        }
+      
+      return res.status(400).json({
+        status: 'error',
+        message: `${network} data bundles are currently out of stock. Please try again later or choose another network.`
       });
     }
     
+    // Generate unique references
+    const transactionReference = `TRX-${uuidv4()}`;
+    const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
+
     // PROCESSING SECTION - INVENTORY IS IN STOCK
     let orderResponse = null;
     let apiOrderId = null;
