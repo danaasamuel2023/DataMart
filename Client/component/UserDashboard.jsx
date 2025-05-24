@@ -433,75 +433,68 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Key Stats - Account Balance and Orders Today */}
-        <div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-          <div className="h-1 sm:h-2" style={{ backgroundColor: mtnYellow }}></div>
-          <div className="p-3 sm:p-5">
-            <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 sm:mb-4">Key Stats</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
-              {/* Account Balance Box */}
-              <div className="rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center transform hover:scale-105 transition-transform duration-300" 
-                   style={{ backgroundColor: `${mtnYellow}20` }}>
-                <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
-                <span className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">Balance</span>
-                <span className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                  {animateStats ? 
-                    <CurrencyCounter value={stats.balance} duration={1500} /> : 
-                    formatCurrency(0)
-                  }
-                </span>
-                <button
-                  onClick={navigateToTopup}
-                  className="mt-1 sm:mt-2 text-xs font-medium px-2 py-0.5 sm:py-1 rounded-full text-white hover:bg-yellow-500 transition-colors duration-300"
-                  style={{ backgroundColor: mtnYellow }}
-                >
-                  Deposit
-                </button>
+        {/* Key Stats - Yellow Background Style */}
+        <div className="mb-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-lg p-6">
+          <div className="grid grid-cols-2 gap-6">
+            {/* Balance */}
+            <div className="text-center">
+              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <CreditCard className="h-8 w-8 text-yellow-400" />
               </div>
-              
-              {/* Orders Today Box */}
-              <div className="rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center transform hover:scale-105 transition-transform duration-300" 
-                   style={{ backgroundColor: `${mtnYellow}20` }}>
-                <Package className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
-                <span className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">Orders Today</span>
-                <div className="flex items-center mt-1">
-                  <span className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {animateStats ? 
-                      <AnimatedCounter value={stats.todayOrders} duration={1200} /> : 
-                      "0"
-                    }
-                  </span>
-                </div>
+              <div className="text-gray-800 font-medium mb-1">Balance</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {animateStats ? 
+                  <CurrencyCounter value={stats.balance} duration={1500} /> : 
+                  formatCurrency(0)
+                }
               </div>
-              
-              {/* GB Sold Today Box */}
-              <div className="rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center transform hover:scale-105 transition-transform duration-300" 
-                   style={{ backgroundColor: `${mtnYellow}20` }}>
-                <Database className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
-                <span className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">GB Sold Today</span>
-                <div className="flex items-center mt-1">
-                  <span className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {animateStats ? 
-                      <AnimatedCounter value={stats.todayGbSold} duration={1350} suffix=" GB" decimals={1} /> : 
-                      "0 GB"
-                    }
-                  </span>
-                </div>
+              <button
+                onClick={navigateToTopup}
+                className="mt-2 text-xs font-medium px-3 py-1 rounded-full bg-gray-800 text-yellow-400 hover:bg-gray-700 transition-colors duration-300"
+              >
+                Deposit
+              </button>
+            </div>
+
+            {/* Orders Today */}
+            <div className="text-center">
+              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <Package className="h-8 w-8 text-yellow-400" />
               </div>
-              
-              {/* Revenue Today Box */}
-              <div className="rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center transform hover:scale-105 transition-transform duration-300" 
-                   style={{ backgroundColor: `${mtnYellow}20` }}>
-                <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" style={{ color: mtnYellow }} />
-                <span className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">Revenue Today</span>
-                <div className="flex items-center mt-1">
-                  <span className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {animateStats ? 
-                      <CurrencyCounter value={stats.todayRevenue} duration={1500} /> : 
-                      formatCurrency(0)
-                    }
-                  </span>
-                </div>
+              <div className="text-gray-800 font-medium mb-1">Orders Today</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {animateStats ? 
+                  <AnimatedCounter value={stats.todayOrders} duration={1200} /> : 
+                  "0"
+                }
+              </div>
+            </div>
+
+            {/* GB Sold Today */}
+            <div className="text-center">
+              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <Database className="h-8 w-8 text-yellow-400" />
+              </div>
+              <div className="text-gray-800 font-medium mb-1">GB Sold Today</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {animateStats ? 
+                  <AnimatedCounter value={stats.todayGbSold} duration={1350} suffix=" GB" decimals={1} /> : 
+                  "0 GB"
+                }
+              </div>
+            </div>
+
+            {/* Revenue Today */}
+            <div className="text-center">
+              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                <DollarSign className="h-8 w-8 text-yellow-400" />
+              </div>
+              <div className="text-gray-800 font-medium mb-1">Amount Spent </div>
+              <div className="text-2xl font-bold text-gray-900">
+                {animateStats ? 
+                  <CurrencyCounter value={stats.todayRevenue} duration={1500} /> : 
+                  formatCurrency(0)
+                }
               </div>
             </div>
           </div>
