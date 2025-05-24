@@ -202,7 +202,7 @@ const DashboardPage = () => {
       {/* Dashboard Content */}
       <div className="max-w-6xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
         {/* User Greeting - Optimized for Ghana */}
-        <div className="mb-4 bg-gradient-to-r from-yellow-400 to-yellow-300 dark:from-yellow-600 dark:to-yellow-500 rounded-lg shadow-md overflow-hidden">
+        <div className="mb-4 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-md overflow-hidden">
           <div className="p-3 sm:p-5">
             <div className="flex items-center justify-between mb-1 sm:mb-3">
               <div>
