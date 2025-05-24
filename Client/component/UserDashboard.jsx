@@ -434,15 +434,15 @@ const DashboardPage = () => {
         </div>
 
         {/* Key Stats - Yellow Background Style */}
-        <div className="mb-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-lg p-6">
-          <div className="grid grid-cols-2 gap-6">
+        <div className="mb-4 sm:mb-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-lg p-3 sm:p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
             {/* Balance */}
             <div className="text-center">
-              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <CreditCard className="h-8 w-8 text-yellow-400" />
+              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
+                <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
               </div>
-              <div className="text-gray-800 font-medium mb-1">Balance</div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">Balance</div>
+              <div className="text-sm sm:text-xl font-bold text-gray-900">
                 {animateStats ? 
                   <CurrencyCounter value={stats.balance} duration={1500} /> : 
                   formatCurrency(0)
@@ -450,7 +450,7 @@ const DashboardPage = () => {
               </div>
               <button
                 onClick={navigateToTopup}
-                className="mt-2 text-xs font-medium px-3 py-1 rounded-full bg-gray-800 text-yellow-400 hover:bg-gray-700 transition-colors duration-300"
+                className="mt-1 sm:mt-2 text-xs font-medium px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-gray-800 text-yellow-400 hover:bg-gray-700 transition-colors duration-300"
               >
                 Deposit
               </button>
@@ -458,11 +458,11 @@ const DashboardPage = () => {
 
             {/* Orders Today */}
             <div className="text-center">
-              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <Package className="h-8 w-8 text-yellow-400" />
+              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
+                <Package className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
               </div>
-              <div className="text-gray-800 font-medium mb-1">Orders Today</div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">Orders Today</div>
+              <div className="text-sm sm:text-xl font-bold text-gray-900">
                 {animateStats ? 
                   <AnimatedCounter value={stats.todayOrders} duration={1200} /> : 
                   "0"
@@ -472,11 +472,11 @@ const DashboardPage = () => {
 
             {/* GB Sold Today */}
             <div className="text-center">
-              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <Database className="h-8 w-8 text-yellow-400" />
+              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
+                <Database className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
               </div>
-              <div className="text-gray-800 font-medium mb-1">GB Sold Today</div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">GB Sold Today</div>
+              <div className="text-sm sm:text-xl font-bold text-gray-900">
                 {animateStats ? 
                   <AnimatedCounter value={stats.todayGbSold} duration={1350} suffix=" GB" decimals={1} /> : 
                   "0 GB"
@@ -486,11 +486,11 @@ const DashboardPage = () => {
 
             {/* Revenue Today */}
             <div className="text-center">
-              <div className="bg-gray-800 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                <DollarSign className="h-8 w-8 text-yellow-400" />
+              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
               </div>
-              <div className="text-gray-800 font-medium mb-1">Amount Spent </div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">Revenue Today</div>
+              <div className="text-sm sm:text-xl font-bold text-gray-900">
                 {animateStats ? 
                   <CurrencyCounter value={stats.todayRevenue} duration={1500} /> : 
                   formatCurrency(0)
