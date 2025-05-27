@@ -196,7 +196,7 @@ const MTNBundleCards = () => {
     { capacity: '30', mb: '30000', price: '129.00', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '40', mb: '40000', price: '166.00', network: 'YELLO', inStock: inventoryAvailable },
     { capacity: '50', mb: '50000', price: '207.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '100', mb: '100000', price: '407.00', network: 'YELLO', inStock: inventoryAvailable }
+    { capacity: '100', mb: '100000', price: '407.00', network: 'YELLO', inStock: false }
   ]);
 
   // Get user data from localStorage and detect dark mode on component mount
