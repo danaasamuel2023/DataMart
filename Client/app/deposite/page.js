@@ -11,12 +11,18 @@ import {
   Phone,
   AlertCircle,
   RefreshCw,
-  Info
+  Info,
+  Zap,
+  Star,
+  Flame,
+  Shield,
+  Target,
+  TrendingUp
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://datamartbackened.onrender.com/api/v1';
 
-const MoolreDeposit = () => {
+const DataHustleDeposit = () => {
   // States
   const [amount, setAmount] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -31,21 +37,7 @@ const MoolreDeposit = () => {
   const [userId, setUserId] = useState('');
   const [transactionStatus, setTransactionStatus] = useState('');
   const [step, setStep] = useState(1);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [checkReminder, setCheckReminder] = useState(false);
-
-  // Detect dark mode preference
-  useEffect(() => {
-    const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setIsDarkMode(darkModeMediaQuery.matches);
-    
-    const handleChange = (e) => {
-      setIsDarkMode(e.matches);
-    };
-    
-    darkModeMediaQuery.addEventListener('change', handleChange);
-    return () => darkModeMediaQuery.removeEventListener('change', handleChange);
-  }, []);
 
   // Get user data from localStorage on component mount
   useEffect(() => {
@@ -105,26 +97,23 @@ const MoolreDeposit = () => {
     setError('');
     
     try {
-      // Update the endpoint to match the backend route
       const response = await axios.post(`${API_BASE_URL}/depositsmoolre`, {
         userId,
         amount: parseFloat(amount),
         phoneNumber,
         network,
-        currency: 'GHS' // Default to Ghana Cedis
+        currency: 'GHS'
       });
       
       console.log('Deposit response:', response.data);
       
       if (response.data.success && response.data.requiresOtp) {
-        // OTP verification is required
         setOtpRequired(true);
         setReference(response.data.reference);
         setExternalRef(response.data.externalRef);
         setSuccess('OTP code has been sent to your phone. Please enter it below.');
         setStep(2);
       } else if (response.data.success) {
-        // Direct payment request was sent
         setSuccess('Deposit initiated! Please check your phone to approve the payment.');
         setReference(response.data.reference);
         setCheckReminder(true);
@@ -158,10 +147,9 @@ const MoolreDeposit = () => {
     setError('');
     
     try {
-      // Prepare the request payload exactly as expected by the backend
       const payload = {
         reference: reference,
-        otpCode: otpCode, // This must match the backend parameter name
+        otpCode: otpCode,
         phoneNumber: phoneNumber
       };
       
@@ -170,7 +158,6 @@ const MoolreDeposit = () => {
       const response = await axios.post(`${API_BASE_URL}/verify-otp`, payload, {
         headers: {
           'Content-Type': 'application/json',
-          // Ensure headers match what backend expects
         }
       });
       
@@ -187,14 +174,10 @@ const MoolreDeposit = () => {
     } catch (err) {
       console.error('OTP verification error:', err);
       
-      // Detailed error analysis
       if (err.response) {
         console.error('Error response data:', err.response.data);
-        console.error('Error response status:', err.response.status);
-        console.error('Error response headers:', err.response.headers);
         
         if (err.response.status === 400) {
-          // Get specific error message from response if available
           const errorMsg = err.response.data.error || 'Invalid OTP code or format';
           setError(`Verification failed: ${errorMsg}. Please check the code and try again.`);
         } else if (err.response.status === 404) {
@@ -203,11 +186,9 @@ const MoolreDeposit = () => {
           setError(err.response.data.error || 'OTP verification failed');
         }
       } else if (err.request) {
-        // Request was made but no response received
         console.error('No response received:', err.request);
         setError('No response from server. Please check your connection and try again.');
       } else {
-        // Something else caused the error
         console.error('Error setting up request:', err.message);
         setError('Error preparing verification request. Please try again.');
       }
@@ -239,7 +220,6 @@ const MoolreDeposit = () => {
         if (response.data.data.status === 'completed') {
           setSuccess(`Payment of GHS ${response.data.data.amount.toFixed(2)} completed successfully!`);
           
-          // Reset form after successful payment
           setTimeout(() => {
             setAmount('');
             setPhoneNumber('');
@@ -277,301 +257,314 @@ const MoolreDeposit = () => {
     }
   };
 
-  // Dynamic class based on dark mode
-  const getThemeClass = (lightClass, darkClass) => {
-    return isDarkMode ? darkClass : lightClass;
-  };
-
   return (
-    <div className={`w-full max-w-md mx-auto p-4 ${getThemeClass('', 'dark')}`}>
-      <div className={getThemeClass(
-        'bg-white rounded-lg shadow-lg overflow-hidden',
-        'bg-gray-800 rounded-lg shadow-lg overflow-hidden'
-      )}>
-        <div className="bg-blue-600 p-6 text-white">
-          <h2 className="text-xl font-bold flex items-center">
-            <CreditCard className="mr-2" size={24} />
-            Deposit Funds
-          </h2>
-          <p className="text-blue-100 mt-1">Add money to your wallet via Mobile Money</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-br from-emerald-400/10 to-teal-400/10 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl animate-pulse delay-1000"></div>
+      </div>
 
-        <div className={getThemeClass('p-6', 'p-6 text-white')}>
-          {/* Error Display */}
-          {error && (
-            <div className={`mb-4 px-4 py-3 rounded-md flex items-start ${getThemeClass('bg-red-50 border border-red-200 text-red-700', 'bg-red-900/30 border border-red-800 text-red-200')}`}>
-              <XCircle className="mr-2 flex-shrink-0 mt-0.5" size={16} />
-              <span>{error}</span>
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl">
+                <Zap className="w-6 h-6 text-white" strokeWidth={2.5} />
+              </div>
+              <h1 className="text-3xl font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-transparent bg-clip-text">
+                DATAHUSTLE
+              </h1>
             </div>
-          )}
+            <p className="text-white/80 text-lg font-medium">Power Up Your Hustle</p>
+          </div>
 
-          {/* Success Display */}
-          {success && (
-            <div className={`mb-4 px-4 py-3 rounded-md flex items-start ${getThemeClass('bg-green-50 border border-green-200 text-green-700', 'bg-green-900/30 border border-green-800 text-green-200')}`}>
-              <CheckCircle2 className="mr-2 flex-shrink-0 mt-0.5" size={16} />
-              <span>{success}</span>
-            </div>
-          )}
-
-          {/* Step 1: Direct Deposit Form */}
-          {step === 1 && (
-            <form onSubmit={handleDepositSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="amount" className={`block text-sm font-medium mb-1 ${getThemeClass('text-gray-700', 'text-gray-200')}`}>
-                    Amount (GHS)
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className={getThemeClass('text-gray-500', 'text-gray-400')}>₵</span>
-                    </div>
-                    <input
-                      type="number"
-                      id="amount"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      className={`pl-8 pr-4 py-2 block w-full rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                        getThemeClass('border border-gray-300 bg-white text-gray-900', 'border border-gray-600 bg-gray-700 text-white')
-                      }`}
-                      step="0.01"
-                      min="1"
-                    />
+          {/* Main Card */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-8 relative overflow-hidden">
+              <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <Star className="w-6 h-6 text-white animate-pulse" />
+              </div>
+              <div className="absolute bottom-4 left-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Flame className="w-4 h-4 text-white animate-bounce" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                    <CreditCard className="w-8 h-8 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-white">Deposit Funds</h2>
+                    <p className="text-white/90 text-lg font-medium">Fuel your success</p>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <div>
-                  <label htmlFor="phoneNumber" className={`block text-sm font-medium mb-1 ${getThemeClass('text-gray-700', 'text-gray-200')}`}>
-                    Mobile Money Number
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Phone size={16} className={getThemeClass('text-gray-500', 'text-gray-400')} />
-                    </div>
-                    <input
-                      type="tel"
-                      id="phoneNumber"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="02XXXXXXXX"
-                      className={`pl-10 pr-4 py-2 block w-full rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                        getThemeClass('border border-gray-300 bg-white text-gray-900', 'border border-gray-600 bg-gray-700 text-white')
-                      }`}
-                    />
+            <div className="p-8">
+              {/* Error Display */}
+              {error && (
+                <div className="mb-6 p-4 rounded-2xl flex items-start bg-gradient-to-r from-red-100/10 to-red-200/10 border border-red-500/30 backdrop-blur-sm">
+                  <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                    <XCircle className="w-4 h-4 text-red-400" />
                   </div>
+                  <span className="text-red-200 font-medium">{error}</span>
                 </div>
+              )}
 
-                <div>
-                  <label htmlFor="network" className={`block text-sm font-medium mb-1 ${getThemeClass('text-gray-700', 'text-gray-200')}`}>
-                    Mobile Network
-                  </label>
-                  <select
-                    id="network"
-                    value={network}
-                    onChange={(e) => setNetwork(e.target.value)}
-                    className={`py-2 px-3 block w-full rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                      getThemeClass('border border-gray-300 bg-white text-gray-900', 'border border-gray-600 bg-gray-700 text-white')
-                    }`}
-                  >
-                    <option value="mtn">MTN Mobile Money</option>
-                    <option value="vodafone">Vodafone Cash</option>
-                    <option value="at">AirtelTigo Money</option>
-                  </select>
+              {/* Success Display */}
+              {success && (
+                <div className="mb-6 p-4 rounded-2xl flex items-start bg-gradient-to-r from-emerald-100/10 to-emerald-200/10 border border-emerald-500/30 backdrop-blur-sm">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-emerald-200 font-medium">{success}</span>
                 </div>
+              )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200"
-                >
-                  {loading ? (
-                    <>
-                      <div className="mr-2 animate-spin">
-                        <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+              {/* Step 1: Deposit Form */}
+              {step === 1 && (
+                <form onSubmit={handleDepositSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="amount" className="block text-lg font-bold mb-3 text-white">
+                      Amount (GHS)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span className="text-emerald-400 text-xl font-bold">₵</span>
                       </div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      Deposit Now
-                      <ArrowRight className="ml-2" size={16} />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Step 2: OTP Verification */}
-          {step === 2 && otpRequired && (
-            <form onSubmit={handleOtpSubmit} className="space-y-4">
-              <div className="text-center mb-2">
-                <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-2 ${
-                  getThemeClass('bg-blue-100 text-blue-600', 'bg-blue-900 text-blue-300')
-                }`}>
-                  <Smartphone size={32} />
-                </div>
-                <h3 className={`text-lg font-medium ${getThemeClass('text-gray-900', 'text-white')}`}>OTP Verification</h3>
-                <p className={getThemeClass('text-sm text-gray-500', 'text-sm text-gray-300')}>
-                  We sent a 6-digit code to {phoneNumber}
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="otpCode" className={`block text-sm font-medium mb-1 ${getThemeClass('text-gray-700', 'text-gray-200')}`}>
-                  Enter 6-digit OTP Code
-                </label>
-                <input
-                  type="text"
-                  id="otpCode"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
-                  placeholder="XXXXXX"
-                  maxLength={6}
-                  className={`py-2 px-3 block w-full rounded-md focus:ring-blue-500 focus:border-blue-500 text-center tracking-widest text-lg ${
-                    getThemeClass('border border-gray-300 bg-white text-gray-900', 'border border-gray-600 bg-gray-700 text-white')
-                  }`}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || otpCode.length !== 6}
-                className="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200"
-              >
-                {loading ? (
-                  <>
-                    <div className="mr-2 animate-spin">
-                      <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                      <input
+                        type="number"
+                        id="amount"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-bold text-lg"
+                        step="0.01"
+                        min="1"
+                      />
                     </div>
-                    Verifying...
-                  </>
-                ) : (
-                  'Verify Code'
-                )}
-              </button>
-            </form>
-          )}
+                  </div>
 
-          {/* Step 3: Awaiting Payment Approval */}
-          {step === 3 && (
-            <div className="text-center py-4">
-              <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
-                getThemeClass('bg-blue-100 text-blue-600', 'bg-blue-900 text-blue-300')
-              }`}>
-                <Smartphone size={32} />
+                  <div>
+                    <label htmlFor="phoneNumber" className="block text-lg font-bold mb-3 text-white">
+                      Mobile Money Number
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Phone size={20} className="text-emerald-400" />
+                      </div>
+                      <input
+                        type="tel"
+                        id="phoneNumber"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="02XXXXXXXX"
+                        className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="network" className="block text-lg font-bold mb-3 text-white">
+                      Mobile Network
+                    </label>
+                    <select
+                      id="network"
+                      value={network}
+                      onChange={(e) => setNetwork(e.target.value)}
+                      className="py-4 px-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                    >
+                      <option value="mtn" className="bg-gray-800 text-white">MTN Mobile Money</option>
+                      <option value="vodafone" className="bg-gray-800 text-white">Vodafone Cash</option>
+                      <option value="at" className="bg-gray-800 text-white">AirtelTigo Money</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center py-4 px-6 rounded-2xl shadow-xl text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 font-bold text-lg"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="mr-3 animate-spin">
+                          <Loader2 className="w-6 h-6" />
+                        </div>
+                        Processing Hustle...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-3 w-6 h-6" />
+                        Power Up Now
+                        <ArrowRight className="ml-3 w-6 h-6" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Step 2: OTP Verification */}
+              {step === 2 && otpRequired && (
+                <div className="space-y-6">
+                  <div className="text-center mb-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30">
+                      <Smartphone size={40} className="text-emerald-400" />
+                    </div>
+                    <h3 className="text-2xl font-black text-white mb-2">OTP Verification</h3>
+                    <p className="text-white/70 font-medium">
+                      We sent a 6-digit code to {phoneNumber}
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleOtpSubmit} className="space-y-6">
+                    <div>
+                      <label htmlFor="otpCode" className="block text-lg font-bold mb-3 text-white">
+                        Enter 6-digit OTP Code
+                      </label>
+                      <input
+                        type="text"
+                        id="otpCode"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                        placeholder="XXXXXX"
+                        maxLength={6}
+                        className="py-4 px-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-center tracking-widest text-2xl font-bold"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading || otpCode.length !== 6}
+                      className="w-full flex items-center justify-center py-4 px-6 rounded-2xl shadow-xl text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 font-bold text-lg"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="mr-3 animate-spin">
+                            <Loader2 className="w-6 h-6" />
+                          </div>
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="mr-3 w-6 h-6" />
+                          Verify Code
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* Step 3: Awaiting Payment */}
+              {step === 3 && (
+                <div className="text-center space-y-6">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30">
+                    <Target size={40} className="text-emerald-400 animate-pulse" />
+                  </div>
+                  
+                  <h3 className="text-2xl font-black text-white mb-2">
+                    Awaiting Payment Approval
+                  </h3>
+                  
+                  <p className="text-white/70 font-medium mb-6">
+                    Please check your phone and follow the instructions to complete the payment.
+                  </p>
+                  
+                  {checkReminder && (
+                    <div className="p-6 rounded-2xl mb-6 flex items-start bg-gradient-to-r from-emerald-100/10 to-teal-100/10 border border-emerald-500/30 backdrop-blur-sm">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                        <Info className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <p className="text-emerald-200 font-bold">
+                        Important: After approving on your phone, click "Check Payment Status" below to complete the transaction.
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="mb-6">
+                    <div className="w-full bg-white/10 rounded-full h-3 backdrop-blur-sm">
+                      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 h-3 rounded-full w-full animate-pulse shadow-lg"></div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={checkTransactionStatus}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center py-4 px-6 rounded-2xl shadow-xl text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 font-bold text-lg mb-4"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="mr-3 animate-spin">
+                          <Loader2 className="w-6 h-6" />
+                        </div>
+                        Checking Status...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-3 w-6 h-6" />
+                        Check Payment Status
+                      </>
+                    )}
+                  </button>
+                  
+                  {transactionStatus && (
+                    <div className={`p-4 rounded-2xl backdrop-blur-sm border font-bold ${
+                      transactionStatus === 'completed' 
+                        ? 'bg-gradient-to-r from-emerald-100/10 to-emerald-200/10 border-emerald-500/30 text-emerald-200' 
+                        : transactionStatus === 'failed' 
+                          ? 'bg-gradient-to-r from-red-100/10 to-red-200/10 border-red-500/30 text-red-200' 
+                          : 'bg-gradient-to-r from-yellow-100/10 to-yellow-200/10 border-yellow-500/30 text-yellow-200'
+                    }`}>
+                      Payment status: <span className="font-black">{transactionStatus}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Progress Footer */}
+            <div className="px-8 py-6 border-t border-white/10 bg-gradient-to-r from-emerald-900/20 to-teal-900/20 backdrop-blur-sm">
+              <div className="flex justify-between items-center mb-3">
+                <div className="text-sm font-bold text-white/70">
+                  Step {step} of 3
+                </div>
+                {step > 1 && (
+                  <button 
+                    onClick={() => setStep(step - 1)}
+                    className="text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
+                    ← Go back
+                  </button>
+                )}
               </div>
-              
-              <h3 className={`text-lg font-medium mb-2 ${getThemeClass('text-gray-900', 'text-white')}`}>
-                Awaiting Payment Approval
-              </h3>
-              
-              <p className={`text-sm mb-6 ${getThemeClass('text-gray-600', 'text-gray-300')}`}>
-                Please check your phone and follow the instructions to complete the payment.
-              </p>
-              
-              {checkReminder && (
-                <div className={`p-4 rounded-md mb-4 flex items-start ${
-                  getThemeClass('bg-blue-50 text-blue-700 border border-blue-200', 'bg-blue-900/30 text-blue-200 border border-blue-800')
-                }`}>
-                  <Info className="mr-2 flex-shrink-0 mt-0.5" size={18} />
-                  <p className="text-sm font-medium">
-                    Important: After approving on your phone, click "Check Payment Status" below to complete the transaction.
+              <div className="w-full bg-white/10 rounded-full h-2 backdrop-blur-sm">
+                <div 
+                  className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full transition-all duration-500 shadow-lg" 
+                  style={{ width: `${(step / 3) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Support Footer */}
+            <div className="p-6 bg-white/5 backdrop-blur-sm border-t border-white/10">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AlertCircle className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-sm text-white/70 font-medium">
+                  <p>
+                    Need help with your deposit? Contact DATAHUSTLE support at{' '}
+                    <a href="mailto:support@datahustle.com" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
+                      support@datahustle.com
+                    </a>{' '}
+                    or call <span className="font-bold text-white">+233 20 000 0000</span>
                   </p>
                 </div>
-              )}
-              
-              <div className="mb-4">
-                <div className={getThemeClass('w-full bg-gray-200 rounded-full h-2.5', 'w-full bg-gray-700 rounded-full h-2.5')}>
-                  <div className="bg-blue-600 h-2.5 rounded-full w-full animate-pulse"></div>
-                </div>
               </div>
-
-              <button
-                onClick={checkTransactionStatus}
-                disabled={loading}
-                className={`w-full flex items-center justify-center py-3 px-4 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 mb-2 ${
-                  loading 
-                    ? 'opacity-75' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                {loading ? (
-                  <>
-                    <div className="mr-2 animate-spin">
-                      <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    </div>
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2" size={18} />
-                    Check Payment Status
-                  </>
-                )}
-              </button>
-              
-              {transactionStatus && (
-                <div className={`mt-4 p-3 rounded-md ${
-                  transactionStatus === 'completed' 
-                    ? getThemeClass('bg-green-50 text-green-700', 'bg-green-900/30 text-green-200') 
-                    : transactionStatus === 'failed' 
-                      ? getThemeClass('bg-red-50 text-red-700', 'bg-red-900/30 text-red-200') 
-                      : getThemeClass('bg-yellow-50 text-yellow-700', 'bg-yellow-900/30 text-yellow-200')
-                }`}>
-                  Payment status: <span className="font-bold">{transactionStatus}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer with step indicator */}
-        {step < 4 && (
-          <div className={`px-6 py-4 border-t ${
-            getThemeClass('bg-gray-50 border-gray-200', 'bg-gray-800 border-gray-700')
-          }`}>
-            <div className="flex justify-between">
-              <div className={getThemeClass('text-xs text-gray-500', 'text-xs text-gray-400')}>
-                Step {step} of 3
-              </div>
-              {step > 1 && (
-                <button 
-                  onClick={() => setStep(step - 1)}
-                  className={getThemeClass('text-xs text-blue-600 hover:text-blue-800', 'text-xs text-blue-400 hover:text-blue-300')}
-                >
-                  Go back
-                </button>
-              )}
-            </div>
-            <div className={getThemeClass('w-full bg-gray-200 rounded-full h-1 mt-1', 'w-full bg-gray-700 rounded-full h-1 mt-1')}>
-              <div 
-                className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
-                style={{ width: `${(step / 3) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
-
-        {/* Footer with help information */}
-        <div className={`p-4 ${getThemeClass('bg-gray-50 border-t border-gray-100', 'bg-gray-900 border-t border-gray-700')}`}>
-          <div className="flex items-start">
-            <AlertCircle className={`mr-2 flex-shrink-0 ${getThemeClass('text-gray-400', 'text-gray-500')}`} size={16} />
-            <div className={`text-xs ${getThemeClass('text-gray-500', 'text-gray-400')}`}>
-              <p>
-                If you encounter any issues with your deposit, please contact our support team
-                at <a href="mailto:support@moolre.com" className={`${getThemeClass('text-blue-600 hover:text-blue-800', 'text-blue-400 hover:text-blue-300')} font-medium`}>support@moolre.com</a> or call
-                <span className="font-medium"> +233 20 000 0000</span>
-              </p>
             </div>
           </div>
         </div>
@@ -580,4 +573,4 @@ const MoolreDeposit = () => {
   );
 };
 
-export default MoolreDeposit;
+export default DataHustleDeposit;

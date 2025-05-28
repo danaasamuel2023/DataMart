@@ -1,136 +1,123 @@
 'use client'
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Zap, Star, Flame, AlertTriangle, CheckCircle, X, Info, Shield, Target, Award, Phone, CreditCard } from 'lucide-react';
 
 // Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 5000); // Auto-close after 5 seconds
+    }, 5000);
     
     return () => clearTimeout(timer);
   }, [onClose]);
   
   return (
     <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
-      <div className={`p-4 rounded-md shadow-lg flex items-center ${
+      <div className={`p-4 rounded-2xl shadow-2xl flex items-center backdrop-blur-xl border ${
         type === 'success' 
-          ? 'bg-green-500 text-white' 
+          ? 'bg-gradient-to-r from-emerald-500/90 to-teal-600/90 text-white border-emerald-400/50' 
           : type === 'error' 
-            ? 'bg-red-500 text-white' 
-            : 'bg-yellow-500 text-black'
+            ? 'bg-gradient-to-r from-red-500/90 to-red-600/90 text-white border-red-400/50' 
+            : 'bg-gradient-to-r from-yellow-500/90 to-orange-600/90 text-white border-yellow-400/50'
       }`}>
         <div className="mr-3">
           {type === 'success' ? (
-            <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+            <CheckCircle className="h-6 w-6" />
           ) : type === 'error' ? (
-            <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="h-6 w-6" />
           ) : (
-            <svg className="h-6 w-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <Info className="h-6 w-6" />
           )}
         </div>
         <div className="flex-grow">
-          <p className="font-medium">{message}</p>
+          <p className="font-bold">{message}</p>
         </div>
-        <button onClick={onClose} className="ml-4">
-          <svg className={`h-5 w-5 ${type === 'warning' ? 'text-black' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button onClick={onClose} className="ml-4 hover:scale-110 transition-transform">
+          <X className="h-5 w-5" />
         </button>
       </div>
     </div>
   );
 };
 
-// Service Information Modal Component - Fully Responsive
+// Service Information Modal Component
 const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  // Check for dark mode preference on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Check for system preference
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      // Check for stored preference
-      const storedTheme = localStorage.getItem('theme');
-      setIsDarkMode(storedTheme === 'dark' || (!storedTheme && prefersDark));
-    }
-  }, []);
-  
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'} rounded-lg w-full max-w-md mx-auto overflow-hidden shadow-xl`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 w-full max-w-lg shadow-2xl">
         {/* Modal header */}
-        <div className="bg-yellow-400 px-4 py-3 flex justify-between items-center">
-          <h3 className="text-lg md:text-xl font-bold text-black flex items-center">
-            <svg className="w-5 h-5 md:w-6 md:h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        <div className="bg-gradient-to-r from-yellow-500 to-orange-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+          <h3 className="text-2xl font-black text-white flex items-center">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center mr-3">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
             Important Service Notice
           </h3>
-          <button onClick={onClose} className="text-black hover:text-gray-700">
-            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button onClick={onClose} className="text-white hover:text-white/70 p-2 rounded-xl hover:bg-white/10 transition-all">
+            <X className="w-6 h-6" />
           </button>
         </div>
         
         {/* Modal content */}
-        <div className="px-4 py-3 md:px-6 md:py-4 max-h-[60vh] md:max-h-[70vh] overflow-y-auto">
-          <div className="flex items-start mb-4">
-            <div className="mt-1 mr-2 md:mr-3 flex-shrink-0">
-              <svg className="h-5 w-5 md:h-6 md:w-6 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+        <div className="px-8 py-6 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-start mb-6">
+            <div className="w-8 h-8 rounded-xl bg-yellow-500/20 flex items-center justify-center mr-4 flex-shrink-0 mt-1">
+              <AlertTriangle className="w-5 h-5 text-yellow-400" />
             </div>
             <div>
-              <h4 className="text-base md:text-lg font-semibold mb-2">Please Note Before Proceeding:</h4>
-              <ul className={`space-y-2 list-disc pl-4 md:pl-5 text-sm md:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                <li>This is <strong>not an instant service</strong>. Data delivery times vary between customers.</li>
-                <li>We are working diligently to process all orders, but there may be delays.</li>
-                <li>If you need immediate data for urgent matters, please dial <strong>*138#</strong> on your MTN line instead.</li>
-                <li>Once ordered, please be patient as we process your request.</li>
-                <li>For instant bundles, this service is not suitable.</li>
+              <h4 className="text-xl font-black text-white mb-4">Please Note Before Proceeding:</h4>
+              <ul className="space-y-3 text-white/80 font-medium">
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  This is <strong className="text-white">not an instant service</strong>. Data delivery times vary between customers.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  We are working diligently to process all orders, but there may be delays.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  If you need immediate data for urgent matters, please dial <strong className="text-white">*138#</strong> on your MTN line instead.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  Once ordered, please be patient as we process your request.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  For instant bundles, this service is not suitable.
+                </li>
               </ul>
             </div>
           </div>
           
-          <div className={`${isDarkMode ? 'bg-blue-900 border-blue-700' : 'bg-blue-50 border-blue-200'} p-3 rounded-lg border mt-4`}>
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className={`h-4 w-4 md:h-5 md:w-5 ${isDarkMode ? 'text-blue-300' : 'text-blue-500'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
+          <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-6 rounded-2xl backdrop-blur-sm">
+            <div className="flex items-start">
+              <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center mr-3 flex-shrink-0">
+                <Info className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="ml-3">
-                <p className={`text-xs md:text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
-                  We value your business and are committed to delivering quality service. Thank you for your understanding and patience.
-                </p>
-              </div>
+              <p className="text-emerald-200 font-medium">
+                We value your business and are committed to delivering quality service. Thank you for your understanding and patience.
+              </p>
             </div>
           </div>
         </div>
         
         {/* Modal footer */}
-        <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} px-4 py-3 md:px-6 md:py-4 flex justify-end`}>
+        <div className="px-8 py-6 border-t border-white/10 flex justify-end space-x-4">
           <button
             onClick={onClose}
-            className={`mr-2 px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base ${isDarkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} rounded focus:outline-none`}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-all border border-white/20"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-yellow-500 text-white rounded hover:bg-yellow-600 focus:outline-none"
+            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl transition-all transform hover:scale-105"
           >
             I Understand, Continue
           </button>
@@ -145,30 +132,32 @@ const LoadingOverlay = ({ isLoading }) => {
   if (!isLoading) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto text-center">
-        <div className="flex justify-center mb-4">
-          <svg className="animate-spin h-16 w-16 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-8 max-w-sm w-full mx-auto text-center shadow-2xl">
+        <div className="flex justify-center mb-6">
+          <div className="relative w-20 h-20">
+            <div className="w-20 h-20 rounded-full border-4 border-emerald-200/20"></div>
+            <div className="absolute top-0 w-20 h-20 rounded-full border-4 border-transparent border-t-emerald-400 border-r-teal-400 animate-spin"></div>
+            <div className="absolute inset-2 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 animate-pulse flex items-center justify-center">
+              <Zap className="w-8 h-8 text-white animate-bounce" strokeWidth={2.5} />
+            </div>
+          </div>
         </div>
-        <h4 className="text-xl font-bold text-green-600 mb-2">Processing Your Order...</h4>
-        <p className="text-gray-700">Your data bundle request is being processed. Please do not close this page.</p>
+        <h4 className="text-2xl font-black text-white mb-3">Processing Your Order...</h4>
+        <p className="text-white/80 font-medium">Your data bundle request is being processed. Please do not close this page.</p>
       </div>
     </div>
   );
 };
 
-const MTNBundleCards = () => {
-  const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
+const MTNBundleSelect = () => {
+  const [selectedBundle, setSelectedBundle] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [bundleMessages, setBundleMessages] = useState({});
+  const [error, setError] = useState('');
   const [userData, setUserData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingPurchase, setPendingPurchase] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Toast state
   const [toast, setToast] = useState({
@@ -177,29 +166,28 @@ const MTNBundleCards = () => {
     type: 'success'
   });
   
-  // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = true// Change to false to simulate out of stock
+  // Manual inventory control
+  const inventoryAvailable = true;
   
-  const [bundles, setBundles] = useState([
-    { capacity: '1', mb: '1000', price: '4.40', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '2', mb: '2000', price: '9.2', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '3', mb: '3000', price: '13.5', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '4', mb: '4000', price: '18.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '5', mb: '5000', price: '23.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: inventoryAvailable },
-    // { capacity: '7', mb: '7000', price: '33.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '20', mb: '20000', price: '83.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '30', mb: '30000', price: '129.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '40', mb: '40000', price: '166.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '50', mb: '50000', price: '207.00', network: 'YELLO', inStock: inventoryAvailable },
-    { capacity: '100', mb: '100000', price: '407.00', network: 'YELLO', inStock: false }
-  ]);
+  const bundles = [
+    { value: '1', label: '1GB - GH₵4.40', capacity: '1', price: '4.40', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '2', label: '2GB - GH₵9.20', capacity: '2', price: '9.2', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '3', label: '3GB - GH₵13.50', capacity: '3', price: '13.5', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '4', label: '4GB - GH₵18.50', capacity: '4', price: '18.50', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '5', label: '5GB - GH₵23.50', capacity: '5', price: '23.50', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '6', label: '6GB - GH₵27.00', capacity: '6', price: '27.00', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '8', label: '8GB - GH₵35.50', capacity: '8', price: '35.50', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '10', label: '10GB - GH₵43.50', capacity: '10', price: '43.50', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '15', label: '15GB - GH₵62.50', capacity: '15', price: '62.50', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '20', label: '20GB - GH₵83.00', capacity: '20', price: '83.00', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '25', label: '25GB - GH₵105.00', capacity: '25', price: '105.00', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '30', label: '30GB - GH₵129.00', capacity: '30', price: '129.00', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '40', label: '40GB - GH₵166.00', capacity: '40', price: '166.00', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '50', label: '50GB - GH₵207.00', capacity: '50', price: '207.00', network: 'YELLO', inStock: inventoryAvailable },
+    { value: '100', label: '100GB - GH₵407.00 (Out of Stock)', capacity: '100', price: '407.00', network: 'YELLO', inStock: false }
+  ];
 
-  // Get user data from localStorage and detect dark mode on component mount
+  // Get user data from localStorage on component mount
   useEffect(() => {
     const storedUserData = localStorage.getItem('userData');
     if (storedUserData) {
@@ -211,26 +199,6 @@ const MTNBundleCards = () => {
     if (!hasSeenModal) {
       setIsModalOpen(true);
       localStorage.setItem('hasSeenServiceModal', 'true');
-    }
-    
-    // Check for dark mode preference
-    if (typeof window !== 'undefined') {
-      // Check for system preference
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      // Check for stored preference
-      const storedTheme = localStorage.getItem('theme');
-      setIsDarkMode(storedTheme === 'dark' || (!storedTheme && prefersDark));
-      
-      // Listen for changes in system preference
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = (e) => {
-        if (!localStorage.getItem('theme')) {
-          setIsDarkMode(e.matches);
-        }
-      };
-      
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
     }
   }, []);
 
@@ -259,49 +227,25 @@ const MTNBundleCards = () => {
     };
   }, []);
 
-  // MTN Logo SVG
-  const MTNLogo = () => (
-    <svg width="80" height="80" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="100" r="85" fill="#ffcc00" stroke="#000" strokeWidth="2"/>
-      <path d="M50 80 L80 140 L100 80 L120 140 L150 80" stroke="#000" strokeWidth="12" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-      <text x="100" y="170" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="28">MTN</text>
-    </svg>
-  );
-
-  const handleSelectBundle = (index) => {
-    // Allow selection regardless of stock status
-    setSelectedBundleIndex(index === selectedBundleIndex ? null : index);
-    setPhoneNumber('');
-    // Clear any error messages for this bundle
-    setBundleMessages(prev => ({ ...prev, [index]: null }));
-  };
-
   // Function to validate phone number format
   const validatePhoneNumber = (number) => {
-    // Remove any spaces or dashes
     const cleanNumber = number.replace(/[\s-]/g, '');
     
-    // Check if it starts with 0
     if (cleanNumber.startsWith('0')) {
-      // Should be 0 followed by 9 digits (total 10 digits)
       return cleanNumber.length === 10 && /^0\d{9}$/.test(cleanNumber);
     }
     
-    // If it doesn't start with 0, it's invalid
     return false;
   };
   
   // Format phone number as user types
   const formatPhoneNumber = (input) => {
-    // Remove all non-numeric characters
     let formatted = input.replace(/\D/g, '');
     
-    // If it doesn't start with 0, add it
     if (!formatted.startsWith('0') && formatted.length > 0) {
       formatted = '0' + formatted;
     }
     
-    // Limit to correct length (0 + 9 digits = 10 digits total)
     if (formatted.length > 10) {
       formatted = formatted.substring(0, 10);
     }
@@ -331,25 +275,29 @@ const MTNBundleCards = () => {
     }));
   };
 
-  const handlePurchase = async (bundle, index) => {
-    // Clear previous messages
-    setBundleMessages(prev => ({ ...prev, [index]: null }));
+  // Get selected bundle details
+  const getSelectedBundleDetails = () => {
+    return bundles.find(bundle => bundle.value === selectedBundle);
+  };
+
+  const handlePurchase = async (e) => {
+    e.preventDefault();
+    setError('');
     
-    // Check if bundle is out of stock first
-    if (!bundle.inStock) {
-      setBundleMessages(prev => ({ 
-        ...prev, 
-        [index]: { text: 'Sorry, this bundle is currently out of stock.', type: 'error' } 
-      }));
+    if (!selectedBundle) {
+      setError('Please select a data bundle');
       return;
     }
     
-    // Validate phone number
     if (!validatePhoneNumber(phoneNumber)) {
-      setBundleMessages(prev => ({ 
-        ...prev, 
-        [index]: { text: 'Please enter a valid MTN number starting with 0 followed by 9 digits', type: 'error' } 
-      }));
+      setError('Please enter a valid MTN number starting with 0 followed by 9 digits');
+      return;
+    }
+
+    const bundle = getSelectedBundleDetails();
+    
+    if (!bundle.inStock) {
+      setError('Sorry, this bundle is currently out of stock.');
       return;
     }
 
@@ -358,8 +306,7 @@ const MTNBundleCards = () => {
       return;
     }
 
-    // Store pending purchase and open modal
-    setPendingPurchase({ bundle, index });
+    setPendingPurchase(bundle);
     setIsModalOpen(true);
   };
 
@@ -367,17 +314,16 @@ const MTNBundleCards = () => {
   const processPurchase = async () => {
     if (!pendingPurchase) return; 
     
-    const { bundle, index } = pendingPurchase;
-    setIsLoading(true); // Show the global loading overlay
+    setIsLoading(true);
 
     try {
       const token = localStorage.getItem('authToken');
       const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
-        network: bundle.network,
-        capacity: bundle.capacity, 
-        price: parseFloat(bundle.price)
+        network: pendingPurchase.network,
+        capacity: pendingPurchase.capacity, 
+        price: parseFloat(pendingPurchase.price)
       }, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -385,38 +331,30 @@ const MTNBundleCards = () => {
       });
 
       if (response.data.status === 'success') {
-        // Show toast notification instead of global message
-        showToast(`${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}. It will be delivered soon.`, 'success');
-        setSelectedBundleIndex(null);
+        showToast(`${pendingPurchase.capacity}GB data bundle purchased successfully for ${phoneNumber}. It will be delivered soon.`, 'success');
+        setSelectedBundle('');
         setPhoneNumber('');
+        setError('');
       }
     } catch (error) {
       console.error('Purchase error:', error);
-      setBundleMessages(prev => ({ 
-        ...prev, 
-        [index]: { 
-          text: error.response?.data?.message || 'Failed to purchase data bundle', 
-          type: 'error' 
-        } 
-      }));
-      
-      // Show error toast
+      setError(error.response?.data?.message || 'Failed to purchase data bundle');
       showToast(error.response?.data?.message || 'Failed to purchase data bundle', 'error');
     } finally {
-      setIsLoading(false); // Hide the global loading overlay
+      setIsLoading(false);
       setPendingPurchase(null);
     }
   };
 
-  // Toggle dark mode function
-  const toggleDarkMode = () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    localStorage.setItem('theme', newMode ? 'dark' : 'light');
-  };
-
   return (
-    <div className={`${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'} min-h-screen transition-colors duration-200`}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-br from-emerald-400/10 to-teal-400/10 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-400/5 to-blue-400/5 blur-3xl animate-pulse delay-500"></div>
+      </div>
+
       {/* Toast Notification */}
       {toast.visible && (
         <Toast 
@@ -429,148 +367,193 @@ const MTNBundleCards = () => {
       {/* Global Loading Overlay */}
       <LoadingOverlay isLoading={isLoading} />
       
-      <div className="container mx-auto px-4 py-8">
-        <ServiceInfoModal 
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onConfirm={() => {
-            setIsModalOpen(false);
-            processPurchase();
-          }}
-        />
-        
-        {/* Header with dark mode toggle */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-center">MTN Non-Expiry Bundles</h1>
-          <button 
-            onClick={toggleDarkMode}
-            className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 text-yellow-400' : 'bg-gray-200 text-gray-800'}`}
-          >
-            {isDarkMode ? (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-              </svg>
-            )}
-          </button>
-        </div>
-        
-        {/* Service info button */}
-        <div className="mb-4 flex justify-center">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className={`flex items-center px-4 py-2 ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Service Information
-          </button>
-        </div>
-        
-        {/* Important Disclaimer */}
-        <div className={`mb-8 p-4 ${isDarkMode ? 'bg-red-900 border-red-700' : 'bg-red-50 border-red-500'} border-l-4 rounded-lg shadow`}>
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className={`h-5 w-5 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className={`text-lg font-bold ${isDarkMode ? 'text-red-400' : 'text-red-800'}`}>Important Notice</h3>
-              <div className={`mt-2 text-sm ${isDarkMode ? 'text-red-300' : 'text-red-700'}`}>
-                <p className="mb-1">Turbonet and Broadband Sim Cards are <strong>not eligible for this offer</strong>.</p>
-                <p className="mb-1">• Please do not place orders for the same number at the same time interval. One will be rejected and <strong>no refund will be provided</strong>.</p>
-                <p className="mb-1">• Data bundle delivery is not instant. Some numbers may receive data faster while others take some time.</p>
-                <p className="mb-1">• No refunds will be issued for wrong transactions or incorrect phone numbers.</p>
-                <p>• Please verify your phone number carefully before making a purchase.</p>
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <ServiceInfoModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onConfirm={() => {
+              setIsModalOpen(false);
+              processPurchase();
+            }}
+          />
+          
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center shadow-xl">
+                <span className="text-3xl font-black text-white">MTN</span>
+              </div>
+              <div>
+                <h1 className="text-4xl font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-transparent bg-clip-text">
+                  DATAHUSTLE
+                </h1>
+                <p className="text-white/80 text-lg font-medium">MTN Non-Expiry Bundles</p>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {bundles.map((bundle, index) => (
-            <div key={index} className="flex flex-col relative">
-              {/* Card shows "OUT OF STOCK" badge but is still clickable */}
-              <div 
-                className={`flex flex-col bg-yellow-400 overflow-hidden shadow-md transition-transform duration-300 cursor-pointer hover:translate-y-[-5px] ${selectedBundleIndex === index ? 'rounded-t-lg' : 'rounded-lg'}`}
-                onClick={() => handleSelectBundle(index)}
-              >
-                {/* Out of stock badge */}
-                {!bundle.inStock && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className="bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-full shadow-lg">
-                      OUT OF STOCK
-                    </span>
+          {/* Main Card */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-8 relative overflow-hidden">
+              <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <Star className="w-6 h-6 text-white animate-pulse" />
+              </div>
+              <div className="absolute bottom-4 left-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Flame className="w-4 h-4 text-white animate-bounce" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                    <Target className="w-8 h-8 text-white" strokeWidth={2} />
                   </div>
-                )}
-                
-                <div className="flex flex-col items-center justify-center p-5 space-y-3">
-                  <div className="w-20 h-20 flex justify-center items-center">
-                    <MTNLogo />
-                  </div>
-                  <h3 className="text-xl font-bold">
-                    {bundle.capacity} GB
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 text-white bg-black"
-                     style={{ borderRadius: selectedBundleIndex === index ? '0' : '0 0 0.5rem 0.5rem' }}>
-                  <div className="flex flex-col items-center justify-center p-3 text-center border-r border-r-gray-600">
-                    <p className="text-lg">GH₵ {bundle.price}</p>
-                    <p className="text-sm font-bold">Price</p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-3 text-center">
-                    <p className="text-lg">No-Expiry</p>
-                    <p className="text-sm font-bold">Duration</p>
+                  <div>
+                    <h2 className="text-3xl font-black text-white">Select Your Bundle</h2>
+                    <p className="text-white/90 text-lg font-medium">Choose data size & complete purchase</p>
                   </div>
                 </div>
               </div>
-              
-              {selectedBundleIndex === index && (
-                <div className={`${isDarkMode ? 'bg-yellow-500' : 'bg-yellow-400'} p-4 rounded-b-lg shadow-md`}>
-                  {bundleMessages[index] && (
-                    <div className={`mb-3 p-3 rounded ${
-                      bundleMessages[index].type === 'success' 
-                        ? isDarkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800' 
-                        : isDarkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {bundleMessages[index].text}
-                    </div>
-                  )}
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-black mb-1">
-                      Phone Number (must start with 0)
-                    </label>
-                    <input
-                      type="tel"
-                      className={`w-full px-4 py-2 rounded ${isDarkMode ? 'bg-yellow-400' : 'bg-yellow-300'} text-black placeholder-yellow-700 border border-yellow-500 focus:outline-none focus:border-yellow-600`}
-                      placeholder="0XXXXXXXXX"
-                      value={phoneNumber}
-                      onChange={handlePhoneNumberChange}
-                    />
-                    <p className="mt-1 text-xs text-black">Format: 0 followed by 9 digits (10 digits total)</p>
+            </div>
+
+            {/* Form */}
+            <div className="p-8">
+              {/* Service info button */}
+              <div className="mb-6 flex justify-center">
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 font-bold rounded-xl hover:bg-gradient-to-r hover:from-emerald-500/30 hover:to-teal-500/30 transition-all"
+                >
+                  <Info className="h-5 w-5" />
+                  <span>Service Information</span>
+                </button>
+              </div>
+
+              {/* Error Display */}
+              {error && (
+                <div className="mb-6 p-4 rounded-2xl flex items-start bg-gradient-to-r from-red-100/10 to-red-200/10 border border-red-500/30 backdrop-blur-sm">
+                  <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                    <X className="w-4 h-4 text-red-400" />
                   </div>
-                  
-                  <button
-                    onClick={() => handlePurchase(bundle, index)}
-                    className={`w-full px-4 py-2 ${isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed`}
-                    disabled={!bundle.inStock}
-                  >
-                    {!bundle.inStock ? 'Out of Stock' : 'Purchase'}
-                  </button>
+                  <span className="text-red-200 font-medium">{error}</span>
                 </div>
               )}
+
+              <form onSubmit={handlePurchase} className="space-y-6">
+                {/* Bundle Selection */}
+                <div>
+                  <label className="block text-lg font-bold mb-3 text-white">
+                    Select Data Bundle
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedBundle}
+                      onChange={(e) => setSelectedBundle(e.target.value)}
+                      className="w-full px-4 py-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium appearance-none cursor-pointer"
+                      required
+                    >
+                      <option value="" className="bg-gray-800 text-gray-300">Choose your data bundle...</option>
+                      {bundles.map((bundle) => (
+                        <option 
+                          key={bundle.value} 
+                          value={bundle.value}
+                          className={`bg-gray-800 ${bundle.inStock ? 'text-white' : 'text-gray-500'}`}
+                          disabled={!bundle.inStock}
+                        >
+                          {bundle.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                      <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Phone Number Input */}
+                <div>
+                  <label className="block text-lg font-bold mb-3 text-white">
+                    MTN Phone Number
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Phone className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={handlePhoneNumberChange}
+                      className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                      placeholder="0XXXXXXXXX"
+                      required
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-white/70 font-medium">Format: 0 followed by 9 digits (10 digits total)</p>
+                </div>
+
+                {/* Selected Bundle Summary */}
+                {selectedBundle && (
+                  <div className="p-6 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                      <Award className="w-5 h-5 mr-2 text-emerald-400" />
+                      Order Summary
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-white/90">
+                        <span className="font-medium">Data Bundle:</span>
+                        <span className="font-bold">{getSelectedBundleDetails()?.capacity}GB</span>
+                      </div>
+                      <div className="flex justify-between text-white/90">
+                        <span className="font-medium">Duration:</span>
+                        <span className="font-bold text-emerald-400">No-Expiry</span>
+                      </div>
+                      <div className="border-t border-white/20 pt-3 mt-3">
+                        <div className="flex justify-between text-white font-black text-xl">
+                          <span>Total:</span>
+                          <span className="text-emerald-400">GH₵{getSelectedBundleDetails()?.price}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Purchase Button */}
+                <button
+                  type="submit"
+                  disabled={isLoading || !selectedBundle || !phoneNumber}
+                  className="w-full flex items-center justify-center py-4 px-6 rounded-2xl shadow-xl text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-bold text-lg"
+                >
+                  <Zap className="mr-3 w-6 h-6" />
+                  Purchase Data Bundle
+                </button>
+              </form>
+
+              {/* Important Notice */}
+              <div className="mt-8 p-6 bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/30 rounded-2xl backdrop-blur-sm">
+                <div className="flex items-start">
+                  <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center mr-4 flex-shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-red-400 mb-2">Important Notice</h4>
+                    <div className="space-y-2 text-white/80 text-sm font-medium">
+                      <p>• Turbonet and Broadband Sim Cards are not eligible</p>
+                      <p>• Data delivery is not instant - please be patient</p>
+                      <p>• No refunds for wrong numbers or duplicate orders</p>
+                      <p>• Verify your phone number carefully before purchase</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default MTNBundleCards;
+export default MTNBundleSelect;

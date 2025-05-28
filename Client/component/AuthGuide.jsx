@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { Zap, Sparkles } from 'lucide-react';
 
 const AuthGuard = ({ children }) => {
   const router = useRouter();
@@ -10,7 +11,8 @@ const AuthGuard = ({ children }) => {
   
   // List of paths that should bypass authentication
   const publicPaths = ['/SignIn', '/SignUp'];
-  const isPublicPath = publicPaths.includes(pathname)
+  const isPublicPath = publicPaths.includes(pathname);
+
   useEffect(() => {
     // If current path is public, don't check auth
     if (isPublicPath) {
@@ -33,10 +35,30 @@ const AuthGuard = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verifying authentication...</p>
+          {/* Epic Loading Animation */}
+          <div className="relative w-32 h-32 mx-auto mb-8">
+            {/* Outer ring */}
+            <div className="absolute inset-0 rounded-full border-4 border-emerald-200/20"></div>
+            {/* Spinning gradient ring */}
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-emerald-400 border-r-teal-400 animate-spin"></div>
+            {/* Inner pulsing circle */}
+            <div className="absolute inset-4 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 animate-pulse flex items-center justify-center">
+              <Zap className="w-8 h-8 text-white animate-bounce" strokeWidth={2.5} />
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <h1 className="text-4xl font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-transparent bg-clip-text animate-pulse">
+              DATAHUSTLE
+            </h1>
+            <div className="flex items-center justify-center space-x-2 text-emerald-300">
+              <Sparkles className="w-5 h-5 animate-spin" />
+              <span className="text-lg font-bold">Verifying authentication...</span>
+              <Sparkles className="w-5 h-5 animate-spin" />
+            </div>
+          </div>
         </div>
       </div>
     );

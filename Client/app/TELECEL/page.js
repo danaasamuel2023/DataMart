@@ -1,89 +1,124 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+// Note: axios would be imported in a real implementation
+// import axios from 'axios';
+import { Zap, Star, Flame, AlertTriangle, CheckCircle, X, Info, Shield, Target, Award, Phone, CreditCard, Smartphone } from 'lucide-react';
 
-// Service Information Modal Component - Fully Responsive
-const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  // Check for dark mode preference on component mount
+// Toast Notification Component
+const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Check for system preference
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      // Check for stored preference
-      const storedTheme = localStorage.getItem('theme');
-      setIsDarkMode(storedTheme === 'dark' || (!storedTheme && prefersDark));
-    }
-  }, []);
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [onClose]);
   
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
+      <div className={`p-4 rounded-2xl shadow-2xl flex items-center backdrop-blur-xl border ${
+        type === 'success' 
+          ? 'bg-gradient-to-r from-emerald-500/90 to-teal-600/90 text-white border-emerald-400/50' 
+          : type === 'error' 
+            ? 'bg-gradient-to-r from-red-500/90 to-red-600/90 text-white border-red-400/50' 
+            : 'bg-gradient-to-r from-yellow-500/90 to-orange-600/90 text-white border-yellow-400/50'
+      }`}>
+        <div className="mr-3">
+          {type === 'success' ? (
+            <CheckCircle className="h-6 w-6" />
+          ) : type === 'error' ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Info className="h-6 w-6" />
+          )}
+        </div>
+        <div className="flex-grow">
+          <p className="font-bold">{message}</p>
+        </div>
+        <button onClick={onClose} className="ml-4 hover:scale-110 transition-transform">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Service Information Modal Component
+const ServiceInfoModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'} rounded-lg w-full max-w-md mx-auto overflow-hidden shadow-xl`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 w-full max-w-lg shadow-2xl">
         {/* Modal header */}
-        <div className="bg-red-600 px-4 py-3 flex justify-between items-center">
-          <h3 className="text-lg md:text-xl font-bold text-white flex items-center">
-            <svg className="w-5 h-5 md:w-6 md:h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+          <h3 className="text-2xl font-black text-white flex items-center">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center mr-3">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
             Important Service Notice
           </h3>
-          <button onClick={onClose} className="text-white hover:text-gray-200">
-            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button onClick={onClose} className="text-white hover:text-white/70 p-2 rounded-xl hover:bg-white/10 transition-all">
+            <X className="w-6 h-6" />
           </button>
         </div>
         
         {/* Modal content */}
-        <div className="px-4 py-3 md:px-6 md:py-4 max-h-[60vh] md:max-h-[70vh] overflow-y-auto">
-          <div className="flex items-start mb-4">
-            <div className="mt-1 mr-2 md:mr-3 flex-shrink-0">
-              <svg className="h-5 w-5 md:h-6 md:w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+        <div className="px-8 py-6 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-start mb-6">
+            <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center mr-4 flex-shrink-0 mt-1">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
             </div>
             <div>
-              <h4 className="text-base md:text-lg font-semibold mb-2">Please Note Before Proceeding:</h4>
-              <ul className={`space-y-2 list-disc pl-4 md:pl-5 text-sm md:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                <li>This is <strong>not an instant service</strong>. Data delivery times vary between customers.</li>
-                <li>We are working diligently to process all orders, but there may be delays.</li>
-                <li>For urgent matters requiring immediate data, please consider other options.</li>
-                <li>Once ordered, please be patient as we process your request.</li>
-                <li>For instant bundles, this service is not suitable.</li>
+              <h4 className="text-xl font-black text-white mb-4">Please Note Before Proceeding:</h4>
+              <ul className="space-y-3 text-white/80 font-medium">
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  This is <strong className="text-white">not an instant service</strong>. Data delivery times vary between customers.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  We are working diligently to process all orders, but there may be delays.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  For urgent matters requiring immediate data, please consider other options.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  Once ordered, please be patient as we process your request.
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 mr-3 mt-2 flex-shrink-0"></div>
+                  For instant bundles, this service is not suitable.
+                </li>
               </ul>
             </div>
           </div>
           
-          <div className={`${isDarkMode ? 'bg-blue-900 border-blue-700' : 'bg-blue-50 border-blue-200'} p-3 rounded-lg border mt-4`}>
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className={`h-4 w-4 md:h-5 md:w-5 ${isDarkMode ? 'text-blue-300' : 'text-blue-500'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
+          <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-6 rounded-2xl backdrop-blur-sm">
+            <div className="flex items-start">
+              <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center mr-3 flex-shrink-0">
+                <Info className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="ml-3">
-                <span className={`text-xs md:text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
-                  We value your business and are committed to delivering quality service. Thank you for your understanding and patience.
-                </span>
-              </div>
+              <p className="text-emerald-200 font-medium">
+                We value your business and are committed to delivering quality service. Thank you for your understanding and patience.
+              </p>
             </div>
           </div>
         </div>
         
         {/* Modal footer */}
-        <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} px-4 py-3 md:px-6 md:py-4 flex justify-end`}>
+        <div className="px-8 py-6 border-t border-white/10 flex justify-end space-x-4">
           <button
             onClick={onClose}
-            className={`mr-2 px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base ${isDarkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} rounded focus:outline-none`}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-all border border-white/20"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none"
+            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl transition-all transform hover:scale-105"
           >
             I Understand, Continue
           </button>
@@ -98,50 +133,55 @@ const LoadingOverlay = ({ isLoading }) => {
   if (!isLoading) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto text-center">
-        <div className="flex justify-center mb-4">
-          <svg className="animate-spin h-16 w-16 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-8 max-w-sm w-full mx-auto text-center shadow-2xl">
+        <div className="flex justify-center mb-6">
+          <div className="relative w-20 h-20">
+            <div className="w-20 h-20 rounded-full border-4 border-red-200/20"></div>
+            <div className="absolute top-0 w-20 h-20 rounded-full border-4 border-transparent border-t-red-400 border-r-red-500 animate-spin"></div>
+            <div className="absolute inset-2 rounded-full bg-gradient-to-br from-red-500 to-red-600 animate-pulse flex items-center justify-center">
+              <Smartphone className="w-8 h-8 text-white animate-bounce" strokeWidth={2.5} />
+            </div>
+          </div>
         </div>
-        <h4 className="text-xl font-bold text-red-600 mb-2">Processing Your Order...</h4>
-        <p className="text-gray-700">Your data bundle request is being processed. Please do not close this page.</p>
+        <h4 className="text-2xl font-black text-white mb-3">Processing Your Order...</h4>
+        <p className="text-white/80 font-medium">Your data bundle request is being processed. Please do not close this page.</p>
       </div>
     </div>
   );
 };
 
-const TelecelBundleCards = () => {
-  const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
+const TelecelBundleSelect = () => {
+  const [selectedBundle, setSelectedBundle] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
-  const [bundleMessages, setBundleMessages] = useState({});
+  const [error, setError] = useState('');
   const [userData, setUserData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingPurchase, setPendingPurchase] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // Manual inventory control - set this to false if you want bundles to be out of stock
-  const inventoryAvailable = true; 
+  // Toast state
+  const [toast, setToast] = useState({
+    visible: false,
+    message: '',
+    type: 'success'
+  });
   
-  const [bundles, setBundles] = useState([
-    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: true},
-    // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
-    // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '10', mb: '10000', price: '40.50', network: 'TELECEL', inStock: inventoryAvailable },
-    // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '15', mb: '15000', price: '60.50', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '20', mb: '20000', price: '81.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '25', mb: '25000', price: '99.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '30', mb: '30000', price: '118.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '40', mb: '40000', price: '155.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '50', mb: '50000', price: '195.00', network: 'TELECEL', inStock: inventoryAvailable }
-  ]);
+  // Manual inventory control
+  const inventoryAvailable = true;
+  
+  const bundles = [
+    { value: '5', label: '5GB - GH₵23.00', capacity: '5', price: '23.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '10', label: '10GB - GH₵40.50', capacity: '10', price: '40.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '15', label: '15GB - GH₵60.50', capacity: '15', price: '60.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '20', label: '20GB - GH₵81.00', capacity: '20', price: '81.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '25', label: '25GB - GH₵99.00', capacity: '25', price: '99.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '30', label: '30GB - GH₵118.00', capacity: '30', price: '118.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '40', label: '40GB - GH₵155.00', capacity: '40', price: '155.00', network: 'TELECEL', inStock: inventoryAvailable },
+    { value: '50', label: '50GB - GH₵195.00 (Out of Stock)', capacity: '50', price: '195.00', network: 'TELECEL', inStock: false }
+  ];
 
-  // Get user data from localStorage on component mount 
+  // Get user data from localStorage on component mount
   useEffect(() => {
     const storedUserData = localStorage.getItem('userData');
     if (storedUserData) {
@@ -154,56 +194,44 @@ const TelecelBundleCards = () => {
       setIsModalOpen(true);
       localStorage.setItem('hasSeenTelecelServiceModal', 'true');
     }
-    
-    // Check for dark mode preference
-    if (typeof window !== 'undefined') {
-      // Check for system preference
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      // Check for stored preference
-      const storedTheme = localStorage.getItem('theme');
-      setIsDarkMode(storedTheme === 'dark' || (!storedTheme && prefersDark));
-    }
   }, []);
 
-  // Telecel Logo SVG
-  const TelecelLogo = () => (
-    <svg width="80" height="80" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="100" r="85" fill="#ffffff" stroke="#cc0000" strokeWidth="2"/>
-      <text x="100" y="110" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="32" fill="#cc0000">TELECEL</text>
-      <path d="M50 125 L150 125" stroke="#cc0000" strokeWidth="5" strokeLinecap="round"/>
-      <text x="100" y="150" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="20" fill="#cc0000">PREMIUM</text>
-    </svg>
-  );
+  // Add CSS for toast animation
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translate3d(0, -20px, 0);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+      .animate-fade-in-down {
+        animation: fadeInDown 0.5s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
-  // Telecel number validation function
+  // Function to validate Telecel phone number format
   const validatePhoneNumber = (number) => {
-    // Trim the number first to remove any whitespace
-    const trimmedNumber = number.trim();
+    const cleanNumber = number.replace(/[\s-]/g, '');
     
-    // Specific Telecel Ghana number validation (starts with 020 or 050)
-    // Check both the format and the prefix for Telecel numbers
+    // Telecel Ghana number validation (starts with 020 or 050)
     const telecelPattern = /^(020|050)\d{7}$/;
-    
-    return telecelPattern.test(trimmedNumber);
+    return telecelPattern.test(cleanNumber);
   };
   
-  // Handle phone number input change with automatic trimming
-  const handlePhoneNumberChange = (e) => {
-    // Automatically trim the input value as it's entered
-    setPhoneNumber(e.target.value.trim());
-  };
-
-  const handleSelectBundle = (index) => {
-    // Allow selection regardless of stock status
-    setSelectedBundleIndex(index === selectedBundleIndex ? null : index);
-    setPhoneNumber('');
-    // Clear any error messages for this bundle
-    setBundleMessages(prev => ({ ...prev, [index]: null }));
-  };
-
   // Format phone number as user types
   const formatPhoneNumber = (input) => {
-    // Remove all non-numeric characters
     let formatted = input.replace(/\D/g, '');
     
     // Limit to 10 digits
@@ -214,232 +242,321 @@ const TelecelBundleCards = () => {
     return formatted;
   };
 
-  const handlePurchase = async (bundle, index) => {
-    // Clear previous messages
-    setBundleMessages(prev => ({ ...prev, [index]: null }));
-    setGlobalMessage({ text: '', type: '' });
+  const handlePhoneNumberChange = (e) => {
+    const formattedNumber = formatPhoneNumber(e.target.value);
+    setPhoneNumber(formattedNumber);
+  };
+
+  // Function to show toast
+  const showToast = (message, type = 'success') => {
+    setToast({
+      visible: true,
+      message,
+      type
+    });
+  };
+
+  // Function to hide toast
+  const hideToast = () => {
+    setToast(prev => ({
+      ...prev,
+      visible: false
+    }));
+  };
+
+  // Get selected bundle details
+  const getSelectedBundleDetails = () => {
+    return bundles.find(bundle => bundle.value === selectedBundle);
+  };
+
+  const handlePurchase = async (e) => {
+    e.preventDefault();
+    setError('');
     
-    // Check if bundle is out of stock first
-    if (!bundle.inStock) {
-      setBundleMessages(prev => ({ 
-        ...prev, 
-        [index]: { text: 'Sorry, this bundle is currently out of stock.', type: 'error' } 
-      }));
+    if (!selectedBundle) {
+      setError('Please select a data bundle');
       return;
     }
     
-    // Validate Telecel number specifically
     if (!validatePhoneNumber(phoneNumber)) {
-      setBundleMessages(prev => ({ 
-        ...prev, 
-        [index]: { 
-          text: 'Please enter a valid Telecel number (starting with 020 or 050)', 
-          type: 'error' 
-        } 
-      }));
+      setError('Please enter a valid Telecel number starting with 020 or 050 followed by 7 digits');
+      return;
+    }
+
+    const bundle = getSelectedBundleDetails();
+    
+    if (!bundle.inStock) {
+      setError('Sorry, this bundle is currently out of stock.');
       return;
     }
 
     if (!userData || !userData.id) {
-      setGlobalMessage({ text: 'User not authenticated. Please login to continue.', type: 'error' });
+      showToast('User not authenticated. Please login to continue.', 'error');
       return;
     }
 
-    // Store pending purchase and open modal
-    setPendingPurchase({ bundle, index });
+    setPendingPurchase(bundle);
     setIsModalOpen(true);
   };
 
   // Process the actual purchase after modal confirmation
   const processPurchase = async () => {
-    if (!pendingPurchase) return;
+    if (!pendingPurchase) return; 
     
-    const { bundle, index } = pendingPurchase;
-    setIsLoading(true); // Show the global loading overlay
-    
+    setIsLoading(true);
+
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
-        userId: userData.id,
-        phoneNumber: phoneNumber,
-        network: bundle.network,
-        capacity: bundle.capacity,
-        price: parseFloat(bundle.price)
-      }, {
+      
+      // In real implementation, this would make an actual API call
+      const response = await fetch('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({
+          userId: userData.id,
+          phoneNumber: phoneNumber,
+          network: pendingPurchase.network,
+          capacity: pendingPurchase.capacity,
+          price: parseFloat(pendingPurchase.price)
+        })
       });
+      
+      const data = await response.json();
 
-      if (response.data.status === 'success') {
-        setGlobalMessage({ 
-          text: `${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}`, 
-          type: 'success' 
-        });
-        setSelectedBundleIndex(null);
+      if (data.status === 'success') {
+        showToast(`${pendingPurchase.capacity}GB data bundle purchased successfully for ${phoneNumber}. It will be delivered soon.`, 'success');
+        setSelectedBundle('');
         setPhoneNumber('');
-        
-        // Auto-scroll to the top to see the success message
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setError('');
       }
     } catch (error) {
       console.error('Purchase error:', error);
-      setBundleMessages(prev => ({ 
-        ...prev, 
-        [index]: { 
-          text: error.response?.data?.message || 'Failed to purchase data bundle', 
-          type: 'error' 
-        } 
-      }));
+      setError(data?.message || 'Failed to purchase data bundle');
+      showToast(data?.message || 'Failed to purchase data bundle', 'error');
     } finally {
-      setIsLoading(false); // Hide the global loading overlay
+      setIsLoading(false);
       setPendingPurchase(null);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-br from-red-400/10 to-red-500/10 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-gradient-to-br from-red-400/5 to-red-600/5 blur-3xl animate-pulse delay-500"></div>
+      </div>
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Toast 
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+      
       {/* Global Loading Overlay */}
       <LoadingOverlay isLoading={isLoading} />
       
-      {/* Service Info Modal */}
-      <ServiceInfoModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onConfirm={() => {
-          setIsModalOpen(false);
-          processPurchase();
-        }}
-      />
-      
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-center text-red-600">Telecel Premium Bundles</h1>
-        
-        {/* Service info button */}
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-        >
-          <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Service Information
-        </button>
-      </div>
-      
-      {/* Important Disclaimer */}
-      <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg shadow">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-lg font-bold text-red-800">Important Notice</h3>
-            <div className="mt-2 text-sm text-red-700">
-              <div className="mb-1">• Data bundle delivery is not instant. Some numbers may receive data faster while others take some time.</div>
-              <div className="mb-1">• No refunds will be issued for wrong transactions or incorrect phone numbers.</div>
-              <div>• Please verify your phone number carefully before making a purchase.</div>
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <ServiceInfoModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onConfirm={() => {
+              setIsModalOpen(false);
+              processPurchase();
+            }}
+          />
+          
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-xl">
+                <div className="text-center">
+                  <div className="text-white font-black text-sm">TELECEL</div>
+                  <div className="text-white/90 font-bold text-xs">PREMIUM</div>
+                </div>
+              </div>
+              <div>
+                <h1 className="text-4xl font-black bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-transparent bg-clip-text">
+                  DATAHUSTLE
+                </h1>
+                <p className="text-white/80 text-lg font-medium">Telecel Premium Bundles</p>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      
-      {globalMessage.text && (
-        <div className={`mb-6 p-4 rounded-lg shadow ${globalMessage.type === 'success' ? 'bg-green-100 text-green-800 border-l-4 border-green-500' : 'bg-red-100 text-red-800 border-l-4 border-red-500'}`}>
-          <div className="flex items-center">
-            <div className="mr-3">
-              {globalMessage.type === 'success' ? (
-                <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              )}
-            </div>
-            <span className="font-medium">{globalMessage.text}</span>
-          </div>
-        </div>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {bundles.map((bundle, index) => (
-          <div key={index} className="flex flex-col relative">
-            {/* Out of stock badge */}
-            {!bundle.inStock && (
-              <div className="absolute top-2 right-2 z-10">
-                <span className="bg-red-600 text-white text-xs font-bold py-1 px-2 rounded-full shadow-lg">
-                  OUT OF STOCK
-                </span>
-              </div> 
-            )}
-            
-            <div 
-              className={`flex bg-gradient-to-tr from-red-700 to-red-500 text-white w-full flex-col justify-between cursor-pointer transition-all duration-300 ${selectedBundleIndex === index ? 'rounded-b-none' : 'rounded-b-lg'}`}
-              onClick={() => handleSelectBundle(index)}
-            >
-              <div className="flex flex-col items-center justify-center w-full p-3 space-y-3">
-                <div className="w-20 h-20 flex justify-center items-center mt-2">
-                  <TelecelLogo />
-                </div>
-                <h3 className="text-2xl font-bold">
-                  {bundle.capacity} GB
-                </h3>
+          {/* Main Card */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 p-8 relative overflow-hidden">
+              <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <Star className="w-6 h-6 text-white animate-pulse" />
               </div>
-              <div className="grid grid-cols-2 text-white bg-black/80">
-                <div className="flex flex-col items-center justify-center p-3 text-center border-r border-r-red-700">
-                  <p className="text-xl">GH₵ {bundle.price}</p>
-                  <p className="text-sm font-medium">Price</p>
-                </div>
-                <div className="flex flex-col items-center justify-center p-3 text-center">
-                  <p className="text-xl">No-Expiry</p>
-                  <p className="text-sm font-medium">Duration</p>
+              <div className="absolute bottom-4 left-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Flame className="w-4 h-4 text-white animate-bounce" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                    <Target className="w-8 h-8 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-white">Select Your Bundle</h2>
+                    <p className="text-white/90 text-lg font-medium">Choose data size & complete purchase</p>
+                  </div>
                 </div>
               </div>
             </div>
-            
-            {selectedBundleIndex === index && (
-              <div className="bg-gradient-to-br from-red-600 to-red-700 p-4 rounded-b-lg shadow-md">
-                {bundleMessages[index] && (
-                  <div className={`mb-3 p-3 rounded-md ${bundleMessages[index].type === 'success' ? 'bg-green-100 text-green-800' : 'bg-white text-red-800 border-l-4 border-yellow-500'}`}>
-                    <div className="flex items-center">
-                      {bundleMessages[index].type === 'error' && (
-                        <svg className="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                      )}
-                      <span>{bundleMessages[index].text}</span>
+
+            {/* Form */}
+            <div className="p-8">
+              {/* Service info button */}
+              <div className="mb-6 flex justify-center">
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-red-600/20 border border-red-500/30 text-red-400 font-bold rounded-xl hover:bg-gradient-to-r hover:from-red-500/30 hover:to-red-600/30 transition-all"
+                >
+                  <Info className="h-5 w-5" />
+                  <span>Service Information</span>
+                </button>
+              </div>
+
+              {/* Error Display */}
+              {error && (
+                <div className="mb-6 p-4 rounded-2xl flex items-start bg-gradient-to-r from-red-100/10 to-red-200/10 border border-red-500/30 backdrop-blur-sm">
+                  <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                    <X className="w-4 h-4 text-red-400" />
+                  </div>
+                  <span className="text-red-200 font-medium">{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handlePurchase} className="space-y-6">
+                {/* Bundle Selection */}
+                <div>
+                  <label className="block text-lg font-bold mb-3 text-white">
+                    Select Data Bundle
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedBundle}
+                      onChange={(e) => setSelectedBundle(e.target.value)}
+                      className="w-full px-4 py-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium appearance-none cursor-pointer"
+                      required
+                    >
+                      <option value="" className="bg-gray-800 text-gray-300">Choose your data bundle...</option>
+                      {bundles.map((bundle) => (
+                        <option 
+                          key={bundle.value} 
+                          value={bundle.value}
+                          className={`bg-gray-800 ${bundle.inStock ? 'text-white' : 'text-gray-500'}`}
+                          disabled={!bundle.inStock}
+                        >
+                          {bundle.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                      <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Phone Number Input */}
+                <div>
+                  <label className="block text-lg font-bold mb-3 text-white">
+                    Telecel Phone Number
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Phone className="w-5 h-5 text-red-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={handlePhoneNumberChange}
+                      className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium"
+                      placeholder="020XXXXXXX or 050XXXXXXX"
+                      required
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-white/70 font-medium">Format: 020 or 050 followed by 7 digits (10 digits total)</p>
+                </div>
+
+                {/* Selected Bundle Summary */}
+                {selectedBundle && (
+                  <div className="p-6 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                      <Award className="w-5 h-5 mr-2 text-red-400" />
+                      Order Summary
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-white/90">
+                        <span className="font-medium">Data Bundle:</span>
+                        <span className="font-bold">{getSelectedBundleDetails()?.capacity}GB</span>
+                      </div>
+                      <div className="flex justify-between text-white/90">
+                        <span className="font-medium">Network:</span>
+                        <span className="font-bold text-red-400">Telecel Premium</span>
+                      </div>
+                      <div className="flex justify-between text-white/90">
+                        <span className="font-medium">Duration:</span>
+                        <span className="font-bold text-emerald-400">No-Expiry</span>
+                      </div>
+                      <div className="border-t border-white/20 pt-3 mt-3">
+                        <div className="flex justify-between text-white font-black text-xl">
+                          <span>Total:</span>
+                          <span className="text-red-400">GH₵{getSelectedBundleDetails()?.price}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
-                
-                <div className="mb-4">
-                  <input
-                    type="tel"
-                    className="w-full px-4 py-3 rounded-md bg-white/90 text-red-900 placeholder-red-400 border border-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
-                    placeholder="Enter Telecel number (020, 050)"
-                    value={phoneNumber}
-                    onChange={handlePhoneNumberChange}
-                  />
-                  <div className="mt-1 text-xs text-white">Format: 020/050 followed by remaining digits</div>
-                </div>
+
+                {/* Purchase Button */}
                 <button
-                  onClick={() => handlePurchase(bundle, index)}
-                  className="w-full px-4 py-3 bg-red-900 text-white rounded-md hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-red-200 disabled:bg-red-300 disabled:cursor-not-allowed transition-all duration-300"
-                  disabled={!bundle.inStock}
+                  type="submit"
+                  disabled={isLoading || !selectedBundle || !phoneNumber}
+                  className="w-full flex items-center justify-center py-4 px-6 rounded-2xl shadow-xl text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-4 focus:ring-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-bold text-lg"
                 >
-                  {!bundle.inStock ? 'Out of Stock' : 'Purchase Now'}
+                  <Zap className="mr-3 w-6 h-6" />
+                  Purchase Data Bundle
                 </button>
+              </form>
+
+              {/* Important Notice */}
+              <div className="mt-8 p-6 bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/30 rounded-2xl backdrop-blur-sm">
+                <div className="flex items-start">
+                  <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center mr-4 flex-shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-red-400 mb-2">Important Notice</h4>
+                    <div className="space-y-2 text-white/80 text-sm font-medium">
+                      <p>• Only Telecel numbers starting with 020 or 050 are supported</p>
+                      <p>• Data delivery is not instant - please be patient</p>
+                      <p>• No refunds for wrong numbers or duplicate orders</p>
+                      <p>• Verify your phone number carefully before purchase</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
 };
 
-export default TelecelBundleCards;
+export default TelecelBundleSelect;

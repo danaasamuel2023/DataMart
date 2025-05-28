@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 import { 
   Mail, 
   Lock, 
@@ -12,11 +10,104 @@ import {
   ArrowRight,
   Loader2,
   X,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle,
+  Zap,
+  Star,
+  Flame
 } from 'lucide-react';
 
+// Toast Notification Component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [onClose]);
+  
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-fade-in-down">
+      <div className={`p-4 rounded-2xl shadow-2xl flex items-center backdrop-blur-xl border ${
+        type === 'success' 
+          ? 'bg-gradient-to-r from-emerald-500/90 to-teal-600/90 text-white border-emerald-400/50' 
+          : type === 'error' 
+            ? 'bg-gradient-to-r from-red-500/90 to-red-600/90 text-white border-red-400/50' 
+            : 'bg-gradient-to-r from-yellow-500/90 to-orange-600/90 text-white border-yellow-400/50'
+      }`}>
+        <div className="mr-3">
+          {type === 'success' ? (
+            <CheckCircle className="h-6 w-6" />
+          ) : type === 'error' ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <AlertTriangle className="h-6 w-6" />
+          )}
+        </div>
+        <div className="flex-grow">
+          <p className="font-bold">{message}</p>
+        </div>
+        <button onClick={onClose} className="ml-4 hover:scale-110 transition-transform">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Registration Closed Modal Component
+const RegistrationClosedModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 w-full max-w-md shadow-2xl">
+        {/* Modal header */}
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+          <h3 className="text-2xl font-black text-white flex items-center">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center mr-3">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
+            Registration Closed
+          </h3>
+          <button onClick={onClose} className="text-white hover:text-white/70 p-2 rounded-xl hover:bg-white/10 transition-all">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        {/* Modal content */}
+        <div className="px-8 py-6">
+          <div className="flex items-start mb-6">
+            <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center mr-4 flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+            </div>
+            <div>
+              <p className="text-white/90 font-medium text-lg mb-2">
+                We're sorry, but new registrations are currently closed.
+              </p>
+              <p className="text-white/70 font-medium">
+                Please check back later or contact our support team for more information.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Modal footer */}
+        <div className="px-8 py-6 border-t border-white/10 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl transition-all transform hover:scale-105"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SignupPage() {
-  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -30,7 +121,56 @@ export default function SignupPage() {
   
   // Registration closed state
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(true);
-  const [showPopup, setShowPopup] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  
+  // Toast state
+  const [toast, setToast] = useState({
+    visible: false,
+    message: '',
+    type: 'success'
+  });
+
+  // Add CSS for animations
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translate3d(0, -20px, 0);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+      .animate-fade-in-down {
+        animation: fadeInDown 0.5s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Function to show toast
+  const showToast = (message, type = 'success') => {
+    setToast({
+      visible: true,
+      message,
+      type
+    });
+  };
+
+  // Function to hide toast
+  const hideToast = () => {
+    setToast(prev => ({
+      ...prev,
+      visible: false
+    }));
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,14 +180,12 @@ export default function SignupPage() {
     }));
   };
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
+  const handleSignup = async () => {
     setError('');
     
     // Check if registration is closed
     if (isRegistrationClosed) {
-      setError("Registration is currently closed. Please try again later.");
-      setShowPopup(true);
+      setShowModal(true);
       return;
     }
     
@@ -56,6 +194,7 @@ export default function SignupPage() {
     // Validate password match
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      showToast("Passwords do not match", "error");
       setIsSubmitting(false);
       return;
     }
@@ -78,218 +217,247 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (response.ok) {
+        showToast("Registration successful! Redirecting to login...", "success");
         // Use a direct, synchronous approach for navigation
-        // Try router.push first
-        try {
-          // Force a hard navigation instead of client-side navigation
-          window.location.href = '/SignIn';
-        } catch (err) {
-          console.error("Navigation error:", err);
-          alert("Registration successful. Please go to the login page to continue.");
-        }
+        setTimeout(() => {
+          try {
+            // Force a hard navigation instead of client-side navigation
+            window.location.href = '/SignIn';
+          } catch (err) {
+            console.error("Navigation error:", err);
+            showToast("Registration successful. Please go to the login page to continue.", "success");
+          }
+        }, 2000);
       } else {
         setError(data.message || 'Signup failed');
+        showToast(data.message || 'Signup failed', 'error');
         setIsSubmitting(false);
       }
     } catch (err) {
       console.error('Signup error:', err);
       setError('An error occurred. Please try again.');
+      showToast('An error occurred. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };
 
-  const closePopup = () => {
-    setShowPopup(false);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 py-8">
-      {/* Registration Closed Popup */}
-      {isRegistrationClosed && showPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-                <AlertTriangle className="text-yellow-500 mr-2" size={24} />
-                Registration Closed
-              </h3>
-              <button 
-                onClick={closePopup}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <div className="mb-6">
-              <p className="text-gray-700 dark:text-gray-300">
-                We're sorry, but new registrations are currently closed. Please check back later or contact our support team for more information.
-              </p>
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={closePopup}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden flex items-center justify-center p-4">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-br from-emerald-400/10 to-teal-400/10 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-400/5 to-blue-400/5 blur-3xl animate-pulse delay-500"></div>
+      </div>
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Toast 
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
       )}
 
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 shadow-xl rounded-xl overflow-hidden">
-        <div className="p-8">
-          {/* Datamart Logo */}
-          <div className="flex justify-center mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" className="h-16 w-auto">
-              {/* Background shape */}
-              <rect x="10" y="10" width="180" height="40" rx="8" fill="#f0f8ff" stroke="#2c5282" strokeWidth="2" className="dark:fill-gray-700"/>
+      {/* Registration Closed Modal */}
+      <RegistrationClosedModal 
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+      />
+
+      <div className="relative z-10 w-full max-w-md">
+        {/* Main Card */}
+        <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-2xl">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-8 relative overflow-hidden">
+            <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+              <Star className="w-6 h-6 text-white animate-pulse" />
+            </div>
+            <div className="absolute bottom-4 left-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+              <Flame className="w-4 h-4 text-white animate-bounce" />
+            </div>
+            
+            <div className="relative z-10 text-center">
+              {/* DataHustle Logo */}
+              <div className="flex justify-center mb-4">
+                <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-xl">
+                  <div className="text-center">
+                    <Zap className="w-8 h-8 text-white mx-auto mb-1" strokeWidth={3} />
+                    <div className="text-white font-black text-xs">HUSTLE</div>
+                  </div>
+                </div>
+              </div>
               
-              {/* "Data" text */}
-              <text x="30" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill="#2c5282" className="dark:fill-blue-300">Data</text>
-              
-              {/* "mart" text */}
-              <text x="85" y="37" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="22" fill="#3182ce" className="dark:fill-blue-200">mart</text>
-              
-              {/* Database icon */}
-              <g transform="translate(150, 30) scale(0.7)">
-                <circle cx="0" cy="0" r="12" fill="#3182ce" className="dark:fill-blue-400"/>
-                <path d="M-8,-2 L8,-2 M-8,2 L8,2" stroke="white" strokeWidth="2" fill="none"/>
-                <ellipse cx="0" cy="-6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
-                <ellipse cx="0" cy="6" rx="8" ry="3" fill="none" stroke="white" strokeWidth="2"/>
-              </g>
-              
-              {/* Search icon elements */}
-              <circle cx="15" cy="30" r="3" fill="#3182ce" opacity="0.7" className="dark:fill-blue-300"/>
-              <circle cx="185" cy="30" r="3" fill="#3182ce" opacity="0.7" className="dark:fill-blue-300"/>
-            </svg>
+              <h1 className="text-4xl font-black text-white mb-2">DATAHUSTLE</h1>
+              <p className="text-white/90 text-lg font-medium">Create Your Account</p>
+            </div>
           </div>
-          
-          <h2 className="text-3xl font-bold text-center text-gray-800 dark:text-white mb-6">
-            Create Account
-          </h2>
 
-          {error && (
-            <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative mb-4" role="alert">
-              {error}
-            </div>
-          )}
+          {/* Form Section */}
+          <div className="p-8">
+            {/* Registration Closed Warning */}
+            {isRegistrationClosed && (
+              <div className="mb-6 p-4 rounded-2xl flex items-start bg-gradient-to-r from-yellow-100/10 to-orange-200/10 border border-yellow-500/30 backdrop-blur-sm">
+                <div className="w-6 h-6 rounded-lg bg-yellow-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                  <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-yellow-200 font-bold text-sm">Registration is currently closed. Form is disabled.</span>
+                </div>
+              </div>
+            )}
 
-          {isRegistrationClosed && (
-            <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 px-4 py-3 rounded relative mb-4" role="alert">
-              Registration is currently closed. Form is disabled.
-            </div>
-          )}
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 rounded-2xl flex items-start bg-gradient-to-r from-red-100/10 to-red-200/10 border border-red-500/30 backdrop-blur-sm">
+                <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+                  <X className="w-4 h-4 text-red-400" />
+                </div>
+                <span className="text-red-200 font-medium">{error}</span>
+              </div>
+            )}
 
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="relative">
-              <User className="absolute left-3 top-3 text-gray-400" />
-              <input 
-                type="text" 
-                name="name"
-                placeholder="Full Name" 
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                required 
+            <div className="space-y-5">
+              {/* Full Name Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <User className="w-5 h-5 text-emerald-400" />
+                </div>
+                <input 
+                  type="text" 
+                  name="name"
+                  placeholder="Full Name" 
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  required 
+                  disabled={isSubmitting || isRegistrationClosed}
+                />
+              </div>
+
+              {/* Email Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="w-5 h-5 text-emerald-400" />
+                </div>
+                <input 
+                  type="email" 
+                  name="email"
+                  placeholder="Email Address" 
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  required 
+                  disabled={isSubmitting || isRegistrationClosed}
+                />
+              </div>
+
+              {/* Phone Number Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Phone className="w-5 h-5 text-emerald-400" />
+                </div>
+                <input 
+                  type="tel" 
+                  name="phoneNumber"
+                  placeholder="Phone Number" 
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  required 
+                  disabled={isSubmitting || isRegistrationClosed}
+                />
+              </div>
+
+              {/* Password Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="w-5 h-5 text-emerald-400" />
+                </div>
+                <input 
+                  type="password" 
+                  name="password"
+                  placeholder="Password" 
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  required 
+                  disabled={isSubmitting || isRegistrationClosed}
+                />
+              </div>
+
+              {/* Confirm Password Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="w-5 h-5 text-emerald-400" />
+                </div>
+                <input 
+                  type="password" 
+                  name="confirmPassword"
+                  placeholder="Confirm Password" 
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  required 
+                  disabled={isSubmitting || isRegistrationClosed}
+                />
+              </div>
+
+              {/* Referral Code Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <RefreshCw className="w-5 h-5 text-emerald-400" />
+                </div>
+                <input 
+                  type="text" 
+                  name="referralCode"
+                  placeholder="Referral Code (Optional)" 
+                  value={formData.referralCode}
+                  onChange={handleChange}
+                  className="pl-12 pr-4 py-4 block w-full rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                  disabled={isSubmitting || isRegistrationClosed}
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button 
+                onClick={handleSignup}
+                className={`w-full flex items-center justify-center py-4 px-6 rounded-2xl shadow-xl text-white font-bold text-lg transition-all duration-300 transform ${
+                  (isSubmitting || isRegistrationClosed)
+                    ? 'bg-gradient-to-r from-gray-500 to-gray-600 opacity-60 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-500/50'
+                }`}
                 disabled={isSubmitting || isRegistrationClosed}
-              />
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin mr-3 w-6 h-6" />
+                    Creating Account...
+                  </>
+                ) : isRegistrationClosed ? (
+                  <>
+                    <AlertTriangle className="mr-3 w-6 h-6" />
+                    Registration Closed
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-3 w-6 h-6" />
+                    Create Account
+                    <ArrowRight className="ml-3 w-6 h-6" />
+                  </>
+                )}
+              </button>
             </div>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 text-gray-400" />
-              <input 
-                type="email" 
-                name="email"
-                placeholder="Email Address" 
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                required 
-                disabled={isSubmitting || isRegistrationClosed}
-              />
+
+            {/* Login Link */}
+            <div className="text-center mt-6">
+              <p className="text-white/70 font-medium">
+                Already have an account? 
+                <a href="/SignIn" className="text-emerald-400 hover:text-emerald-300 ml-2 font-bold hover:underline transition-colors">
+                  Login
+                </a>
+              </p>
             </div>
-            <div className="relative">
-              <Phone className="absolute left-3 top-3 text-gray-400" />
-              <input 
-                type="tel" 
-                name="phoneNumber"
-                placeholder="Phone Number" 
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                required 
-                disabled={isSubmitting || isRegistrationClosed}
-              />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-400" />
-              <input 
-                type="password" 
-                name="password"
-                placeholder="Password" 
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                required 
-                disabled={isSubmitting || isRegistrationClosed}
-              />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-400" />
-              <input 
-                type="password" 
-                name="confirmPassword"
-                placeholder="Confirm Password" 
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                required 
-                disabled={isSubmitting || isRegistrationClosed}
-              />
-            </div>
-            <div className="relative">
-              <RefreshCw className="absolute left-3 top-3 text-gray-400" />
-              <input 
-                type="text" 
-                name="referralCode"
-                placeholder="Referral Code (Optional)" 
-                value={formData.referralCode}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                disabled={isSubmitting || isRegistrationClosed}
-              />
-            </div>
-            <button 
-              type="submit" 
-              className={`w-full text-white py-2 rounded-lg transition flex items-center justify-center 
-                ${(isSubmitting || isRegistrationClosed)
-                  ? 'bg-blue-400 dark:bg-blue-600 opacity-60 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 active:bg-blue-800 active:transform active:scale-95'}`}
-              disabled={isSubmitting || isRegistrationClosed}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="animate-spin mr-2" size={20} />
-                  Signing Up...
-                </>
-              ) : isRegistrationClosed ? (
-                <>
-                  Registration Closed <AlertTriangle className="ml-2" size={20} />
-                </>
-              ) : (
-                <>
-                  Sign Up <ArrowRight className="ml-2" size={20} />
-                </>
-              )}
-            </button>
-          </form>
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Already have an account? 
-              <Link href="/SignIn" className="text-blue-600 dark:text-blue-400 ml-1 hover:underline">
-                Login
-              </Link>
-            </p>
           </div>
         </div>
       </div>

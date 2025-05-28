@@ -12,7 +12,13 @@ import {
   Filter,
   AlertCircle,
   Moon,
-  Sun
+  Sun,
+  Zap,
+  Activity,
+  TrendingUp,
+  DollarSign,
+  Calendar,
+  Search
 } from 'lucide-react';
 
 const TransactionsPage = () => {
@@ -251,28 +257,36 @@ const TransactionsPage = () => {
       case 'completed':
         return { 
           icon: <CheckCircle className="w-5 h-5" />, 
-          color: 'text-green-500 bg-green-100 dark:bg-green-900 dark:bg-opacity-30 dark:text-green-400',
+          color: 'text-emerald-600 bg-gradient-to-r from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/40 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700',
           text: 'Completed'
         };
       case 'pending':
         return { 
           icon: <Clock className="w-5 h-5" />, 
-          color: 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900 dark:bg-opacity-30 dark:text-yellow-400',
+          color: 'text-yellow-600 bg-gradient-to-r from-yellow-100 to-yellow-200 dark:from-yellow-900/40 dark:to-yellow-800/40 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700',
           text: 'Pending'
         };
       case 'failed':
         return { 
           icon: <XCircle className="w-5 h-5" />, 
-          color: 'text-red-500 bg-red-100 dark:bg-red-900 dark:bg-opacity-30 dark:text-red-400',
+          color: 'text-red-600 bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900/40 dark:to-red-800/40 dark:text-red-400 border border-red-300 dark:border-red-700',
           text: 'Failed'
         };
       default:
         return { 
           icon: <AlertCircle className="w-5 h-5" />, 
-          color: 'text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400',
+          color: 'text-gray-600 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800/40 dark:to-gray-700/40 dark:text-gray-400 border border-gray-300 dark:border-gray-600',
           text: status
         };
     }
+  };
+
+  // Calculate transaction stats
+  const transactionStats = {
+    total: transactions.length,
+    completed: transactions.filter(t => t.status === 'completed').length,
+    pending: transactions.filter(t => t.status === 'pending').length,
+    totalAmount: transactions.reduce((sum, t) => sum + (t.status === 'completed' ? t.amount : 0), 0)
   };
 
   // Render a transaction card for mobile view
@@ -281,35 +295,41 @@ const TransactionsPage = () => {
     const expired = transaction.status === 'pending' && isTransactionExpired(transaction.createdAt);
     
     return (
-      <div key={transaction._id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-4 border border-gray-100 dark:border-gray-700 transition-colors">
-        <div className="flex justify-between items-start mb-3">
+      <div key={transaction._id} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-5 rounded-2xl shadow-xl mb-4 border border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+        <div className="flex justify-between items-start mb-4">
           <div>
-            <div className="font-medium text-gray-900 dark:text-white capitalize">{transaction.type}</div>
-            <div className="text-gray-500 dark:text-gray-400 text-sm">{formatDate(transaction.createdAt)}</div>
+            <div className="font-bold text-gray-900 dark:text-white capitalize text-lg">{transaction.type}</div>
+            <div className="text-gray-500 dark:text-gray-400 text-sm font-medium flex items-center mt-1">
+              <Calendar className="w-4 h-4 mr-1" />
+              {formatDate(transaction.createdAt)}
+            </div>
           </div>
-          <div className={`flex items-center px-2.5 py-1.5 rounded-full text-xs font-medium ${status.color}`}>
+          <div className={`flex items-center px-3 py-2 rounded-xl text-sm font-bold shadow-sm ${status.color}`}>
             {status.icon}
-            <span className="ml-1">{status.text}</span>
-            {expired && <span className="ml-1 text-red-500 dark:text-red-400">(Expired)</span>}
+            <span className="ml-2">{status.text}</span>
+            {expired && <span className="ml-2 text-red-500 dark:text-red-400">(Expired)</span>}
           </div>
         </div>
         
-        <div className="mb-3">
-          <div className="text-lg font-bold text-gray-900 dark:text-white mb-1">{formatCurrency(transaction.amount)}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 break-all">
-            <span className="font-medium text-gray-700 dark:text-gray-300">Ref:</span> {transaction.reference}
+        <div className="mb-4">
+          <div className="text-2xl font-black text-gray-900 dark:text-white mb-2 flex items-center">
+            <DollarSign className="w-6 h-6 mr-1 text-emerald-600" />
+            {formatCurrency(transaction.amount)}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 break-all bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+            <span className="font-bold text-gray-700 dark:text-gray-300">Reference:</span> {transaction.reference}
           </div>
         </div>
         
         {transaction.status === 'pending' && (
           <div className="mt-4">
             <button
-              className={`w-full flex justify-center items-center py-3 px-4 rounded-lg text-white font-medium transition-all ${
+              className={`w-full flex justify-center items-center py-4 px-6 rounded-2xl text-white font-bold text-base transition-all duration-300 shadow-lg ${
                 expired 
-                  ? 'bg-gray-300 dark:bg-gray-600' 
+                  ? 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700' 
                   : verifyingId === transaction._id 
-                    ? 'bg-blue-400 dark:bg-blue-500'
-                    : 'bg-blue-600 active:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
+                    ? 'bg-gradient-to-r from-emerald-400 to-teal-500'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 transform hover:scale-105'
               }`}
               disabled={verifyingId === transaction._id || expired}
               onClick={() => expired 
@@ -319,17 +339,17 @@ const TransactionsPage = () => {
             >
               {verifyingId === transaction._id ? (
                 <div className="flex items-center">
-                  <div className="w-5 h-5 border-t-2 border-white border-solid rounded-full animate-spin mr-2"></div>
+                  <div className="w-6 h-6 border-t-2 border-white border-solid rounded-full animate-spin mr-3"></div>
                   Verifying...
                 </div>
               ) : expired ? (
                 <>
-                  <AlertCircle className="w-5 h-5 mr-2" />
+                  <AlertCircle className="w-6 h-6 mr-3" />
                   Contact Admin
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-5 h-5 mr-2" />
+                  <Zap className="w-6 h-6 mr-3" />
                   Verify Now
                 </>
               )}
@@ -343,74 +363,160 @@ const TransactionsPage = () => {
   // Show loading spinner if data is still loading
   if (!userData || !authToken || loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="text-center">
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <div className="w-20 h-20 rounded-full border-4 border-emerald-100 dark:border-emerald-900"></div>
+            <div className="absolute top-0 w-20 h-20 rounded-full border-4 border-transparent border-t-emerald-500 dark:border-t-emerald-400 animate-spin"></div>
+          </div>
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+            <h1 className="text-2xl font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-transparent bg-clip-text">
+              DATAHUSTLE
+            </h1>
+          </div>
+          <p className="text-gray-600 dark:text-gray-300 font-medium">Loading transactions...</p>
+        </div>
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Header with Dark Mode Toggle */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your Transactions</h1>
+        {/* Header */}
+        <div className="mb-8 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl shadow-2xl p-6 transform hover:scale-105 transition-all duration-300">
+          <div className="flex justify-between items-center relative">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-4 right-4">
+                <Activity className="w-8 h-8 text-white animate-pulse" />
+              </div>
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <Zap className="w-6 h-6 text-white" strokeWidth={2.5} />
+                </div>
+                <h1 className="text-3xl font-black text-white">Transaction History</h1>
+              </div>
+              <p className="text-white/90 text-lg font-medium">Track your DATAHUSTLE journey</p>
+            </div>
+            
+            <button 
+              onClick={toggleDarkMode} 
+              className="relative z-10 p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-all duration-300 border border-white/30 shadow-lg transform hover:scale-105"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Transaction Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+            <div className="flex items-center">
+              <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-xl mr-3">
+                <Activity className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Total</p>
+                <p className="text-xl font-black text-gray-900 dark:text-white">{transactionStats.total}</p>
+              </div>
+            </div>
+          </div>
           
-          <button 
-            onClick={toggleDarkMode} 
-            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            aria-label="Toggle dark mode"
-          >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+            <div className="flex items-center">
+              <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-xl mr-3">
+                <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Completed</p>
+                <p className="text-xl font-black text-gray-900 dark:text-white">{transactionStats.completed}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+            <div className="flex items-center">
+              <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-xl mr-3">
+                <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Pending</p>
+                <p className="text-xl font-black text-gray-900 dark:text-white">{transactionStats.pending}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+            <div className="flex items-center">
+              <div className="bg-teal-100 dark:bg-teal-900/30 p-3 rounded-xl mr-3">
+                <TrendingUp className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Value</p>
+                <p className="text-lg font-black text-gray-900 dark:text-white">{formatCurrency(transactionStats.totalAmount)}</p>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* Filters */}
-        <div className="mb-6 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            <select
-              className="border rounded py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-              value={statusFilter}
-              onChange={handleStatusChange}
+        <div className="mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-xl p-4 border border-emerald-200/50 dark:border-emerald-800/30">
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <div className="flex items-center space-x-3">
+              <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-xl">
+                <Filter className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <select
+                className="border-2 rounded-xl py-3 px-4 bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 border-emerald-300 dark:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300 font-medium backdrop-blur-sm"
+                value={statusFilter}
+                onChange={handleStatusChange}
+              >
+                <option value="">All Transactions</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            
+            <button 
+              onClick={fetchTransactions} 
+              className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-3 rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-300 shadow-lg font-bold transform hover:scale-105"
             >
-              <option value="">All Transactions</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-            </select>
+              <RefreshCw className="w-5 h-5" />
+              <span>Refresh</span>
+            </button>
           </div>
-          
-          <button 
-            onClick={fetchTransactions} 
-            className="flex items-center space-x-1 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 text-blue-500 dark:text-blue-400 px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
-          </button>
         </div>
         
         {/* Notification */}
         {notification.show && (
-          <div className={`mb-6 p-4 rounded flex items-center ${
+          <div className={`mb-6 p-4 rounded-2xl flex items-center shadow-lg backdrop-blur-lg border ${
             notification.type === 'success' 
-              ? 'bg-green-100 dark:bg-green-900 dark:bg-opacity-30 text-green-700 dark:text-green-400' 
-              : 'bg-red-100 dark:bg-red-900 dark:bg-opacity-30 text-red-700 dark:text-red-400'
-          } transition-colors`}>
+              ? 'bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700' 
+              : 'bg-red-100/80 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700'
+          } transition-all duration-300`}>
             {notification.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 mr-2" />
+              <CheckCircle className="w-6 h-6 mr-3" />
             ) : (
-              <AlertCircle className="w-5 h-5 mr-2" />
+              <AlertCircle className="w-6 h-6 mr-3" />
             )}
-            <span>{notification.message}</span>
+            <span className="font-medium">{notification.message}</span>
           </div>
         )}
         
         {/* Error alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 dark:bg-red-900 dark:bg-opacity-30 text-red-700 dark:text-red-400 rounded flex items-center transition-colors">
-            <AlertCircle className="w-5 h-5 mr-2" />
-            <span>{error}</span>
+          <div className="mb-6 p-4 bg-red-100/80 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-2xl flex items-center transition-all duration-300 backdrop-blur-lg border border-red-300 dark:border-red-700 shadow-lg">
+            <AlertCircle className="w-6 h-6 mr-3" />
+            <span className="font-medium">{error}</span>
           </div>
         )}
         
@@ -418,11 +524,17 @@ const TransactionsPage = () => {
         <div className="md:hidden">
           {loading ? (
             <div className="flex justify-center py-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+              <div className="relative w-12 h-12">
+                <div className="w-12 h-12 rounded-full border-4 border-emerald-100 dark:border-emerald-900"></div>
+                <div className="absolute top-0 w-12 h-12 rounded-full border-4 border-transparent border-t-emerald-500 dark:border-t-emerald-400 animate-spin"></div>
+              </div>
             </div>
           ) : transactions.length === 0 ? (
-            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-              No transactions found
+            <div className="text-center py-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No transactions found</p>
             </div>
           ) : (
             transactions.map(transaction => renderTransactionCard(transaction))
@@ -430,31 +542,37 @@ const TransactionsPage = () => {
         </div>
         
         {/* Desktop view - Table layout */}
-        <div className="hidden md:block overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+        <div className="hidden md:block overflow-x-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-2xl transition-all duration-300 border border-emerald-200/50 dark:border-emerald-800/30">
+          <table className="min-w-full divide-y divide-emerald-200 dark:divide-emerald-800">
+            <thead className="bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reference</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Reference</th>
+                <th className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white/80 dark:bg-gray-800/80 divide-y divide-emerald-200/50 dark:divide-emerald-800/50">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center">
                     <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                      <div className="relative w-12 h-12">
+                        <div className="w-12 h-12 rounded-full border-4 border-emerald-100 dark:border-emerald-900"></div>
+                        <div className="absolute top-0 w-12 h-12 rounded-full border-4 border-transparent border-t-emerald-500 dark:border-t-emerald-400 animate-spin"></div>
+                      </div>
                     </div>
                   </td>
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
-                    No transactions found
+                  <td colSpan={6} className="px-6 py-20 text-center">
+                    <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Search className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No transactions found</p>
                   </td>
                 </tr>
               ) : (
@@ -463,37 +581,37 @@ const TransactionsPage = () => {
                   const expired = transaction.status === 'pending' && isTransactionExpired(transaction.createdAt);
                   
                   return (
-                    <tr key={transaction._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <tr key={transaction._id} className="hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-300">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-medium">
                         {formatDate(transaction.createdAt)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 capitalize">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 capitalize font-bold">
                         {transaction.type}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-black">
                         {formatCurrency(transaction.amount)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
                         <div className="max-w-[150px] overflow-hidden text-ellipsis">
                           {transaction.reference}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                        <div className={`inline-flex items-center px-3 py-2 rounded-xl text-sm font-bold shadow-sm ${status.color}`}>
                           {status.icon}
-                          <span className="ml-1">{status.text}</span>
+                          <span className="ml-2">{status.text}</span>
                           {expired && (
-                            <span className="ml-1 text-red-500 dark:text-red-400">(Expired)</span>
+                            <span className="ml-2 text-red-500 dark:text-red-400">(Expired)</span>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         {transaction.status === 'pending' && (
                           <button
-                            className={`inline-flex items-center px-3 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+                            className={`inline-flex items-center px-4 py-2 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-300 font-bold transform hover:scale-105 ${
                               expired 
                                 ? 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-gray-500' 
-                                : 'border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900 dark:hover:bg-opacity-30 focus:ring-blue-500 disabled:opacity-50'
+                                : 'border-emerald-500 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:ring-emerald-500 disabled:opacity-50 shadow-sm'
                             }`}
                             disabled={verifyingId === transaction._id || expired}
                             onClick={() => expired 
@@ -503,17 +621,17 @@ const TransactionsPage = () => {
                           >
                             {verifyingId === transaction._id ? (
                               <div className="flex items-center">
-                                <div className="w-4 h-4 border-t-2 border-blue-500 dark:border-blue-400 border-solid rounded-full animate-spin mr-1"></div>
+                                <div className="w-4 h-4 border-t-2 border-emerald-500 dark:border-emerald-400 border-solid rounded-full animate-spin mr-2"></div>
                                 Verifying...
                               </div>
                             ) : expired ? (
                               <>
-                                <AlertCircle className="w-4 h-4 mr-1 text-red-500 dark:text-red-400" />
+                                <AlertCircle className="w-4 h-4 mr-2 text-red-500 dark:text-red-400" />
                                 Contact Admin
                               </>
                             ) : (
                               <>
-                                <RefreshCw className="w-4 h-4 mr-1" />
+                                <Zap className="w-4 h-4 mr-2" />
                                 Verify
                               </>
                             )}
@@ -530,25 +648,25 @@ const TransactionsPage = () => {
         
         {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-center mt-6 space-x-4">
+          <div className="flex items-center justify-center mt-8 space-x-4">
             <button
               onClick={() => handlePageChange(pagination.page - 1)}
               disabled={pagination.page === 1}
-              className="p-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              className="p-3 rounded-xl border-2 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50 transition-all duration-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-lg transform hover:scale-105"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-6 h-6" />
             </button>
             
-            <div className="text-sm text-gray-700 dark:text-gray-300">
-              <span className="font-medium">{pagination.page}</span> of <span>{pagination.pages}</span>
+            <div className="text-lg font-bold text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg px-6 py-3 rounded-xl shadow-lg border border-emerald-200/50 dark:border-emerald-800/30">
+              <span className="text-emerald-600 dark:text-emerald-400">{pagination.page}</span> of <span className="text-emerald-600 dark:text-emerald-400">{pagination.pages}</span>
             </div>
             
             <button
               onClick={() => handlePageChange(pagination.page + 1)}
               disabled={pagination.page === pagination.pages}
-              className="p-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              className="p-3 rounded-xl border-2 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50 transition-all duration-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-lg transform hover:scale-105"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-6 h-6" />
             </button>
           </div>
         )}

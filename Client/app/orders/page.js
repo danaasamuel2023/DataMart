@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronDown, Calendar, Phone, Database, CreditCard, Clock, Tag, Search, Filter, X, Zap, Activity, Sparkles, TrendingUp } from 'lucide-react';
 
 // API constants
 const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1/checkOrderStatus/:ref';
@@ -30,23 +30,23 @@ const networkNames = {
   'at': 'AirtelTigo Standard'
 };
 
-// Network logo colors
+// Network logo colors - updated for DATAHUSTLE theme
 const networkColors = {
-  'YELLO': 'bg-yellow-500',
-  'TELECEL': 'bg-red-500',
-  'AT_PREMIUM': 'bg-blue-500',
-  'airteltigo': 'bg-blue-500',
-  'at': 'bg-blue-500'
+  'YELLO': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+  'TELECEL': 'bg-gradient-to-br from-red-500 to-red-600',
+  'AT_PREMIUM': 'bg-gradient-to-br from-blue-500 to-blue-600',
+  'airteltigo': 'bg-gradient-to-br from-blue-500 to-blue-600',
+  'at': 'bg-gradient-to-br from-blue-500 to-blue-600'
 };
 
-// Status badge color mapping - enhanced for dark mode visibility
+// Status badge color mapping - enhanced for DATAHUSTLE theme
 const statusColors = {
-  'pending': 'bg-yellow-200 text-yellow-900 dark:bg-yellow-500 dark:text-black font-semibold',
-  'completed': 'bg-green-200 text-green-900 dark:bg-green-500 dark:text-black font-semibold',
-  'failed': 'bg-red-200 text-red-900 dark:bg-red-500 dark:text-black font-semibold',
-  'processing': 'bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-black font-semibold',
-  'refunded': 'bg-purple-200 text-purple-900 dark:bg-purple-500 dark:text-black font-semibold',
-  'waiting': 'bg-gray-200 text-gray-900 dark:bg-gray-500 dark:text-black font-semibold'
+  'pending': 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/40 dark:to-yellow-800/40 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700',
+  'completed': 'bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-800 dark:from-emerald-900/40 dark:to-emerald-800/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700',
+  'failed': 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/40 dark:to-red-800/40 dark:text-red-300 border border-red-300 dark:border-red-700',
+  'processing': 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 dark:from-blue-900/40 dark:to-blue-800/40 dark:text-blue-300 border border-blue-300 dark:border-blue-700',
+  'refunded': 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 dark:from-purple-900/40 dark:to-purple-800/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700',
+  'waiting': 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 dark:from-gray-800/40 dark:to-gray-700/40 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
 };
 
 export default function DataPurchases() {
@@ -332,18 +332,22 @@ export default function DataPurchases() {
   const userId = getUserId();
   if (!userId && typeof window !== 'undefined') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md w-full">
-          <div className="py-12 px-6">
-            <div className="text-center">
-              <p className="mb-4 dark:text-gray-200">You need to be logged in to view your purchases.</p>
-              <button 
-                onClick={() => router.push('/SignIn')}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
-              >
-                Go to Login
-              </button>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-emerald-200/50 dark:border-emerald-800/30">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Zap className="w-8 h-8 text-white" strokeWidth={2.5} />
             </div>
+            <h2 className="text-2xl font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-transparent bg-clip-text mb-4">
+              DATAHUSTLE
+            </h2>
+            <p className="mb-6 dark:text-gray-200 font-medium">You need to be logged in to view your purchases.</p>
+            <button 
+              onClick={() => router.push('/SignIn')}
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300"
+            >
+              Go to Login
+            </button>
           </div>
         </div>
       </div>
@@ -377,409 +381,497 @@ export default function DataPurchases() {
     return statuses.sort();
   };
 
+  // Calculate purchase stats
+  const purchaseStats = {
+    total: purchases.length,
+    completed: purchases.filter(p => p.status === 'completed').length,
+    pending: purchases.filter(p => p.status === 'pending').length,
+    totalAmount: purchases.reduce((sum, p) => sum + p.price, 0)
+  };
+
   return (
-    <div className="container mx-auto px-4 py-6 max-w-3xl">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full overflow-hidden border border-gray-200 dark:border-gray-600">
-        <div className="border-b border-gray-200 dark:border-gray-700 p-4 md:p-6 bg-gradient-to-r from-blue-500 to-indigo-600">
-          <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-md">Data Purchase History</h2>
-        </div>
-        
-        {/* Search and filter bar */}
-        {!loading && !error && purchases.length > 0 && (
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col md:flex-row gap-3">
-              {/* Search input */}
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        {/* Header */}
+        <div className="mb-8 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl shadow-2xl p-6 transform hover:scale-105 transition-all duration-300">
+          <div className="relative">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-4 right-4">
+                <Sparkles className="w-8 h-8 text-white animate-pulse" />
+              </div>
+              <div className="absolute bottom-4 left-4">
+                <Activity className="w-6 h-6 text-white animate-bounce" />
+              </div>
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <Database className="w-6 h-6 text-white" strokeWidth={2.5} />
                 </div>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by phone number or reference..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {searchTerm && (
+                <h1 className="text-3xl font-black text-white">Data Purchase History</h1>
+              </div>
+              <p className="text-white/90 text-lg font-medium">Track your DATAHUSTLE data purchases</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Purchase Stats */}
+        {!loading && !error && purchases.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className="flex items-center">
+                <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-xl mr-3">
+                  <Database className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Orders</p>
+                  <p className="text-xl font-black text-gray-900 dark:text-white">{purchaseStats.total}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className="flex items-center">
+                <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-xl mr-3">
+                  <Zap className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Completed</p>
+                  <p className="text-xl font-black text-gray-900 dark:text-white">{purchaseStats.completed}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className="flex items-center">
+                <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-xl mr-3">
+                  <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Pending</p>
+                  <p className="text-xl font-black text-gray-900 dark:text-white">{purchaseStats.pending}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-4 rounded-2xl shadow-xl border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className="flex items-center">
+                <div className="bg-teal-100 dark:bg-teal-900/30 p-3 rounded-xl mr-3">
+                  <TrendingUp className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Spent</p>
+                  <p className="text-lg font-black text-gray-900 dark:text-white">{formatCurrency(purchaseStats.totalAmount)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden border border-emerald-200/50 dark:border-emerald-800/30">
+          {/* Search and filter bar */}
+          {!loading && !error && purchases.length > 0 && (
+            <div className="p-6 border-b border-emerald-200/50 dark:border-emerald-800/30 bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Search input */}
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by phone number or reference..."
+                    className="block w-full pl-12 pr-4 py-3 border-2 border-emerald-300 dark:border-emerald-700 dark:bg-gray-800/80 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 backdrop-blur-sm font-medium"
+                  />
+                  {searchTerm && (
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                    >
+                      <X className="h-5 w-5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400" />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Filter button */}
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center justify-center px-6 py-3 border-2 border-emerald-300 dark:border-emerald-700 bg-white/80 dark:bg-gray-800/80 rounded-xl text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-bold backdrop-blur-sm shadow-sm transition-all duration-300"
+                >
+                  <Filter className="h-5 w-5 mr-2" />
+                  Filters {showFilters ? '▲' : '▼'}
+                </button>
+                
+                {/* Reset button */}
+                {(searchTerm || filterStatus !== 'all' || filterNetwork !== 'all') && (
                   <button 
-                    onClick={() => setSearchTerm('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={resetFilters}
+                    className="flex items-center justify-center px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 font-bold shadow-lg transform hover:scale-105 transition-all duration-300"
                   >
-                    <X className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
+                    <X className="h-5 w-5 mr-2" />
+                    Reset
                   </button>
                 )}
               </div>
               
-              {/* Filter button */}
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
-              >
-                <Filter className="h-5 w-5 mr-2" />
-                Filters {showFilters ? '▲' : '▼'}
-              </button>
-              
-              {/* Reset button */}
-              {(searchTerm || filterStatus !== 'all' || filterNetwork !== 'all') && (
-                <button 
-                  onClick={resetFilters}
-                  className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                >
-                  <X className="h-5 w-5 mr-2" />
-                  Reset
-                </button>
+              {/* Expanded filters */}
+              {showFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 p-4 bg-white/50 dark:bg-gray-800/50 rounded-xl backdrop-blur-sm border border-emerald-200/50 dark:border-emerald-800/30">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                      Status:
+                    </label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="block w-full px-4 py-3 border-2 border-emerald-300 dark:border-emerald-700 dark:bg-gray-800/80 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium backdrop-blur-sm"
+                    >
+                      <option value="all">All Statuses</option>
+                      {getUniqueStatuses().map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                      Network:
+                    </label>
+                    <select
+                      value={filterNetwork}
+                      onChange={(e) => setFilterNetwork(e.target.value)}
+                      className="block w-full px-4 py-3 border-2 border-emerald-300 dark:border-emerald-700 dark:bg-gray-800/80 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium backdrop-blur-sm"
+                    >
+                      <option value="all">All Networks</option>
+                      {getUniqueNetworks().map(network => (
+                        <option key={network} value={network}>
+                          {networkNames[network] || network}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               )}
             </div>
-            
-            {/* Expanded filters */}
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Status:
-                  </label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Statuses</option>
-                    {getUniqueStatuses().map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
+          )}
+          
+          {/* Content area */}
+          <div className="p-6">
+            {/* Loading state */}
+            {loading ? (
+              <div className="flex flex-col justify-center items-center py-20">
+                <div className="relative w-20 h-20 mx-auto mb-6">
+                  <div className="w-20 h-20 rounded-full border-4 border-emerald-100 dark:border-emerald-900"></div>
+                  <div className="absolute top-0 w-20 h-20 rounded-full border-4 border-transparent border-t-emerald-500 dark:border-t-emerald-400 animate-spin"></div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Network:
-                  </label>
-                  <select
-                    value={filterNetwork}
-                    onChange={(e) => setFilterNetwork(e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Networks</option>
-                    {getUniqueNetworks().map(network => (
-                      <option key={network} value={network}>
-                        {networkNames[network] || network}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+                  </div>
+                  <h1 className="text-2xl font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-transparent bg-clip-text">
+                    DATAHUSTLE
+                  </h1>
                 </div>
+                <span className="text-gray-900 dark:text-gray-100 font-medium">Loading purchases...</span>
               </div>
-            )}
-          </div>
-        )}
-        
-        {/* Content area */}
-        <div className="p-4 md:p-6">
-          {/* Loading state */}
-          {loading ? (
-            <div className="flex flex-col justify-center items-center py-12">
-              <div className="relative w-64 h-12 mb-4">
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <div 
-                    key={index}
-                    className="absolute h-4 w-4 bg-blue-500 rounded-full animate-pulse"
-                    style={{
-                      left: `${index * 30}px`,
-                      top: `${index % 2 ? 0 : 24}px`,
-                      animationDelay: `${index * 0.1}s`,
-                      opacity: 0.8,
-                    }}
-                  />
-                ))}
+            ) : error ? (
+              <div className="bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 p-6 rounded-2xl text-red-800 dark:text-red-200 text-base font-medium border border-red-300 dark:border-red-700 shadow-lg">
+                {error}
               </div>
-              <span className="text-gray-900 dark:text-gray-100 font-medium">Loading purchases...</span>
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-md text-red-800 dark:text-red-200 text-sm md:text-base">
-              {error}
-            </div>
-          ) : purchases.length === 0 ? (
-            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No data purchases found.</p>
-              {searchTerm || filterStatus !== 'all' || filterNetwork !== 'all' ? (
-                <button 
-                  onClick={resetFilters}
-                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
-                >
-                  Clear Filters
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <>
-              {/* Mobile-friendly card list */}
-              <div className="block lg:hidden space-y-4">
-                {purchases.map((purchase) => (
-                  <div 
-                    key={purchase._id} 
-                    className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-600"
+            ) : purchases.length === 0 ? (
+              <div className="text-center py-20 text-gray-500 dark:text-gray-400">
+                <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Database className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No data purchases found</h3>
+                <p className="font-medium mb-4">Start your DATAHUSTLE journey today!</p>
+                {searchTerm || filterStatus !== 'all' || filterNetwork !== 'all' ? (
+                  <button 
+                    onClick={resetFilters}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-300"
                   >
-                    {/* Card header - always visible */}
+                    Clear Filters
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <>
+                {/* Mobile-friendly card list */}
+                <div className="block lg:hidden space-y-4">
+                  {purchases.map((purchase) => (
                     <div 
-                      className="flex items-center justify-between p-4 cursor-pointer"
-                      onClick={() => toggleExpand(purchase._id)}
+                      key={purchase._id} 
+                      className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-lg rounded-2xl overflow-hidden shadow-xl border border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                     >
-                      <div className="flex items-center space-x-3">
-                        {/* Network logo */}
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${networkColors[purchase.network] || 'bg-gray-500'}`}>
-                          {getNetworkInitials(purchase.network)}
+                      {/* Card header - always visible */}
+                      <div 
+                        className="flex items-center justify-between p-5 cursor-pointer"
+                        onClick={() => toggleExpand(purchase._id)}
+                      >
+                        <div className="flex items-center space-x-4">
+                          {/* Network logo */}
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black shadow-lg ${networkColors[purchase.network] || 'bg-gradient-to-br from-gray-500 to-gray-600'}`}>
+                            {getNetworkInitials(purchase.network)}
+                          </div>
+                          
+                          <div>
+                            <div className="font-black text-gray-900 dark:text-white text-lg">
+                              {formatDataSize(purchase.capacity)}
+                            </div>
+                            <div className="text-sm text-gray-700 dark:text-gray-200 font-medium">
+                              {purchase.phoneNumber}
+                            </div>
+                          </div>
                         </div>
                         
-                        <div>
-                          <div className="font-bold text-gray-900 dark:text-white">
-                            {formatDataSize(purchase.capacity)}
-                          </div>
-                          <div className="text-sm text-gray-700 dark:text-gray-200">
-                            {purchase.phoneNumber}
-                          </div>
+                        <div className="flex items-center space-x-3">
+                          {purchase.geonetReference && purchase.network !== 'at' ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network);
+                              }}
+                              disabled={checkingStatus[purchase._id]}
+                              className="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs rounded-xl flex items-center font-bold shadow-lg transform hover:scale-105 transition-all duration-300"
+                            >
+                              {checkingStatus[purchase._id] ? (
+                                <>
+                                  <Loader2 className="animate-spin h-4 w-4 mr-1" />
+                                  Checking
+                                </>
+                              ) : (
+                                <>
+                                  <Zap className="h-4 w-4 mr-1" />
+                                  Check Status
+                                </>
+                              )}
+                            </button>
+                          ) : checkedStatuses[purchase._id] ? (
+                            <span className={`px-3 py-2 inline-flex text-xs leading-5 font-bold rounded-xl shadow-sm ${statusColors[purchase.status] || 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                              {purchase.status || "Unknown"}
+                            </span>
+                          ) : null}
+                          {expandedId === purchase._id ? 
+                            <ChevronDown className="h-6 w-6 text-emerald-500" /> : 
+                            <ChevronRight className="h-6 w-6 text-emerald-500" />
+                          }
                         </div>
                       </div>
                       
-                      <div className="flex items-center space-x-3">
-                        {purchase.geonetReference && purchase.network !== 'at' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network);
-                            }}
-                            disabled={checkingStatus[purchase._id]}
-                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded flex items-center"
-                          >
-                            {checkingStatus[purchase._id] ? (
+                      {/* Expanded details */}
+                      {expandedId === purchase._id && (
+                        <div className="px-5 pb-5 pt-2 border-t border-emerald-200/50 dark:border-emerald-800/30 text-sm bg-gradient-to-r from-emerald-50/30 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10">
+                          <div className="grid grid-cols-2 gap-y-6 mt-4">
+                            <div className="flex items-center text-gray-600 dark:text-gray-200 font-bold">
+                              <Calendar className="h-5 w-5 mr-2 text-emerald-500" />
+                              Date
+                            </div>
+                            <div className="text-gray-900 dark:text-white font-bold">
+                              {formatDate(purchase.createdAt)}
+                            </div>
+                            
+                            <div className="flex items-center text-gray-600 dark:text-gray-200 font-bold">
+                              <CreditCard className="h-5 w-5 mr-2 text-emerald-500" />
+                              Price
+                            </div>
+                            <div className="text-gray-900 dark:text-white font-bold">
+                              {formatCurrency(purchase.price)}
+                            </div>
+                            
+                            <div className="flex items-center text-gray-600 dark:text-gray-200 font-bold">
+                              <Clock className="h-5 w-5 mr-2 text-emerald-500" />
+                              Method
+                            </div>
+                            <div className="text-gray-900 dark:text-white font-bold capitalize">
+                              {purchase.method}
+                            </div>
+                            
+                            <div className="flex items-center text-gray-600 dark:text-gray-200 font-bold">
+                              <Tag className="h-5 w-5 mr-2 text-emerald-500" />
+                              Reference
+                            </div>
+                            <div className="text-gray-900 dark:text-white font-bold truncate">
+                              {purchase.geonetReference || '-'}
+                            </div>
+                            
+                            {checkedStatuses[purchase._id] && purchase.status && (
                               <>
-                                <Loader2 className="animate-spin h-3 w-3 mr-1" />
-                                Checking
-                              </>
-                            ) : (
-                              <>
-                                <Clock className="h-3 w-3 mr-1" />
-                                Check Status
+                                <div className="flex items-center text-gray-600 dark:text-gray-200 font-bold">
+                                  <Zap className="h-5 w-5 mr-2 text-emerald-500" />
+                                  Status
+                                </div>
+                                <div className="text-gray-900 dark:text-white font-bold">
+                                  {purchase.status}
+                                </div>
                               </>
                             )}
-                          </button>
-                        ) : checkedStatuses[purchase._id] ? (
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
-                            {purchase.status || "Unknown"}
-                          </span>
-                        ) : null}
-                        {expandedId === purchase._id ? 
-                          <ChevronDown className="h-5 w-5 text-gray-400" /> : 
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        }
-                      </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Desktop table view */}
+                <div className="hidden lg:block">
+                  <div className="overflow-x-auto rounded-2xl border border-emerald-200/50 dark:border-emerald-800/30">
+                    <table className="min-w-full divide-y divide-emerald-200 dark:divide-emerald-800">
+                      <thead className="bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+                        <tr>
+                          <th scope="col" className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                            Network
+                          </th>
+                          <th scope="col" className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                            Data
+                          </th>
+                          <th scope="col" className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                            Phone
+                          </th>
+                          <th scope="col" className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th scope="col" className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                            Price
+                          </th>
+                          <th scope="col" className="px-6 py-4 text-left text-sm font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white/80 dark:bg-gray-800/80 divide-y divide-emerald-200/50 dark:divide-emerald-800/50">
+                        {purchases.map((purchase) => (
+                          <tr key={purchase._id} className="hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-300">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black mr-4 shadow-lg ${networkColors[purchase.network] || 'bg-gradient-to-br from-gray-500 to-gray-600'}`}>
+                                  {getNetworkInitials(purchase.network)}
+                                </div>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                  {networkNames[purchase.network] || purchase.network}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-black text-gray-900 dark:text-white">
+                                {formatDataSize(purchase.capacity)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                {purchase.phoneNumber}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {formatDate(purchase.createdAt)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                {formatCurrency(purchase.price)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap flex items-center gap-3">
+                              {purchase.geonetReference && purchase.network !== 'at' ? (
+                                <button
+                                  onClick={() => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network)}
+                                  disabled={checkingStatus[purchase._id]}
+                                  className="inline-flex items-center px-4 py-2 border-2 border-emerald-500 dark:border-emerald-400 text-sm leading-5 font-bold rounded-xl text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300 shadow-sm transform hover:scale-105"
+                                >
+                                  {checkingStatus[purchase._id] ? (
+                                    <>
+                                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                                      Checking...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Zap className="-ml-1 mr-2 h-4 w-4" />
+                                      Check Status
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                // For AirtelTigo or purchases without reference
+                                <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                                  No check available
+                                </span>
+                              )}
+                              
+                              {/* Only show status badge after checking */}
+                              {checkedStatuses[purchase._id] && (
+                                <span className={`px-3 py-2 inline-flex text-xs leading-5 font-bold rounded-xl shadow-sm ${statusColors[purchase.status] || 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                                  {purchase.status || "Unknown"}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                {/* Pagination controls */}
+                {pagination.totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-between border-t border-emerald-200/50 dark:border-emerald-800/30 pt-6">
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
+                      className={`flex items-center px-6 py-3 text-sm rounded-xl font-bold transition-all duration-300 transform hover:scale-105 ${
+                        pagination.currentPage === 1
+                          ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-100 dark:bg-gray-700'
+                          : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 bg-white/80 dark:bg-gray-800/80 shadow-lg border border-emerald-200 dark:border-emerald-700'
+                      }`}
+                    >
+                      <ChevronRight className="h-5 w-5 mr-2" style={{ transform: 'rotate(180deg)' }} />
+                      Previous
+                    </button>
+                    
+                    <div className="flex gap-2 items-center">
+                      {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 transform hover:scale-110 ${
+                            page === pagination.currentPage
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
+                              : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 bg-white/80 dark:bg-gray-800/80 border border-emerald-200 dark:border-emerald-700'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
                     </div>
                     
-                    {/* Expanded details */}
-                    {expandedId === purchase._id && (
-                      <div className="px-4 pb-4 pt-1 border-t border-gray-200 dark:border-gray-600 text-sm">
-                        <div className="grid grid-cols-2 gap-y-4 mt-2">
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <Calendar className="h-4 w-4 mr-2 text-blue-500" />
-                            Date
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium">
-                            {formatDate(purchase.createdAt)}
-                          </div>
-                          
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <CreditCard className="h-4 w-4 mr-2 text-green-500" />
-                            Price
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium">
-                            {formatCurrency(purchase.price)}
-                          </div>
-                          
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <Clock className="h-4 w-4 mr-2 text-purple-500" />
-                            Method
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium capitalize">
-                            {purchase.method}
-                          </div>
-                          
-                          <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                            <Tag className="h-4 w-4 mr-2 text-orange-500" />
-                            Reference
-                          </div>
-                          <div className="text-gray-900 dark:text-white font-medium truncate">
-                            {purchase.geonetReference || '-'}
-                          </div>
-                          
-                          {checkedStatuses[purchase._id] && purchase.status && (
-                            <>
-                              <div className="flex items-center text-gray-600 dark:text-gray-200 font-medium">
-                                <Clock className="h-4 w-4 mr-2 text-indigo-500" />
-                                Status
-                              </div>
-                              <div className="text-gray-900 dark:text-white font-medium">
-                                {purchase.status}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.totalPages}
+                      className={`flex items-center px-6 py-3 text-sm rounded-xl font-bold transition-all duration-300 transform hover:scale-105 ${
+                        pagination.currentPage === pagination.totalPages
+                          ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-100 dark:bg-gray-700'
+                          : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 bg-white/80 dark:bg-gray-800/80 shadow-lg border border-emerald-200 dark:border-emerald-700'
+                      }`}
+                    >
+                      Next
+                      <ChevronRight className="h-5 w-5 ml-2" />
+                    </button>
                   </div>
-                ))}
-              </div>
-              
-              {/* Desktop table view */}
-              <div className="hidden lg:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Network
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Data
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Phone
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {purchases.map((purchase) => (
-                        <tr key={purchase._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${networkColors[purchase.network] || 'bg-gray-500'}`}>
-                                {getNetworkInitials(purchase.network)}
-                              </div>
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                {networkNames[purchase.network] || purchase.network}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              {formatDataSize(purchase.capacity)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-900 dark:text-white">
-                              {purchase.phoneNumber}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-900 dark:text-white">
-                              {formatDate(purchase.createdAt)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-900 dark:text-white">
-                              {formatCurrency(purchase.price)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2">
-                            {purchase.geonetReference && purchase.network !== 'at' ? (
-                              <button
-                                onClick={() => checkOrderStatus(purchase._id, purchase.geonetReference, purchase.network)}
-                                disabled={checkingStatus[purchase._id]}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:shadow-outline-blue active:bg-blue-700 transition ease-in-out duration-150"
-                              >
-                                {checkingStatus[purchase._id] ? (
-                                  <>
-                                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                                    Checking...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Clock className="-ml-1 mr-2 h-4 w-4" />
-                                    Check Status
-                                  </>
-                                )}
-                              </button>
-                            ) : (
-                              // For AirtelTigo or purchases without reference
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                No check available
-                              </span>
-                            )}
-                            
-                            {/* Only show status badge after checking */}
-                            {checkedStatuses[purchase._id] && (
-                              <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[purchase.status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
-                                {purchase.status || "Unknown"}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              
-              {/* Pagination controls */}
-              {pagination.totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                    disabled={pagination.currentPage === 1}
-                    className={`flex items-center px-4 py-2 text-sm rounded-md ${
-                      pagination.currentPage === 1
-                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                        : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                    }`}
-                  >
-                    <ChevronRight className="h-5 w-5 mr-1" rotate={180} />
-                    Previous
-                  </button>
-                  
-                  <div className="flex gap-1 items-center">
-                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`px-3 py-1 rounded-md text-sm font-medium ${
-                          page === pagination.currentPage
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={pagination.currentPage === pagination.totalPages}
-                    className={`flex items-center px-4 py-2 text-sm rounded-md ${
-                      pagination.currentPage === pagination.totalPages
-                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                        : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                    }`}
-                  >
-                    Next
-                    <ChevronRight className="h-5 w-5 ml-1" />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        
-        {/* Footer - optional */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-          Having issues with your data purchase? Contact support at support@datamart.com
+                )}
+              </>
+            )}
+          </div>
+          
+          {/* Footer */}
+          <div className="border-t border-emerald-200/50 dark:border-emerald-800/30 p-6 text-center text-sm text-gray-600 dark:text-gray-400 bg-gradient-to-r from-emerald-50/30 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10">
+            <div className="flex items-center justify-center space-x-2 font-medium">
+              <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Having issues with your data purchase? Contact DATAHUSTLE support at support@datahustle.com</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

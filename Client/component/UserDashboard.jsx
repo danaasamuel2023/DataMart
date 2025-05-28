@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, Globe } from 'lucide-react';
+import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, Globe, Zap, Activity, Sparkles, ArrowUpRight, Star, Target, Flame, Award, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AnimatedCounter, CurrencyCounter } from './Animation'; // Adjust the import path as necessary
 import DailySalesChart from '@/app/week/page';
@@ -164,15 +164,6 @@ const DashboardPage = () => {
     return 'Evening';
   };
 
-  // MTN Brand color
-  const mtnYellow = "#ffcc00";
-  
-  // Telecel brand color
-  const telecelRed = "#e60000";
-  
-  // AirtelTigo brand color
-  const airtelTigoBlue = "#0033a0";
-
   // Toggle sales chart visibility
   const toggleSalesChart = () => {
     setShowSalesChart(!showSalesChart);
@@ -185,479 +176,367 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="text-center">
-          <div className="relative w-16 h-16 mx-auto">
-            <div className="w-16 h-16 rounded-full border-4 border-yellow-100 dark:border-yellow-900"></div>
-            <div className="absolute top-0 w-16 h-16 rounded-full border-4 border-transparent border-t-yellow-400 dark:border-t-yellow-500 animate-spin"></div>
+          {/* Epic Loading Animation */}
+          <div className="relative w-32 h-32 mx-auto mb-8">
+            {/* Outer ring */}
+            <div className="absolute inset-0 rounded-full border-4 border-emerald-200/20"></div>
+            {/* Spinning gradient ring */}
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-emerald-400 border-r-teal-400 animate-spin"></div>
+            {/* Inner pulsing circle */}
+            <div className="absolute inset-4 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 animate-pulse flex items-center justify-center">
+              <Zap className="w-8 h-8 text-white animate-bounce" strokeWidth={2.5} />
+            </div>
           </div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading dashboard...</p>
+          
+          <div className="space-y-4">
+            <h1 className="text-4xl font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-transparent bg-clip-text animate-pulse">
+              DATAHUSTLE
+            </h1>
+            <div className="flex items-center justify-center space-x-2 text-emerald-300">
+              <Sparkles className="w-5 h-5 animate-spin" />
+              <span className="text-lg font-bold">Preparing your hustle zone...</span>
+              <Sparkles className="w-5 h-5 animate-spin" />
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-900 min-h-screen">
-      {/* Dashboard Content */}
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
-        {/* User Greeting - Optimized for Ghana */}
-        <div className="mb-4 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-md overflow-hidden">
-          <div className="p-3 sm:p-5">
-            <div className="flex items-center justify-between mb-1 sm:mb-3">
-              <div>
-                <h2 className="text-lg sm:text-2xl font-bold text-white flex flex-col sm:flex-row sm:items-center">
-                  <span className="mr-1">{getGreeting()},</span>
-                  <span>{userName}!</span>
-                </h2>
-                <p className="text-white text-opacity-90 text-xs sm:text-sm mt-1">Good {getEnglishGreeting()}! Welcome to Datamart</p>
-                <p className="text-white font-bold text-xs mt-1 bg-black bg-opacity-20 inline-block px-2 py-1 rounded-full border border-white shadow-sm">Where Resellers Meet</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-br from-emerald-400/10 to-teal-400/10 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-400/5 to-blue-400/5 blur-3xl animate-pulse delay-500"></div>
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* Hero Section - Completely New Design */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-3xl p-8 relative overflow-hidden shadow-2xl">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 bg-black/10">
+              <div className="absolute top-4 right-4 w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                <Star className="w-8 h-8 text-white animate-pulse" />
               </div>
-              <div className="bg-white dark:bg-gray-800 p-2 rounded-full shadow-md">
-                <User className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
+              <div className="absolute bottom-4 left-4 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                <Flame className="w-6 h-6 text-white animate-bounce" />
               </div>
             </div>
             
-            <div className="flex mt-2 space-x-2 sm:space-x-3">
-              <button 
-                onClick={() => router.push('/orders')}
-                className="inline-flex items-center px-2 py-1 sm:px-4 sm:py-2 bg-white dark:bg-gray-800 text-yellow-500 font-medium rounded-md shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300 text-xs sm:text-sm"
-              >
-                <Calendar className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                Orders
-              </button>
-              <button 
-                onClick={navigateToTransactions}
-                className="inline-flex items-center px-2 py-1 sm:px-4 sm:py-2 bg-white dark:bg-gray-800 text-yellow-500 font-medium rounded-md shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300 text-xs sm:text-sm"
-              >
-                <AlertCircle className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                Transactions
-              </button>
-
-              <button 
-                onClick={navigateToregisterFriend}
-                className="inline-flex items-center px-2 py-1 sm:px-4 sm:py-2 bg-white dark:bg-gray-800 text-yellow-500 font-medium rounded-md shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300 text-xs sm:text-sm"
-              >
-                <User className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                Register an agent
-              </button>
+            <div className="relative z-10">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                <div className="mb-6 lg:mb-0">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                      <Zap className="w-6 h-6 text-white" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h1 className="text-5xl font-black text-white tracking-tight">DATAHUSTLE</h1>
+                      <p className="text-white/80 text-lg font-medium">Hustle Mode: Activated</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-black text-white">
+                      {getGreeting()}, {userName}! 🚀
+                    </h2>
+                    <p className="text-xl text-white/90 font-medium">
+                      Ready to dominate your {getEnglishGreeting().toLowerCase()}?
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Action Buttons - New Layout */}
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:w-64">
+                  <button 
+                    onClick={navigateToTopup}
+                    className="group bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-bold py-4 px-6 rounded-2xl border border-white/30 transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
+                  >
+                    <Zap className="w-6 h-6 group-hover:animate-pulse" />
+                    <span>Power Up</span>
+                    <ArrowUpRight className="w-5 h-5" />
+                  </button>
+                  
+                  <button 
+                    onClick={() => router.push('/orders')}
+                    className="group bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-bold py-4 px-6 rounded-2xl border border-white/30 transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
+                  >
+                    <Target className="w-6 h-6 group-hover:animate-spin" />
+                    <span>Orders</span>
+                    <ArrowUpRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Sales Performance Dashboard - NEW SECTION */}
-        <div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-          <div className="h-1 sm:h-2 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 dark:from-yellow-600 dark:via-yellow-500 dark:to-yellow-400"></div>
-          
-          <div onClick={toggleSalesChart} className="p-3 sm:p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-            <div className="flex items-center">
-              <div className="bg-yellow-100 dark:bg-yellow-900 p-2 sm:p-3 rounded-lg mr-3">
-                <BarChart2 className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-500 dark:text-yellow-400" />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sales Performance</h2>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Track your daily sales and revenue analytics</p>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <div className="hidden sm:flex items-center space-x-1 bg-gray-100 dark:bg-gray-700 rounded-md p-1 mr-3">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleSalesPeriodChange('7d'); }} 
-                  className={`px-2 py-1 text-xs rounded ${salesPeriod === '7d' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-                >
-                  7D
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleSalesPeriodChange('14d'); }} 
-                  className={`px-2 py-1 text-xs rounded ${salesPeriod === '14d' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-                >
-                  14D
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleSalesPeriodChange('30d'); }} 
-                  className={`px-2 py-1 text-xs rounded ${salesPeriod === '30d' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-                >
-                  30D
-                </button>
-              </div>
-              <div className="flex items-center text-yellow-500 dark:text-yellow-400">
-                <Eye className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
-                <span className="text-xs sm:text-sm mr-1">View</span>
-                {showSalesChart ? <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5" /> : <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />}
-              </div>
-            </div>
-          </div>
-          
-          {/* Conditionally render sales chart */}
-          {showSalesChart && (
-            <div className="p-3 sm:p-5 pt-0 sm:pt-0 border-t border-gray-100 dark:border-gray-700">
-              {/* Mobile time selector */}
-              <div className="flex sm:hidden items-center justify-center mb-4">
-                <div className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-700 rounded-md p-1">
-                  <button 
-                    onClick={() => handleSalesPeriodChange('7d')} 
-                    className={`px-3 py-1 text-xs rounded ${salesPeriod === '7d' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-                  >
-                    7D
-                  </button>
-                  <button 
-                    onClick={() => handleSalesPeriodChange('14d')} 
-                    className={`px-3 py-1 text-xs rounded ${salesPeriod === '14d' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-                  >
-                    14D
-                  </button>
-                  <button 
-                    onClick={() => handleSalesPeriodChange('30d')} 
-                    className={`px-3 py-1 text-xs rounded ${salesPeriod === '30d' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-                  >
-                    30D
-                  </button>
+        {/* Stats Grid - Completely Redesigned */}
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Balance Card - Hero Style */}
+            <div className="lg:col-span-2 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl">
+              <div className="absolute top-4 right-4">
+                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <Award className="w-6 h-6 text-white" />
                 </div>
               </div>
               
-              {/* Key sales metrics for the selected period */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/30 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">Total Sales</p>
-                  <div className="flex items-end justify-between">
-                    <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatCurrency(stats.todayRevenue * (salesPeriod === '7d' ? 7 : salesPeriod === '14d' ? 14 : 30))}</span>
-                    <div className="flex items-center text-green-500 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      <span>12%</span>
-                    </div>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <CreditCard className="w-8 h-8 text-white" strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-white/80 text-lg font-medium">Account Balance</p>
+                    <p className="text-white text-sm">Available funds</p>
                   </div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Orders</p>
-                  <div className="flex items-end justify-between">
-                    <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{stats.todayOrders * (salesPeriod === '7d' ? 7 : salesPeriod === '14d' ? 14 : 30)}</span>
-                    <div className="flex items-center text-green-500 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      <span>8%</span>
-                    </div>
+                <div className="space-y-2">
+                  <div className="text-4xl font-black text-white">
+                    {animateStats ? 
+                      <CurrencyCounter value={stats.balance} duration={1500} /> : 
+                      formatCurrency(0)
+                    }
                   </div>
-                </div>
-                
-                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                  <p className="text-xs text-green-600 dark:text-green-400 mb-1">GB Sold</p>
-                  <div className="flex items-end justify-between">
-                    <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{(stats.todayGbSold * (salesPeriod === '7d' ? 7 : salesPeriod === '14d' ? 14 : 30)).toFixed(1)} GB</span>
-                    <div className="flex items-center text-green-500 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      <span>15%</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">Avg Order Value</p>
-                  <div className="flex items-end justify-between">
-                    <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatCurrency(stats.todayRevenue / (stats.todayOrders || 1))}</span>
-                    <div className="flex items-center text-red-500 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1" transform="rotate(180)" />
-                      <span>3%</span>
-                    </div>
-                  </div>
+                  <button
+                    onClick={navigateToTopup}
+                    className="inline-flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-xl border border-white/30 transition-all duration-300 transform hover:scale-105"
+                  >
+                    <PlusCircle className="w-5 h-5" />
+                    <span>Add Funds</span>
+                  </button>
                 </div>
               </div>
-              
-              {/* The actual sales chart component */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                <DailySalesChart timeRange={salesPeriod === '7d' ? 7 : salesPeriod === '14d' ? 14 : 30} />
-              </div>
-              
-              {/* Last updated info */}
-              <div className="mt-3 flex justify-end items-center text-xs text-gray-500 dark:text-gray-400">
-                <Clock className="h-3 w-3 mr-1" />
-                <span>Last updated: {new Date().toLocaleTimeString()}</span>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Quick Order Buttons */}
-        <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-          <div className="h-1 sm:h-2 bg-gradient-to-r from-yellow-400 via-red-500 to-blue-600"></div>
-          <div className="p-3 sm:p-5">
-            <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 sm:mb-4">Place New Order</h2>
-            <div className="grid grid-cols-4 gap-2 sm:gap-4">
-              {/* MTN Button */}
-              <button 
-                onClick={() => navigateToNetwork('mtn')}
-                className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 transform hover:scale-105"
-                style={{ backgroundColor: `${mtnYellow}20` }}
-              >
-                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-yellow-400 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
-                  <span className="text-white font-bold text-xs sm:text-xl">MTN</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">MTN Data</span>
-              </button>
-              
-              {/* AirtelTigo Button */}
-              <button 
-                onClick={() => navigateToNetwork('airteltigo')}
-                className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 transform hover:scale-105"
-                style={{ backgroundColor: `${airtelTigoBlue}10` }}
-              >
-                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-blue-700 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
-                  <span className="text-white font-bold text-xs sm:text-lg">ATigo</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">ATigo Data</span>
-              </button>
-              
-              {/* Telecel Button */}
-              <button 
-                onClick={() => navigateToNetwork('telecel')}
-                className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 transform hover:scale-105"
-                style={{ backgroundColor: `${telecelRed}10` }}
-              >
-                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-red-600 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
-                  <span className="text-white font-bold text-xs sm:text-xl">Tel</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Telecel Data</span>
-              </button>
-              
-              {/* Foreign Number Verification - NEW BUTTON */}
-              <button 
-                onClick={navigateToVerificationServices}
-                className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 transform hover:scale-105"
-                style={{ backgroundColor: `rgba(75, 85, 99, 0.1)` }} // Gray background
-              >
-                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
-                  <Globe className="text-white w-4 h-4 sm:w-8 sm:h-8" />
-                </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Foreign Number</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Key Stats - Yellow Background Style */}
-        <div className="mb-4 sm:mb-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-lg p-3 sm:p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
-            {/* Balance */}
-            <div className="text-center">
-              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
-                <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
-              </div>
-              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">Balance</div>
-              <div className="text-sm sm:text-xl font-bold text-gray-900">
-                {animateStats ? 
-                  <CurrencyCounter value={stats.balance} duration={1500} /> : 
-                  formatCurrency(0)
-                }
-              </div>
-              <button
-                onClick={navigateToTopup}
-                className="mt-1 sm:mt-2 text-xs font-medium px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-gray-800 text-yellow-400 hover:bg-gray-700 transition-colors duration-300"
-              >
-                Deposit
-              </button>
             </div>
 
             {/* Orders Today */}
-            <div className="text-center">
-              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
-                <Package className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
-              </div>
-              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">Orders Today</div>
-              <div className="text-sm sm:text-xl font-bold text-gray-900">
-                {animateStats ? 
-                  <AnimatedCounter value={stats.todayOrders} duration={1200} /> : 
-                  "0"
-                }
-              </div>
-            </div>
-
-            {/* GB Sold Today */}
-            <div className="text-center">
-              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
-                <Database className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
-              </div>
-              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">GB Sold Today</div>
-              <div className="text-sm sm:text-xl font-bold text-gray-900">
-                {animateStats ? 
-                  <AnimatedCounter value={stats.todayGbSold} duration={1350} suffix=" GB" decimals={1} /> : 
-                  "0 GB"
-                }
+            <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-6 border border-white/20 relative overflow-hidden">
+              <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-400/20 blur-xl"></div>
+              
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-black text-white">
+                      {animateStats ? 
+                        <AnimatedCounter value={stats.todayOrders} duration={1200} /> : 
+                        "0"
+                      }
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-white font-bold text-lg">Orders Today</p>
+                  <p className="text-white/70 text-sm">Active transactions</p>
+                </div>
               </div>
             </div>
 
             {/* Revenue Today */}
-            <div className="text-center">
-              <div className="bg-gray-800 p-2 sm:p-3 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-400" />
-              </div>
-              <div className="text-gray-800 font-medium mb-1 text-xs sm:text-sm">Revenue Today</div>
-              <div className="text-sm sm:text-xl font-bold text-gray-900">
-                {animateStats ? 
-                  <CurrencyCounter value={stats.todayRevenue} duration={1500} /> : 
-                  formatCurrency(0)
-                }
+            <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-6 border border-white/20 relative overflow-hidden">
+              <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 blur-xl"></div>
+              
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-white">
+                      {animateStats ? 
+                        <CurrencyCounter value={stats.todayRevenue} duration={1500} /> : 
+                        formatCurrency(0)
+                      }
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-white font-bold text-lg">Revenue Today</p>
+                  <p className="text-white/70 text-sm">Total earnings</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        
-        {/* Deposit Notification */}
-        <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border-l-4 hover:shadow-lg transition-shadow duration-300" style={{ borderLeftColor: "#ffcc00" }}>
-          <div className="p-2 sm:p-4 flex items-start">
-            <div className="flex-shrink-0 pt-0.5">
-              <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+
+        {/* Network Selection - Card Grid Design */}
+        <div className="mb-8">
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/20">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-white">Quick Order</h2>
+                <p className="text-white/70">Choose your network and start hustling</p>
+              </div>
             </div>
-            <div className="ml-2 sm:ml-3 w-full">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xs sm:text-md font-medium text-gray-900 dark:text-gray-100">Add Funds to Your Account</h3>
-              </div>
-              <div className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                <p>
-                  Need more credits? Deposit money into your account.
-                </p>
-              </div>
-              <div className="mt-2 sm:mt-3">
-                <button
-                  onClick={navigateToTopup}
-                  className="inline-flex items-center px-2 py-1 sm:px-3 sm:py-1.5 border border-transparent text-xs font-medium rounded-md text-white hover:bg-yellow-500 transition-colors duration-300"
-                  style={{ backgroundColor: "#ffcc00" }}
+            
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* MTN */}
+              <button 
+                onClick={() => navigateToNetwork('mtn')}
+                className="group bg-gradient-to-br from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 rounded-2xl p-6 transition-all duration-300 transform hover:scale-105 shadow-xl relative overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 w-16 h-16 rounded-full bg-white/20 blur-xl"></div>
+                <div className="relative z-10 text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-lg font-black text-white">MTN</span>
+                  </div>
+                  <div>
+                    <p className="text-white font-bold">MTN Data</p>
+                    <p className="text-white/80 text-sm">Fastest network</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* AirtelTigo */}
+              <button 
+                onClick={() => navigateToNetwork('airteltigo')}
+                className="group bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 rounded-2xl p-6 transition-all duration-300 transform hover:scale-105 shadow-xl relative overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 w-16 h-16 rounded-full bg-white/20 blur-xl"></div>
+                <div className="relative z-10 text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-sm font-black text-white">ATigo</span>
+                  </div>
+                  <div>
+                    <p className="text-white font-bold">AirtelTigo</p>
+                    <p className="text-white/80 text-sm">Reliable choice</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Telecel */}
+              <button 
+                onClick={() => navigateToNetwork('telecel')}
+                className="group bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 rounded-2xl p-6 transition-all duration-300 transform hover:scale-105 shadow-xl relative overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 w-16 h-16 rounded-full bg-white/20 blur-xl"></div>
+                <div className="relative z-10 text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-lg font-black text-white">TEL</span>
+                  </div>
+                  <div>
+                    <p className="text-white font-bold">Telecel</p>
+                    <p className="text-white/80 text-sm">Growing strong</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Foreign Numbers */}
+              <button 
+                onClick={navigateToVerificationServices}
+                className="group bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 rounded-2xl p-6 transition-all duration-300 transform hover:scale-105 shadow-xl relative overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 w-16 h-16 rounded-full bg-white/20 blur-xl"></div>
+                <div className="relative z-10 text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Globe className="w-6 h-6 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold">Global</p>
+                    <p className="text-white/80 text-sm">Worldwide reach</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity - Modern Table */}
+        <div className="mb-8">
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden">
+            <div className="p-8 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-white">Recent Activity</h2>
+                    <p className="text-white/70">Your latest transactions</p>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={ViewAll}
+                  className="group flex items-center space-x-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-xl border border-white/20 transition-all duration-300 transform hover:scale-105"
                 >
-                  Deposit Now
+                  <span>View All</span>
+                  <ArrowUpRight className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Recent Transactions */}
-        <div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-          <div className="h-1 sm:h-2" style={{ backgroundColor: mtnYellow }}></div>
-          <div className="p-3 sm:p-5">
-            <div className="flex items-center justify-between mb-2 sm:mb-4">
-              <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100">Recent Transactions</h2>
-              <button className="text-xs sm:text-sm hover:text-yellow-600 dark:hover:text-yellow-400 font-medium flex items-center transition-colors duration-300" style={{ color: mtnYellow }} onClick={ViewAll}>
-                View All 
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-            <div className="overflow-x-auto -mx-3 sm:mx-0">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Phone #
-                    </th>
-                    <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Method
-                    </th>
-                    <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Time
-                    </th>
-                    <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Net
-                    </th>
-                    <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Data
-                    </th>
-                    <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Amt
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {stats.recentTransactions.length > 0 ? (
-                    stats.recentTransactions.map((transaction) => (
-                      <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{transaction.customer}</div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{transaction.method}</div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{transaction.time}</div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                            {transaction.network === 'YELLO' ? 'MTN' : 
-                             transaction.network === 'AT_PREMIUM' || transaction.network === 'airteltigo' || transaction.network === 'at' ? 'AT' : 
-                             transaction.network === 'TELECEL' ? 'Tel' : 
-                             transaction.network}
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">{transaction.gb}GB</div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{formatCurrency(transaction.amount)}</div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="px-2 sm:px-4 py-2 sm:py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                        No transactions today
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            
+            <div className="p-8">
+              {stats.recentTransactions.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.recentTransactions.map((transaction, index) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                          <Database className="w-5 h-5 text-white" strokeWidth={2} />
+                        </div>
+                        <div>
+                          <p className="text-white font-bold">{transaction.customer}</p>
+                          <p className="text-white/70 text-sm">{transaction.gb}GB • {transaction.method}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <p className="text-white font-bold">{formatCurrency(transaction.amount)}</p>
+                        <p className="text-white/70 text-sm">{transaction.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-white/10 flex items-center justify-center mb-4">
+                    <Database className="w-6 h-6 text-white/50" />
+                  </div>
+                  <p className="text-white/70 text-lg font-medium">No transactions yet</p>
+                  <p className="text-white/50">Start your hustle journey!</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-          <div className="h-1 sm:h-2" style={{ backgroundColor: mtnYellow }}></div>
-          <div className="p-3 sm:p-5">
-            <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 sm:mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 sm:gap-4">
-              <button 
-                onClick={() => router.push('/datamart')}
-                className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md" 
-                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
-                <Package className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">New Order</span>
-              </button>
-              <button 
-                onClick={() => router.push('/reports')}
-                className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
-                <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Reports</span>
-              </button>
-              <button 
-                onClick={() => router.push('/orders')}
-                className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
-                <Database className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Data</span>
-              </button>
-
-              <button 
-                onClick={() => router.push('/topup')}
-                className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
-                <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Credit</span>
-              </button>
-              <button 
-                onClick={navigateToTransactions}
-                className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `${mtnYellow}20`, color: mtnYellow }}>
-                <AlertCircle className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Trans</span>
-              </button>
-              <button 
-                onClick={navigateToVerificationServices}
-                className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `rgba(124, 58, 237, 0.1)`, color: '#7c3aed' }}>
-                <Globe className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Foreign</span>
-              </button>
-            </div>
-          </div>
+        {/* Quick Actions - Floating Action Grid */}
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
+          {[
+            { icon: Package, label: 'New Order', path: '/datamart', color: 'from-emerald-400 to-teal-500' },
+            { icon: BarChart2, label: 'Analytics', path: '/reports', color: 'from-blue-400 to-indigo-500' },
+            { icon: Clock, label: 'History', path: '/orders', color: 'from-purple-400 to-pink-500' },
+            { icon: CreditCard, label: 'Top Up', onClick: navigateToTopup, color: 'from-yellow-400 to-orange-500' },
+            { icon: AlertCircle, label: 'Support', path: '/support', color: 'from-red-400 to-red-500' },
+            { icon: User, label: 'Profile', path: '/profile', color: 'from-gray-400 to-gray-500' }
+          ].map((action, index) => (
+            <button
+              key={index}
+              onClick={action.onClick || (() => router.push(action.path))}
+              className={`group bg-gradient-to-br ${action.color} hover:scale-105 rounded-2xl p-6 transition-all duration-300 transform shadow-xl relative overflow-hidden`}
+            >
+              <div className="absolute -top-2 -right-2 w-12 h-12 rounded-full bg-white/20 blur-lg"></div>
+              <div className="relative z-10 text-center space-y-2">
+                <action.icon className="w-6 h-6 text-white mx-auto group-hover:scale-110 transition-transform" strokeWidth={2} />
+                <p className="text-white font-bold text-sm">{action.label}</p>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>
