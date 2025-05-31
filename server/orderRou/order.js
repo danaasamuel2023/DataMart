@@ -59,7 +59,7 @@ router.get('/agent-balance', async (req, res) => {
 
 // Purchase Data Bundle with Inventory Check
 const TELECEL_API_URL = 'https://iget.onrender.com/api/developer/orders/place';
-const TELECEL_API_KEY = '2c48c4d2d728194d9ca739228807629794ef869cb81900f40a34099156e97911';
+const TELECEL_API_KEY = '4cb6763274e86173d2c22c120493ca67b6185039f826f4aa43bb3057db50f858';
 
 // Helper function for Telecel API integration - can be placed at the top of your router file
 async function processTelecelOrder(recipient, capacity, reference) {
@@ -166,6 +166,7 @@ async function checkTelecelOrderStatus(reference) {
 // Modified purchase-data route with simplified error handling
 // Modified purchase-data route with direct error handling
 // Complete updated purchase-data route with clean error handling
+// Updated purchase-data route with skipGeonettech integration
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -243,13 +244,14 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
-    // Check if the network is in stock
+    // Get the inventory record (we'll use it to check both inStock and skipGeonettech)
     const inventory = await DataInventory.findOne({ network }).session(session);
     
     logOperation('DATA_INVENTORY_CHECK', {
       network,
       inventoryFound: !!inventory,
-      inStock: inventory ? inventory.inStock : false
+      inStock: inventory ? inventory.inStock : false,
+      skipGeonettech: inventory ? inventory.skipGeonettech : false
     });
     
     // If inventory doesn't exist or inStock is false, return error immediately
@@ -272,12 +274,25 @@ router.post('/purchase-data', async (req, res) => {
     const transactionReference = `TRX-${uuidv4()}`;
     const orderReference = Math.floor(1000 + Math.random() * 900000).toString();
 
-    // PROCESSING SECTION - INVENTORY IS IN STOCK
+    // PROCESSING SECTION
     let orderResponse = null;
     let apiOrderId = null;
+    let orderStatus = 'completed'; // Default status
     
-    // If network is TELECEL, use direct Telecel API integration
+    // Check if we should skip Geonettech API (from inventory state)
+    const shouldSkipGeonet = inventory.skipGeonettech && (network !== 'TELECEL');
+    
+    logOperation('API_PROCESSING_DECISION', {
+      network,
+      skipGeonettech: inventory.skipGeonettech,
+      shouldSkipGeonet,
+      reason: shouldSkipGeonet 
+        ? 'Geonettech API disabled for this network' 
+        : 'Normal API processing'
+    });
+    
     if (network === 'TELECEL') {
+      // Always use Telecel API for Telecel network (never skip)
       logOperation('USING_TELECEL_API', {
         network,
         phoneNumber,
@@ -285,7 +300,7 @@ router.post('/purchase-data', async (req, res) => {
         orderReference
       });
       
-      // Try to process the Telecel order but don't suppress errors
+      // Try to process the Telecel order
       try {
         const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
         
@@ -302,12 +317,10 @@ router.post('/purchase-data', async (req, res) => {
           // Extract the exact error message from Telecel if available
           let errorMessage = 'Could not complete your purchase. Please try again later.';
           
-          // Use the exact message from the API if available
           if (telecelResponse.error && telecelResponse.error.message) {
             errorMessage = telecelResponse.error.message;
           }
           
-          // If there's a more specific message in the details, use that
           if (telecelResponse.error && telecelResponse.error.details && 
               typeof telecelResponse.error.details === 'object' && 
               telecelResponse.error.details.message) {
@@ -322,6 +335,7 @@ router.post('/purchase-data', async (req, res) => {
         
         // If we got here, the API call succeeded
         orderResponse = telecelResponse.data;
+        orderStatus = 'completed';
         
         // Extract order ID if available
         if (telecelResponse.data && 
@@ -338,7 +352,6 @@ router.post('/purchase-data', async (req, res) => {
           orderReference
         });
       } catch (telecelError) {
-        // Log the error and abort transaction
         logOperation('TELECEL_API_EXCEPTION', {
           error: telecelError.message,
           stack: telecelError.stack,
@@ -353,9 +366,26 @@ router.post('/purchase-data', async (req, res) => {
           message: 'Unable to process your order. Please try again later.'
         });
       }
-    } 
-    // For all other networks, use Geonettech API
-    else {
+    } else if (shouldSkipGeonet) {
+      // Skip Geonettech API - store as pending
+      logOperation('SKIPPING_GEONETTECH_API', {
+        network,
+        phoneNumber,
+        capacity,
+        orderReference,
+        reason: 'Geonettech API disabled for this network'
+      });
+      
+      orderStatus = 'pending';
+      apiOrderId = orderReference;
+      orderResponse = {
+        status: 'pending',
+        message: 'Order stored as pending - Geonettech API disabled',
+        reference: orderReference,
+        skipReason: 'API disabled for network'
+      };
+    } else {
+      // For all other networks, use Geonettech API normally
       try {
         // Place order with Geonettech
         const geonetOrderPayload = {
@@ -406,6 +436,7 @@ router.post('/purchase-data', async (req, res) => {
           }
           
           apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+          orderStatus = 'completed';
           
           logOperation('GEONETTECH_ORDER_SUCCESS', {
             orderId: apiOrderId,
@@ -452,18 +483,18 @@ router.post('/purchase-data', async (req, res) => {
       }
     }
 
-    // If we've made it this far, create the transaction records
+    // Create transaction records (regardless of API call status)
     // Create Transaction
     const transaction = new Transaction({
       userId,
       type: 'purchase',
       amount: price,
-      status: 'completed',
+      status: 'completed', // Transaction is always completed (money deducted)
       reference: transactionReference,
       gateway: 'wallet'
     });
 
-    // Create Data Purchase - Only created if API calls succeeded
+    // Create Data Purchase with appropriate status
     const dataPurchase = new DataPurchase({
       userId,
       phoneNumber,
@@ -472,13 +503,14 @@ router.post('/purchase-data', async (req, res) => {
       gateway: 'wallet',
       method: 'web',
       price,
-      status: 'completed',
+      status: orderStatus, // This will be 'pending' when skipGeonettech=true or 'completed' for successful API calls
       geonetReference: orderReference,
       apiOrderId: apiOrderId,
-      apiResponse: orderResponse
+      apiResponse: orderResponse,
+      skipGeonettech: shouldSkipGeonet // Track if Geonettech API was skipped
     });
 
-    // Update user wallet
+    // Update user wallet (always deduct money)
     const previousBalance = user.walletBalance;
     user.walletBalance -= price;
 
@@ -491,13 +523,29 @@ router.post('/purchase-data', async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Prepare response message based on order status
+    let responseMessage = 'Data bundle purchased successfully';
+    if (orderStatus === 'pending') {
+      responseMessage = 'Order placed successfully and is pending processing';
+    }
+
+    logOperation('DATA_PURCHASE_SUCCESS', {
+      userId,
+      orderStatus,
+      orderReference,
+      skipGeonettech: shouldSkipGeonet,
+      newWalletBalance: user.walletBalance
+    });
+
     res.status(201).json({
       status: 'success',
-      message: 'Data bundle purchased successfully',
+      message: responseMessage,
       data: {
         transaction,
         dataPurchase,
-        newWalletBalance: user.walletBalance
+        newWalletBalance: user.walletBalance,
+        orderStatus: orderStatus,
+        skipGeonettech: shouldSkipGeonet
       }
     });
 

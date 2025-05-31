@@ -156,6 +156,7 @@ const ReferralBonusSchema = new mongoose.Schema({
 const DataInventorySchema = new mongoose.Schema({
   network: { type: String, enum: ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at","waiting"], required: true },
   inStock: { type: Boolean, default: true },
+  skipGeonettech: { type: Boolean, default: false },
   updatedAt: { type: Date, default: Date.now }
 });
 

@@ -832,7 +832,7 @@ const DataPurchaseSchema = new mongoose.Schema({
 });
 */
 
-router.put('/inventory/:network/toggle',auth, adminAuth, async (req, res) => {
+router.put('/inventory/:network/toggle', auth, adminAuth, async (req, res) => {
   try {
     const { network } = req.params;
     
@@ -843,7 +843,8 @@ router.put('/inventory/:network/toggle',auth, adminAuth, async (req, res) => {
       // Create new inventory item if it doesn't exist
       inventoryItem = new DataInventory({
         network,
-        inStock: false // Set to false since we're toggling from non-existent (assumed true)
+        inStock: false, // Set to false since we're toggling from non-existent (assumed true)
+        skipGeonettech: false // Add default value
       });
     } else {
       // Toggle existing item
@@ -856,6 +857,7 @@ router.put('/inventory/:network/toggle',auth, adminAuth, async (req, res) => {
     res.json({ 
       network: inventoryItem.network, 
       inStock: inventoryItem.inStock,
+      skipGeonettech: inventoryItem.skipGeonettech || false,
       message: `${network} is now ${inventoryItem.inStock ? 'in stock' : 'out of stock'}`
     });
   } catch (err) {
@@ -865,34 +867,114 @@ router.put('/inventory/:network/toggle',auth, adminAuth, async (req, res) => {
 });
 
 /**
- * @route   GET /api/check-availability
- * @desc    Check network availability
- * @access  Public
+ * @route   PUT /api/admin/inventory/:network/toggle-geonettech
+ * @desc    Toggle Geonettech API for specific network
+ * @access  Admin
  */
-router.get('/check-availability', async (req, res) => {
+router.put('/inventory/:network/toggle-geonettech', auth, adminAuth, async (req, res) => {
   try {
-    const { network } = req.query;
+    const { network } = req.params;
     
-    if (!network) {
-      return res.status(400).json({ msg: 'Please provide network name' });
+    // Find the inventory item
+    let inventoryItem = await DataInventory.findOne({ network });
+    
+    if (!inventoryItem) {
+      // Create new inventory item if it doesn't exist
+      inventoryItem = new DataInventory({
+        network,
+        inStock: true, // Default to in stock
+        skipGeonettech: true // Set to true since we're toggling from non-existent (assumed false)
+      });
+    } else {
+      // Toggle existing item
+      inventoryItem.skipGeonettech = !inventoryItem.skipGeonettech;
+      inventoryItem.updatedAt = Date.now();
     }
+    
+    await inventoryItem.save();
+    
+    res.json({ 
+      network: inventoryItem.network, 
+      inStock: inventoryItem.inStock,
+      skipGeonettech: inventoryItem.skipGeonettech,
+      message: `${network} Geonettech API is now ${inventoryItem.skipGeonettech ? 'disabled (orders will be pending)' : 'enabled (orders will be processed)'}`
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   GET /api/admin/inventory
+ * @desc    Get all inventory items with current status
+ * @access  Admin
+ */
+router.get('/inventory', auth, adminAuth, async (req, res) => {
+  try {
+    const inventoryItems = await DataInventory.find({}).sort({ network: 1 });
+    
+    // Predefined networks
+    const NETWORKS = ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at"];
+    
+    // Create response with all networks (create missing ones with defaults)
+    const inventory = NETWORKS.map(network => {
+      const existingItem = inventoryItems.find(item => item.network === network);
+      
+      if (existingItem) {
+        return {
+          network: existingItem.network,
+          inStock: existingItem.inStock,
+          skipGeonettech: existingItem.skipGeonettech || false,
+          updatedAt: existingItem.updatedAt
+        };
+      } else {
+        return {
+          network,
+          inStock: true, // Default to in stock
+          skipGeonettech: false, // Default to API enabled
+          updatedAt: null
+        };
+      }
+    });
+    
+    res.json({
+      inventory,
+      totalNetworks: NETWORKS.length
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   GET /api/admin/inventory/:network
+ * @desc    Get specific network inventory status
+ * @access  Admin
+ */
+router.get('/inventory/:network', auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
     
     const inventoryItem = await DataInventory.findOne({ network });
     
-    // If network doesn't exist in inventory or is marked as out of stock
-    if (!inventoryItem || !inventoryItem.inStock) {
-      return res.json({ 
-        available: false, 
-        message: `${network} data is currently out of stock` 
+    if (!inventoryItem) {
+      return res.json({
+        network,
+        inStock: true, // Default to in stock
+        skipGeonettech: false, // Default to API enabled
+        updatedAt: null,
+        message: 'Network not found in inventory - showing defaults'
       });
     }
     
-    // Network is available
-    return res.json({ 
-      available: true,
-      message: `${network} data is available for purchase` 
+    res.json({
+      network: inventoryItem.network,
+      inStock: inventoryItem.inStock,
+      skipGeonettech: inventoryItem.skipGeonettech || false,
+      updatedAt: inventoryItem.updatedAt
     });
-    
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
