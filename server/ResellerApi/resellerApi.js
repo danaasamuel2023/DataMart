@@ -23,7 +23,7 @@ const GEONETTECH_API_KEY = process.env.GEONETTECH_API_KEY || '21|rkrw7bcoGYjK8ir
 
 // Add Telcel API constants
 const TELCEL_API_URL = 'https://iget.onrender.com/api/developer/orders';
-const TELCEL_API_KEY = '81cb1be46668065749842afd717683fb6acf6ebed91a9911b0451de7af378807';
+const TELCEL_API_KEY = 'b7975f5ce918b4a253a9c227f651339555094eaee8696ae168e195d09f74617f';
 
 // Create Geonettech client
 const geonetClient = axios.create({
