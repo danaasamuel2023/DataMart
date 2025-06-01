@@ -62,7 +62,7 @@ export default function OrderManagementPage() {
     network: '',
     startDate: '',
     endDate: '',
-    limit: 20,
+    limit: 2000,
     todayOnly: false
   });
   
