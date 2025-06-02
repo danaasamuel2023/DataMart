@@ -1331,9 +1331,23 @@ router.put('/users/:id/toggle-status', auth, adminAuth, async (req, res) => {
   }
 });
 
+// Enhanced daily summary route with FIXED balance calculation
 router.get('/daily-summary', auth, adminAuth, async (req, res) => {
   try {
-    const { date = new Date().toISOString().split('T')[0] } = req.query;
+    const { 
+      date = new Date().toISOString().split('T')[0],
+      // Transaction search parameters
+      search = '',
+      phoneNumber = '',
+      email = '',
+      reference = '',
+      gateway = '',
+      transactionType = '',
+      transactionStatus = '',
+      userId = '',
+      transactionPage = 1,
+      transactionLimit = 20
+    } = req.query;
     
     // Create date range for the specified date (full day)
     const startDate = new Date(date);
@@ -1348,6 +1362,8 @@ router.get('/daily-summary', auth, adminAuth, async (req, res) => {
       }
     };
     
+    // === DATA PURCHASE ANALYTICS ===
+    
     // Get total orders for the day
     const totalOrders = await DataPurchase.countDocuments(dateFilter);
     
@@ -1357,13 +1373,6 @@ router.get('/daily-summary', auth, adminAuth, async (req, res) => {
       { $group: { _id: null, totalRevenue: { $sum: '$price' } } }
     ]);
     const totalRevenue = revenueAgg.length > 0 ? revenueAgg[0].totalRevenue : 0;
-    
-    // Get total deposits
-    const depositsAgg = await Transaction.aggregate([
-      { $match: { ...dateFilter, type: 'deposit', status: 'completed' } },
-      { $group: { _id: null, totalDeposits: { $sum: '$amount' } } }
-    ]);
-    const totalDeposits = depositsAgg.length > 0 ? depositsAgg[0].totalDeposits : 0;
     
     // Get total data capacity sold for each network & capacity
     const capacityByNetworkAgg = await DataPurchase.aggregate([
@@ -1429,39 +1438,526 @@ router.get('/daily-summary', auth, adminAuth, async (req, res) => {
       count: item.count
     }));
     
-    // Count unique customers for the day
+    // === DEPOSIT ANALYTICS ===
+    
+    // Get all completed deposits for the day
+    const depositFilter = {
+      ...dateFilter,
+      type: 'deposit',
+      status: 'completed'
+    };
+    
+    // Total deposits amount and count
+    const depositSummaryAgg = await Transaction.aggregate([
+      { $match: depositFilter },
+      { 
+        $group: { 
+          _id: null, 
+          totalDeposits: { $sum: '$amount' },
+          depositCount: { $sum: 1 },
+          averageDeposit: { $avg: '$amount' }
+        }
+      }
+    ]);
+    
+    const depositSummary = depositSummaryAgg.length > 0 ? depositSummaryAgg[0] : {
+      totalDeposits: 0,
+      depositCount: 0,
+      averageDeposit: 0
+    };
+    
+    // Deposits by gateway breakdown
+    const depositsByGatewayAgg = await Transaction.aggregate([
+      { $match: depositFilter },
+      { 
+        $group: { 
+          _id: '$gateway',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$amount' },
+          averageAmount: { $avg: '$amount' }
+        }
+      },
+      { $sort: { totalAmount: -1 } }
+    ]);
+    
+    const depositsByGateway = depositsByGatewayAgg.map(item => ({
+      gateway: item._id || 'unknown',
+      count: item.count,
+      totalAmount: item.totalAmount,
+      averageAmount: item.averageAmount
+    }));
+    
+    // Top depositors for the day with detailed breakdown
+    const topDepositorsAgg = await Transaction.aggregate([
+      { $match: depositFilter },
+      {
+        $group: {
+          _id: '$userId',
+          totalDeposited: { $sum: '$amount' },
+          depositCount: { $sum: 1 },
+          averageDeposit: { $avg: '$amount' },
+          firstDeposit: { $min: '$createdAt' },
+          lastDeposit: { $max: '$createdAt' },
+          deposits: {
+            $push: {
+              amount: '$amount',
+              gateway: '$gateway',
+              reference: '$reference',
+              createdAt: '$createdAt'
+            }
+          }
+        }
+      },
+      { $sort: { totalDeposited: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      { $unwind: '$userDetails' }
+    ]);
+    
+    const topDepositors = topDepositorsAgg.map(depositor => ({
+      userId: depositor._id,
+      name: depositor.userDetails.name,
+      email: depositor.userDetails.email,
+      phoneNumber: depositor.userDetails.phoneNumber,
+      totalDeposited: depositor.totalDeposited,
+      depositCount: depositor.depositCount,
+      averageDeposit: depositor.averageDeposit,
+      firstDeposit: depositor.firstDeposit,
+      lastDeposit: depositor.lastDeposit,
+      deposits: depositor.deposits.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    }));
+    
+    // Recent deposits with user details
+    const recentDepositsAgg = await Transaction.aggregate([
+      { $match: depositFilter },
+      { $sort: { createdAt: -1 } },
+      { $limit: 15 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      { $unwind: '$userDetails' }
+    ]);
+    
+    const recentDeposits = recentDepositsAgg.map(deposit => ({
+      id: deposit._id,
+      amount: deposit.amount,
+      gateway: deposit.gateway,
+      reference: deposit.reference,
+      createdAt: deposit.createdAt,
+      user: {
+        id: deposit.userDetails._id,
+        name: deposit.userDetails.name,
+        email: deposit.userDetails.email,
+        phoneNumber: deposit.userDetails.phoneNumber
+      }
+    }));
+    
+    // Hourly deposit pattern for business insights
+    const hourlyDepositPattern = await Transaction.aggregate([
+      { $match: depositFilter },
+      {
+        $group: {
+          _id: { $hour: '$createdAt' },
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+    
+    const depositHours = hourlyDepositPattern.map(hour => ({
+      hour: hour._id,
+      count: hour.count,
+      amount: hour.totalAmount
+    }));
+    
+    // Deposit size distribution for insights
+    const depositSizeDistribution = await Transaction.aggregate([
+      { $match: depositFilter },
+      {
+        $bucket: {
+          groupBy: '$amount',
+          boundaries: [0, 10, 25, 50, 100, 200, 500, 1000, 5000],
+          default: 'Above 5000',
+          output: {
+            count: { $sum: 1 },
+            totalAmount: { $sum: '$amount' }
+          }
+        }
+      }
+    ]);
+    
+    // === CUSTOMER ANALYTICS ===
+    
+    // Count unique customers for the day (from both deposits and purchases)
     const uniqueCustomersAgg = await DataPurchase.aggregate([
       { $match: dateFilter },
       { $group: { _id: '$userId' } },
       { $count: 'uniqueCustomers' }
     ]);
-    const uniqueCustomers = uniqueCustomersAgg.length > 0 ? uniqueCustomersAgg[0].uniqueCustomers : 0;
     
-    // Compile the complete response
+    const uniqueCustomersFromDeposits = await Transaction.aggregate([
+      { $match: depositFilter },
+      { $group: { _id: '$userId' } },
+      { $count: 'uniqueDepositors' }
+    ]);
+    
+    const uniqueCustomers = uniqueCustomersAgg.length > 0 ? uniqueCustomersAgg[0].uniqueCustomers : 0;
+    const uniqueDepositors = uniqueCustomersFromDeposits.length > 0 ? uniqueCustomersFromDeposits[0].uniqueDepositors : 0;
+    
+    // === COMPREHENSIVE TRANSACTION SEARCH & MANAGEMENT ===
+    
+    // Build transaction search pipeline
+    const transactionPipeline = [];
+    
+    // Base match for transactions (all transactions, not just daily ones for search)
+    const transactionMatchConditions = {};
+    
+    // Apply search filters
+    if (transactionType) transactionMatchConditions.type = transactionType;
+    if (transactionStatus) transactionMatchConditions.status = transactionStatus;
+    if (gateway) transactionMatchConditions.gateway = gateway;
+    if (reference) transactionMatchConditions.reference = { $regex: reference, $options: 'i' };
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      transactionMatchConditions.userId = mongoose.Types.ObjectId(userId);
+    }
+    
+    // If no specific search, limit to today's transactions
+    if (!search && !phoneNumber && !email && !reference && !userId && !transactionType && !gateway) {
+      transactionMatchConditions.createdAt = {
+        $gte: startDate,
+        $lt: endDate
+      };
+    }
+    
+    // Add base match
+    if (Object.keys(transactionMatchConditions).length > 0) {
+      transactionPipeline.push({ $match: transactionMatchConditions });
+    }
+    
+    // Lookup user details for transactions
+    transactionPipeline.push({
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'userDetails'
+      }
+    });
+    
+    transactionPipeline.push({ $unwind: '$userDetails' });
+    
+    // Additional user-based filtering
+    const userMatchConditions = {};
+    if (phoneNumber) {
+      userMatchConditions['userDetails.phoneNumber'] = { $regex: phoneNumber, $options: 'i' };
+    }
+    if (email) {
+      userMatchConditions['userDetails.email'] = { $regex: email, $options: 'i' };
+    }
+    if (search) {
+      userMatchConditions.$or = [
+        { 'userDetails.name': { $regex: search, $options: 'i' } },
+        { 'userDetails.email': { $regex: search, $options: 'i' } },
+        { 'userDetails.phoneNumber': { $regex: search, $options: 'i' } },
+        { reference: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (Object.keys(userMatchConditions).length > 0) {
+      transactionPipeline.push({ $match: userMatchConditions });
+    }
+    
+    // FIXED: Calculate balance after each transaction using a simpler, reliable method
+    transactionPipeline.push({
+      $lookup: {
+        from: 'transactions',
+        let: { 
+          currentUserId: '$userId', 
+          currentDate: '$createdAt'
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$userId', '$currentUserId'] },
+                  { $lte: ['$createdAt', '$currentDate'] },
+                  { $eq: ['$status', 'completed'] }
+                ]
+              }
+            }
+          },
+          {
+            $addFields: {
+              transactionValue: {
+                $cond: [
+                  { $in: ['$type', ['deposit', 'refund', 'bonus']] },
+                  '$amount',
+                  { $multiply: ['$amount', -1] }
+                ]
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalBalance: { $sum: '$transactionValue' }
+            }
+          }
+        ],
+        as: 'balanceData'
+      }
+    });
+    
+    // Add balance field with proper fallback
+    transactionPipeline.push({
+      $addFields: {
+        balanceAfterTransaction: {
+          $ifNull: [
+            { $arrayElemAt: ['$balanceData.totalBalance', 0] },
+            0
+          ]
+        }
+      }
+    });
+    
+    // Clean up the lookup data
+    transactionPipeline.push({
+      $project: {
+        balanceData: 0
+      }
+    });
+    
+    // Sort transactions
+    transactionPipeline.push({
+      $sort: { createdAt: -1 }
+    });
+    
+    // Get total count for pagination
+    const totalTransactionsPipeline = [...transactionPipeline, { $count: 'total' }];
+    const totalTransactionsResult = await Transaction.aggregate(totalTransactionsPipeline);
+    const totalTransactions = totalTransactionsResult.length > 0 ? totalTransactionsResult[0].total : 0;
+    
+    // Add pagination to main pipeline
+    transactionPipeline.push(
+      { $skip: (parseInt(transactionPage) - 1) * parseInt(transactionLimit) },
+      { $limit: parseInt(transactionLimit) }
+    );
+    
+    // Execute transaction search
+    const searchedTransactions = await Transaction.aggregate(transactionPipeline);
+    
+    // Format transaction results
+    const formattedTransactions = searchedTransactions.map(transaction => ({
+      id: transaction._id,
+      reference: transaction.reference,
+      type: transaction.type,
+      amount: transaction.amount,
+      status: transaction.status,
+      gateway: transaction.gateway,
+      createdAt: transaction.createdAt,
+      balanceAfterTransaction: transaction.balanceAfterTransaction || 0,
+      user: {
+        id: transaction.userDetails._id,
+        name: transaction.userDetails.name,
+        email: transaction.userDetails.email,
+        phoneNumber: transaction.userDetails.phoneNumber,
+        currentWalletBalance: transaction.userDetails.walletBalance
+      },
+      metadata: transaction.metadata
+    }));
+    
+    // === PAYSTACK TRANSACTION VERIFICATION STATUS ===
+    
+    // Get all Paystack transactions from today for verification status
+    const paystackTransactions = await Transaction.find({
+      ...dateFilter,
+      gateway: 'paystack'
+    }).populate('userId', 'name email phoneNumber');
+    
+    const paystackSummary = {
+      total: paystackTransactions.length,
+      completed: paystackTransactions.filter(t => t.status === 'completed').length,
+      pending: paystackTransactions.filter(t => t.status === 'pending').length,
+      failed: paystackTransactions.filter(t => t.status === 'failed').length,
+      totalAmount: paystackTransactions
+        .filter(t => t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0)
+    };
+    
+    // === ADMIN TRANSACTIONS ===
+    
+    // Get all admin-initiated transactions for today
+    const adminTransactions = await Transaction.find({
+      ...dateFilter,
+      $or: [
+        { gateway: 'admin-deposit' },
+        { gateway: 'admin-deduction' },
+        { type: 'refund' }
+      ]
+    }).populate('userId', 'name email phoneNumber');
+    
+    const adminSummary = {
+      total: adminTransactions.length,
+      deposits: adminTransactions.filter(t => t.gateway === 'admin-deposit').length,
+      deductions: adminTransactions.filter(t => t.gateway === 'admin-deduction').length,
+      refunds: adminTransactions.filter(t => t.type === 'refund').length,
+      totalAdminDeposits: adminTransactions
+        .filter(t => t.gateway === 'admin-deposit')
+        .reduce((sum, t) => sum + t.amount, 0),
+      totalAdminDeductions: adminTransactions
+        .filter(t => t.gateway === 'admin-deduction')
+        .reduce((sum, t) => sum + t.amount, 0),
+      totalRefunds: adminTransactions
+        .filter(t => t.type === 'refund')
+        .reduce((sum, t) => sum + t.amount, 0)
+    };
+
+    // Customer behavior: users who both deposited and purchased
+    const activeCustomersAgg = await Transaction.aggregate([
+      { $match: depositFilter },
+      {
+        $lookup: {
+          from: 'datapurchases',
+          let: { userId: '$userId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$userId', '$$userId'] },
+                ...dateFilter
+              }
+            }
+          ],
+          as: 'purchases'
+        }
+      },
+      {
+        $match: {
+          'purchases.0': { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: '$userId',
+          totalDeposited: { $sum: '$amount' },
+          purchaseCount: { $first: { $size: '$purchases' } }
+        }
+      },
+      { $count: 'activeCustomers' }
+    ]);
+    
+    const activeCustomers = activeCustomersAgg.length > 0 ? activeCustomersAgg[0].activeCustomers : 0;
+    
+    // === BUSINESS INSIGHTS ===
+    
+    // Net cash flow (deposits - revenue from completed orders)
+    const netCashFlow = depositSummary.totalDeposits - totalRevenue;
+    
+    // Conversion rate (customers who purchased after depositing)
+    const conversionRate = uniqueDepositors > 0 ? (activeCustomers / uniqueDepositors) * 100 : 0;
+    
+    // Average transaction value per customer
+    const avgRevenuePerCustomer = uniqueCustomers > 0 ? totalRevenue / uniqueCustomers : 0;
+    const avgDepositPerCustomer = uniqueDepositors > 0 ? depositSummary.totalDeposits / uniqueDepositors : 0;
+    
+    // Compile the complete response with business analytics
     res.json({
       date,
       summary: {
+        // Core metrics
         totalOrders,
         totalRevenue,
-        totalDeposits,
+        totalDeposits: depositSummary.totalDeposits,
         totalCapacityGB: totalCapacity,
-        uniqueCustomers
+        uniqueCustomers,
+        
+        // Deposit metrics
+        depositCount: depositSummary.depositCount,
+        averageDeposit: depositSummary.averageDeposit,
+        uniqueDepositors,
+        
+        // Business insights
+        netCashFlow,
+        conversionRate,
+        avgRevenuePerCustomer,
+        avgDepositPerCustomer,
+        activeCustomers
       },
+      
+      // Existing data
       networkSummary,
       capacityDetails: capacityData,
-      statusSummary
+      statusSummary,
+      
+      // Enhanced deposit analytics
+      depositAnalytics: {
+        summary: depositSummary,
+        byGateway: depositsByGateway,
+        topDepositors,
+        recentDeposits,
+        hourlyPattern: depositHours,
+        sizeDistribution: depositSizeDistribution
+      },
+      
+      // Comprehensive transaction management
+      transactionManagement: {
+        searchResults: {
+          transactions: formattedTransactions,
+          totalTransactions,
+          currentPage: parseInt(transactionPage),
+          totalPages: Math.ceil(totalTransactions / parseInt(transactionLimit)),
+          hasNextPage: parseInt(transactionPage) < Math.ceil(totalTransactions / parseInt(transactionLimit)),
+          hasPrevPage: parseInt(transactionPage) > 1
+        },
+        paystackSummary,
+        adminSummary,
+        filters: {
+          search,
+          phoneNumber,
+          email,
+          reference,
+          gateway,
+          transactionType,
+          transactionStatus,
+          userId
+        }
+      },
+      
+      // Business intelligence
+      businessInsights: {
+        peakDepositHour: depositHours.length > 0 ? depositHours.reduce((max, hour) => hour.amount > max.amount ? hour : max, depositHours[0]) : null,
+        topGateway: depositsByGateway.length > 0 ? depositsByGateway[0] : null,
+        customerEngagement: {
+          totalCustomers: uniqueCustomers,
+          depositingCustomers: uniqueDepositors,
+          activeCustomers: activeCustomers,
+          conversionRate: Math.round(conversionRate * 100) / 100
+        }
+      }
     });
     
   } catch (err) {
-    console.error('Dashboard error:', err.message);
+    console.error('Enhanced dashboard error:', err.message);
     res.status(500).json({
       success: false,
-      message: 'Error fetching dashboard data',
+      message: 'Error fetching enhanced dashboard data',
       error: err.message
     });
   }
 });
-
 router.get('/user-orders/:userId', auth, adminAuth, async (req, res) => {
   try {
     const { userId } = req.params;
