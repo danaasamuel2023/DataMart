@@ -19,14 +19,15 @@ const {
 // Constants
 const JWT_SECRET = process.env.JWT_SECRET || 'DatAmArt';
 
-const GEONETTECH_BASE_URL = 'https://posapi.geonettech.com/api/v1';
-const GEONETTECH_API_KEY = process.env.GEONETTECH_API_KEY || '21|rkrw7bcoGYjK8irAOTMaZ8sc1LRHYcwjuZnZmMNw4a6196f1';
+// FIXED: Use same Geonettech config as working web interface
+const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1';
+const GEONETTECH_API_KEY = '42|tjhxBxaWWe4mPUpxXN1uIk0KTxypvlSqOIOQWz6K162aa0d6';
 
 // Add Telcel API constants
 const TELCEL_API_URL = 'https://iget.onrender.com/api/developer/orders';
 const TELCEL_API_KEY = 'b7975f5ce918b4a253a9c227f651339555094eaee8696ae168e195d09f74617f';
 
-// Create Geonettech client
+// FIXED: Create Geonettech client with same config as web interface
 const geonetClient = axios.create({
   baseURL: GEONETTECH_BASE_URL,
   headers: {
@@ -52,10 +53,6 @@ const logOperation = (operation, data) => {
 // Data Package Pricing for all networks
 const DATA_PACKAGES = [
     // TELECEL Packages
-  // { capacity: '1', mb: '1000', price: '3.65', network: 'TELECEL' },
-    // { capacity: '2', mb: '2000', price: '7.30', network: 'TELECEL' },
-    // { capacity: '3', mb: '3000', price: '11.20', network: 'TELECEL' },
-    // { capacity: '4', mb: '4000', price: '14.00', network: 'TELECEL' },
     { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL' },
     { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL' },
     { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL' },
@@ -96,19 +93,19 @@ const DATA_PACKAGES = [
     { capacity: '10', mb: '10000', price: '37.50', network: 'at' },
     { capacity: '12', mb: '12000', price: '42.50', network: 'at' },
     { capacity: '15', mb: '15000', price: '54.50', network: 'at' },
-    // { capacity: '20', mb: '20000', price: '75.00', network: 'at' },
     { capacity: '25', mb: '25000', price: '87.00', network: 'at' },
     { capacity: '30', mb: '30000', price: '110.00', network: 'at' },
     { capacity: '40', mb: '40000', price: '145.00', network: 'at' },
     { capacity: '50', mb: '50000', price: '180.00', network: 'at' }
 ];
 
-
+// FIXED: Use same balance check as web interface
 const checkAgentBalance = async () => {
     try {
         logOperation('AGENT_BALANCE_REQUEST', { timestamp: new Date() });
         
-        const response = await geonetClient.get('/wallet/balance');
+        // FIXED: Use same endpoint as web interface
+        const response = await geonetClient.get('/checkBalance');
         
         logOperation('AGENT_BALANCE_RESPONSE', {
             status: response.status,
@@ -126,6 +123,7 @@ const checkAgentBalance = async () => {
         throw new Error('Failed to fetch agent balance: ' + error.message);
     }
 };
+
 // Authentication Middleware (JWT for web, keep for backward compatibility)
 // Modified authentication middleware to check multiple sources for the token
 const authenticateUser = async (req, res, next) => {
@@ -174,6 +172,7 @@ const authenticateUser = async (req, res, next) => {
         });
     }
 };
+
 // Generate API Key
 const generateApiKey = () => {
     return crypto.randomBytes(32).toString('hex');
@@ -379,12 +378,16 @@ router.get('/data-packages', async (req, res) => {
     }
 });
 
-// Helper function for Telecel API integration
+// FIXED: Helper function for Telecel API integration - same as web interface
 async function processTelecelOrder(recipient, capacity, reference) {
     try {
+        // Convert GB to MB if needed (assuming capacity might be in GB)
+        const capacityInMB = capacity >= 1 && capacity < 1000 ? capacity * 1000 : capacity;
+        
         logOperation('TELECEL_ORDER_REQUEST_PREPARED', {
             recipient,
-            capacity,
+            capacityGB: capacity,
+            capacityMB: capacityInMB,
             reference
         });
         
@@ -942,7 +945,7 @@ router.post('/purchase', async (req, res, next) => {
             });
 
         } else {
-            // For YELLO network, use Geonettech API normally
+            // FIXED: For YELLO network, use Geonettech API with SAME format as web interface
             try {
                 // Check agent wallet balance (only needed for Geonettech)
                 const agentBalance = await checkAgentBalance();
@@ -968,32 +971,22 @@ router.post('/purchase', async (req, res, next) => {
                     });
                 }
 
-                // Place order with Geonettech
-                logOperation('GEONETTECH_ORDER_REQUEST_PREPARED', {
-                    network_key: network,
-                    ref: orderReference,
-                    recipient: phoneNumber,
-                    capacity: capacity,
-                    timestamp: new Date()
-                });
-
-                const geonetOrderPayload = [{
+                // FIXED: Use SAME format as web interface - single object, not array
+                const geonetOrderPayload = {
                     network_key: network,
                     ref: orderReference,
                     recipient: phoneNumber,
                     capacity: capacity
-                }];
+                };
                 
                 logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
                 
-                const geonetResponse = await geonetClient.post('/orders', geonetOrderPayload);
+                // FIXED: Use same endpoint as web interface
+                const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
                 
                 logOperation('GEONETTECH_ORDER_RESPONSE', {
                     status: geonetResponse.status,
-                    statusText: geonetResponse.statusText,
-                    headers: geonetResponse.headers,
-                    data: geonetResponse.data,
-                    timestamp: new Date()
+                    data: geonetResponse.data
                 });
 
                 // Check if the response indicates success
@@ -1149,7 +1142,6 @@ router.post('/purchase', async (req, res, next) => {
         });
     }
 });
-
 
 // Get Purchase History (support both authentication methods)
 router.get('/purchase-history/:userId', async (req, res, next) => {
