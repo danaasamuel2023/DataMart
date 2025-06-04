@@ -14,7 +14,7 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 // mNotify SMS configuration
 const SMS_CONFIG = {
-  API_KEY: process.env.MNOTIFY_API_KEY || 'your_mnotify_api_key_here',
+  API_KEY: process.env.MNOTIFY_API_KEY || 'w3rGWhv4e235nDwYvD5gVDyrW',
   SENDER_ID: 'DataMartGH',
   BASE_URL: 'https://apps.mnotify.net/smsapi'
 };
