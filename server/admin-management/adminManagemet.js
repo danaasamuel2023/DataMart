@@ -7,7 +7,177 @@ const adminAuth = require('../adminMiddleware/middleware');
 const axios = require('axios');
 const PAYSTACK_SECRET_KEY = 'sk_live_0fba72fb9c4fc71200d2e0cdbb4f2b37c1de396c'; 
 
+// mNotify SMS configuration
+const SMS_CONFIG = {
+  API_KEY: process.env.MNOTIFY_API_KEY || 'w3rGWhv4e235nDwYvD5gVDyrW',
+  SENDER_ID: 'DataMartGH',
+  BASE_URL: 'https://apps.mnotify.net/smsapi'
+};
 
+/**
+ * Format phone number to Ghana format for mNotify
+ * @param {string} phone - Phone number to format
+ * @returns {string} - Formatted phone number
+ */
+const formatPhoneNumberForMnotify = (phone) => {
+  if (!phone) return '';
+  
+  // Remove all non-numeric characters
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // If number starts with 0, replace with 233
+  if (cleaned.startsWith('0')) {
+    cleaned = '233' + cleaned.substring(1);
+  }
+  
+  // If number doesn't start with country code, add it
+  if (!cleaned.startsWith('233')) {
+    cleaned = '233' + cleaned;
+  }
+  
+  return cleaned;
+};
+
+/**
+ * Send SMS notification using mNotify
+ * @param {string} to - Recipient phone number
+ * @param {string} message - Message to send
+ * @returns {Promise<Object>} - SMS API response
+ */
+const sendMnotifySMS = async (to, message) => {
+  try {
+    const formattedPhone = formatPhoneNumberForMnotify(to);
+    
+    // Validate phone number
+    if (!formattedPhone || formattedPhone.length < 12) {
+      throw new Error('Invalid phone number format');
+    }
+    
+    // Construct SMS API URL
+    const url = `${SMS_CONFIG.BASE_URL}?key=${SMS_CONFIG.API_KEY}&to=${formattedPhone}&msg=${encodeURIComponent(message)}&sender_id=${SMS_CONFIG.SENDER_ID}`;
+    
+    // Send SMS request
+    const response = await axios.get(url);
+    
+    // Log the full response for debugging
+    console.log('mNotify SMS API Response:', {
+      status: response.status,
+      data: response.data,
+      dataType: typeof response.data
+    });
+    
+    // Handle different response formats
+    let responseCode;
+    
+    if (typeof response.data === 'number') {
+      responseCode = response.data;
+    } else if (typeof response.data === 'string') {
+      const match = response.data.match(/\d+/);
+      if (match) {
+        responseCode = parseInt(match[0]);
+      } else {
+        responseCode = parseInt(response.data.trim());
+      }
+    } else if (typeof response.data === 'object' && response.data.code) {
+      responseCode = parseInt(response.data.code);
+    }
+    
+    if (isNaN(responseCode)) {
+      console.error('Could not parse mNotify response code from:', response.data);
+      if (response.status === 200) {
+        return { success: true, message: 'SMS sent (assumed successful)', rawResponse: response.data };
+      }
+      throw new Error(`Invalid response format: ${JSON.stringify(response.data)}`);
+    }
+    
+    // Handle response codes
+    switch (responseCode) {
+      case 1000:
+        return { success: true, message: 'SMS sent successfully', code: responseCode };
+      case 1002:
+        throw new Error('SMS sending failed');
+      case 1003:
+        throw new Error('Insufficient SMS balance');
+      case 1004:
+        throw new Error('Invalid API key');
+      case 1005:
+        throw new Error('Invalid phone number');
+      case 1006:
+        throw new Error('Invalid Sender ID. Sender ID must not be more than 11 Characters');
+      case 1007:
+        return { success: true, message: 'SMS scheduled for later delivery', code: responseCode };
+      case 1008:
+        throw new Error('Empty message');
+      case 1011:
+        throw new Error('Numeric Sender IDs are not allowed');
+      case 1012:
+        throw new Error('Sender ID is not registered. Please contact support at senderids@mnotify.com');
+      default:
+        throw new Error(`Unknown response code: ${responseCode}`);
+    }
+  } catch (error) {
+    if (error.response) {
+      console.error('mNotify SMS API Error Response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    console.error('mNotify SMS Error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Send credit confirmation SMS
+ * @param {Object} user - User object
+ * @param {number} amount - Credited amount
+ * @param {number} newBalance - New wallet balance
+ */
+const sendCreditSMS = async (user, amount, newBalance) => {
+  try {
+    const message = `Hello ${user.name}! Your DataMartGH account has been credited with GHS ${amount.toFixed(2)}. Your new balance is GHS ${newBalance.toFixed(2)}. Thank you for choosing DataMartGH!`;
+    
+    const result = await sendMnotifySMS(user.phoneNumber, message);
+    
+    if (result.success) {
+      console.log(`Credit SMS sent to ${user.phoneNumber}`);
+    } else {
+      console.error(`Failed to send credit SMS to ${user.phoneNumber}:`, result.error);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Send Credit SMS Error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Send debit notification SMS
+ * @param {Object} user - User object
+ * @param {number} amount - Debited amount
+ * @param {number} newBalance - New wallet balance
+ * @param {string} reason - Reason for deduction
+ */
+const sendDebitSMS = async (user, amount, newBalance, reason) => {
+  try {
+    const message = `DATAMART: GHS ${amount.toFixed(2)} has been deducted from your wallet. Your new balance is GHS ${newBalance.toFixed(2)}. Reason: ${reason || 'Administrative adjustment'}. For inquiries, contact support.`;
+    
+    const result = await sendMnotifySMS(user.phoneNumber, message);
+    
+    if (result.success) {
+      console.log(`Debit SMS sent to ${user.phoneNumber}`);
+    } else {
+      console.error(`Failed to send debit SMS to ${user.phoneNumber}:`, result.error);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Send Debit SMS Error:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 // Middleware to check if user is admin
 
@@ -218,7 +388,7 @@ router.put('/users/:id',auth, adminAuth, async (req, res) => {
 
 /**
  * @route   PUT /api/admin/users/:id/add-money
- * @desc    Add money to user wallet
+ * @desc    Add money to user wallet with mNotify SMS
  * @access  Admin
  */
 router.put('/users/:id/add-money',auth, adminAuth, async (req, res) => {
@@ -243,6 +413,7 @@ router.put('/users/:id/add-money',auth, adminAuth, async (req, res) => {
       }
       
       // Update wallet balance
+      const previousBalance = user.walletBalance;
       user.walletBalance += parseFloat(amount);
       await user.save({ session });
       
@@ -261,9 +432,13 @@ router.put('/users/:id/add-money',auth, adminAuth, async (req, res) => {
       await session.commitTransaction();
       session.endSession();
       
+      // Send SMS notification using mNotify
+      await sendCreditSMS(user, parseFloat(amount), user.walletBalance);
+      
       res.json({
         msg: `Successfully added ${amount} to ${user.name}'s wallet`,
         currentBalance: user.walletBalance,
+        previousBalance: previousBalance,
         transaction
       });
     } catch (error) {
@@ -280,7 +455,7 @@ router.put('/users/:id/add-money',auth, adminAuth, async (req, res) => {
 
 /**
  * @route   PUT /api/admin/users/:id/deduct-money
- * @desc    Deduct money from user wallet
+ * @desc    Deduct money from user wallet with mNotify SMS
  * @access  Admin
  */
 router.put('/users/:id/deduct-money', auth, adminAuth, async (req, res) => {
@@ -316,6 +491,7 @@ router.put('/users/:id/deduct-money', auth, adminAuth, async (req, res) => {
       }
       
       // Update wallet balance
+      const previousBalance = user.walletBalance;
       user.walletBalance -= parseFloat(amount);
       await user.save({ session });
       
@@ -330,34 +506,22 @@ router.put('/users/:id/deduct-money', auth, adminAuth, async (req, res) => {
         metadata: {
           reason: reason || 'Administrative deduction',
           adminId: req.user.id,
-          previousBalance: user.walletBalance + parseFloat(amount)
+          previousBalance: previousBalance
         }
       });
       
       await transaction.save({ session });
       
-      // Optional: Send notification to user
-      try {
-        if (user.phoneNumber) {
-          const formattedPhone = user.phoneNumber.replace(/^\+/, '');
-          const message = `DATAMART: GHS${amount.toFixed(2)} has been deducted from your wallet. Your new balance is GHS${user.walletBalance.toFixed(2)}. Reason: ${reason || 'Administrative adjustment'}.`;
-          
-          await sendSMS(formattedPhone, message, {
-            useCase: 'transactional',
-            senderID: 'Bundle'
-          });
-        }
-      } catch (smsError) {
-        console.error('Failed to send deduction SMS:', smsError.message);
-        // Continue with the transaction even if SMS fails
-      }
-      
       await session.commitTransaction();
       session.endSession();
+      
+      // Send SMS notification using mNotify
+      await sendDebitSMS(user, parseFloat(amount), user.walletBalance, reason);
       
       res.json({
         msg: `Successfully deducted ${amount} from ${user.name}'s wallet`,
         currentBalance: user.walletBalance,
+        previousBalance: previousBalance,
         transaction
       });
     } catch (error) {
@@ -487,7 +651,7 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
 
 /**
  * @route   PUT /api/admin/orders/:id/status
- * @desc    Update order status
+ * @desc    Update order status with mNotify SMS for refunds
  * @access  Admin
  */
 router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
@@ -536,6 +700,7 @@ router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
         
         if (user) {
           // Add the refund amount to the user's wallet balance
+          const previousBalance = user.walletBalance;
           user.walletBalance += order.price;
           await user.save({ session });
           
@@ -559,23 +724,11 @@ router.put('/orders/:id/status', auth, adminAuth, async (req, res) => {
           
           console.log(`Refunded ${order.price} to user ${user._id} for order ${order._id}`);
           
-          // Send refund SMS to the user
+          // Send refund SMS using mNotify
           try {
-            // Format phone number for SMS if needed
-            const formatPhoneForSms = (phone) => {
-              // Remove the '+' if it exists or format as needed
-              return phone.replace(/^\+/, '');
-            };
+            const refundMessage = `Hello ${user.name}! Your DataMartGH account has been credited with a refund of GHS ${order.price.toFixed(2)} for your ${order.capacity}GB ${order.network} order. Your new balance is GHS ${user.walletBalance.toFixed(2)}. We apologize for any inconvenience.`;
             
-            if (user.phoneNumber) {
-              const userPhone = formatPhoneForSms(user.phoneNumber);
-              const refundMessage = `DATAMART: Your order for ${order.capacity}GB ${order.network} data bundle (Ref: ${order.geonetReference}) could not be processed. Your account has been refunded with GHS${order.price.toFixed(2)}. Thank you for choosing DATAMART.`;
-              
-              await sendSMS(userPhone, refundMessage, {
-                useCase: 'transactional',
-                senderID: 'Bundle'
-              });
-            }
+            await sendMnotifySMS(user.phoneNumber, refundMessage);
           } catch (smsError) {
             console.error('Failed to send refund SMS:', smsError.message);
             // Continue even if SMS fails
@@ -729,6 +882,16 @@ router.post('/orders/bulk-status-update', auth, adminAuth, async (req, res) => {
                 });
                 
                 await transaction.save({ session });
+                
+                // Send refund SMS using mNotify
+                try {
+                  const refundMessage = `Hello ${user.name}! Your DataMartGH account has been credited with a refund of GHS ${order.price.toFixed(2)} for your ${order.capacity}GB ${order.network} order. Your new balance is GHS ${user.walletBalance.toFixed(2)}. We apologize for any inconvenience.`;
+                  
+                  await sendMnotifySMS(user.phoneNumber, refundMessage);
+                } catch (smsError) {
+                  console.error(`Failed to send refund SMS for order ${orderId}:`, smsError.message);
+                  // Continue even if SMS fails
+                }
               }
             } catch (refundError) {
               console.error(`Refund error for order ${orderId}:`, refundError.message);
@@ -1284,10 +1447,9 @@ router.put('/users/:id/toggle-status', auth, adminAuth, async (req, res) => {
     
     await user.save();
     
-    // Send notification SMS to the user
+    // Send notification SMS to the user using mNotify
     try {
       if (user.phoneNumber) {
-        const formattedPhone = user.phoneNumber.replace(/^\+/, '');
         let message;
         
         if (user.isDisabled) {
@@ -1296,10 +1458,7 @@ router.put('/users/:id/toggle-status', auth, adminAuth, async (req, res) => {
           message = `DATAMART: Your account has been re-enabled. You can now access all platform features. Thank you for choosing DATAMART.`;
         }
         
-        await sendSMS(formattedPhone, message, {
-          useCase: 'transactional',
-          senderID: 'Bundle'
-        });
+        await sendMnotifySMS(user.phoneNumber, message);
       }
     } catch (smsError) {
       console.error('Failed to send account status SMS:', smsError.message);
@@ -1836,7 +1995,7 @@ router.get('/daily-summary', auth, adminAuth, async (req, res) => {
           pipeline: [
             {
               $match: {
-                $expr: { $eq: ['$userId', '$$userId'] },
+                $expr: { $eq: ['$userId', '$userId'] },
                 ...dateFilter
               }
             }
