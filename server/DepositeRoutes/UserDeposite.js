@@ -14,7 +14,7 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 // mNotify SMS configuration
 const SMS_CONFIG = {
-  API_KEY: process.env.MNOTIFY_API_KEY || 'w3rGWhv4e235nDwYvD5gVDyrW',
+  API_KEY: process.env.MNOTIFY_API_KEY || 'your_mnotify_api_key_here',
   SENDER_ID: 'DataMartGH',
   BASE_URL: 'https://apps.mnotify.net/smsapi'
 };
@@ -64,11 +64,46 @@ const sendSMS = async (to, message) => {
     // Send SMS request
     const response = await axios.get(url);
     
-    // Log response for debugging
-    console.log('SMS API Response:', response.data);
+    // Log the full response for debugging
+    console.log('SMS API Full Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data,
+      dataType: typeof response.data
+    });
     
-    // Parse response code
-    const responseCode = parseInt(response.data);
+    // Handle different response formats
+    let responseCode;
+    
+    // If response.data is already a number
+    if (typeof response.data === 'number') {
+      responseCode = response.data;
+    } 
+    // If response.data is a string that might contain a number
+    else if (typeof response.data === 'string') {
+      // Try to extract number from string
+      const match = response.data.match(/\d+/);
+      if (match) {
+        responseCode = parseInt(match[0]);
+      } else {
+        // If the response is "1000" or similar
+        responseCode = parseInt(response.data.trim());
+      }
+    }
+    // If response.data is an object with a code property
+    else if (typeof response.data === 'object' && response.data.code) {
+      responseCode = parseInt(response.data.code);
+    }
+    
+    // Check if we got a valid response code
+    if (isNaN(responseCode)) {
+      console.error('Could not parse SMS response code from:', response.data);
+      // If response status is 200, assume success
+      if (response.status === 200) {
+        return { success: true, message: 'SMS sent (assumed successful)', rawResponse: response.data };
+      }
+      throw new Error(`Invalid response format: ${JSON.stringify(response.data)}`);
+    }
     
     // Handle response codes
     switch (responseCode) {
@@ -83,7 +118,7 @@ const sendSMS = async (to, message) => {
       case 1005:
         throw new Error('Invalid phone number');
       case 1006:
-        throw new Error('Invalid Sender ID');
+        throw new Error('Invalid Sender ID. Sender ID must not be more than 11 Characters');
       case 1007:
         return { success: true, message: 'SMS scheduled for later delivery', code: responseCode };
       case 1008:
@@ -91,11 +126,19 @@ const sendSMS = async (to, message) => {
       case 1011:
         throw new Error('Numeric Sender IDs are not allowed');
       case 1012:
-        throw new Error('Sender ID is not registered');
+        throw new Error('Sender ID is not registered. Please contact support at senderids@mnotify.com');
       default:
         throw new Error(`Unknown response code: ${responseCode}`);
     }
   } catch (error) {
+    // If it's an axios error, provide more details
+    if (error.response) {
+      console.error('SMS API Error Response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
     console.error('SMS Error:', error.message);
     return { success: false, error: error.message };
   }
