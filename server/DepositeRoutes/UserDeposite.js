@@ -696,6 +696,14 @@ router.post('/verify-pending-transaction/:transactionId', async (req, res) => {
  * @desc    Transfer money from user wallet to another user
  * @access  Private (requires authentication)
  */
+// Add this at the top of your file with other requires
+const { v4: uuidv4 } = require('uuid'); // You'll need to install this: npm install uuid
+
+/**
+ * @route   POST /api/payment/transfer
+ * @desc    Transfer money from user wallet to another user
+ * @access  Private (requires authentication)
+ */
 router.post('/transfer', auth, async (req, res) => {
   // Start a mongoose session for transaction integrity
   const session = await mongoose.startSession();
@@ -707,6 +715,7 @@ router.post('/transfer', auth, async (req, res) => {
     
     // Validate input
     if (!recipient || !amount || amount <= 0) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         error: 'Invalid transfer details. Recipient and amount are required.'
@@ -717,6 +726,7 @@ router.post('/transfer', auth, async (req, res) => {
     const transferAmount = parseFloat(amount);
     
     if (isNaN(transferAmount) || transferAmount <= 0) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         error: 'Invalid amount. Amount must be a positive number.'
@@ -804,8 +814,23 @@ router.post('/transfer', auth, async (req, res) => {
       });
     }
     
-    // Generate unique reference for this transfer
-    const reference = `TRF-${crypto.randomBytes(8).toString('hex')}-${Date.now()}`;
+    // Generate unique reference using UUID
+    // This guarantees uniqueness without database checks
+    const reference = `TRF-${uuidv4()}`;
+    
+    // Alternative: If you don't want to use uuid package, use this approach:
+    // const reference = `TRF-${new mongoose.Types.ObjectId().toHexString()}`;
+    
+    // Create both transactions with shared metadata
+    const transactionMetadata = {
+      senderId: sender._id,
+      senderName: sender.name,
+      senderEmail: sender.email,
+      recipientId: recipientUser._id,
+      recipientName: recipientUser.name,
+      recipientEmail: recipientUser.email,
+      description: description || `Transfer to ${recipientUser.name || recipientUser.email}`
+    };
     
     // Create sender transaction record (debit)
     const senderTransaction = new Transaction({
@@ -813,8 +838,12 @@ router.post('/transfer', auth, async (req, res) => {
       type: 'transfer',
       amount: -transferAmount, // Negative for debit
       status: 'completed',
-      reference,
-      gateway: 'wallet'
+      reference: `${reference}-DEBIT`, // Add suffix to ensure uniqueness
+      gateway: 'wallet',
+      metadata: {
+        ...transactionMetadata,
+        transferType: 'sent'
+      }
     });
     
     // Create recipient transaction record (credit)
@@ -823,41 +852,49 @@ router.post('/transfer', auth, async (req, res) => {
       type: 'transfer',
       amount: transferAmount, // Positive for credit
       status: 'completed',
-      reference,
-      gateway: 'wallet'
+      reference: `${reference}-CREDIT`, // Add suffix to ensure uniqueness
+      gateway: 'wallet',
+      metadata: {
+        ...transactionMetadata,
+        transferType: 'received'
+      }
     });
     
-    // Save both transactions
+    // Update balances
+    sender.walletBalance -= transferAmount;
+    recipientUser.walletBalance += transferAmount;
+    
+    // Store balance after transaction
+    senderTransaction.balanceAfter = sender.walletBalance;
+    recipientTransaction.balanceAfter = recipientUser.walletBalance;
+    
+    // Save everything within the transaction
+    await sender.save({ session });
+    await recipientUser.save({ session });
     await senderTransaction.save({ session });
     await recipientTransaction.save({ session });
-    
-    // Update sender's wallet
-    sender.walletBalance -= transferAmount;
-    await sender.save({ session });
-    
-    // Update recipient's wallet
-    recipientUser.walletBalance += transferAmount;
-    await recipientUser.save({ session });
     
     // Commit the transaction
     await session.commitTransaction();
     
     // Send SMS notifications (outside of database transaction)
-    // Send to recipient about received money
-    await sendTransferReceivedSMS(recipientUser, sender, transferAmount, recipientUser.walletBalance);
-    
-    // Optionally send confirmation to sender
-    await sendTransferSentSMS(sender, recipientUser, transferAmount, sender.walletBalance);
+    try {
+      await sendTransferReceivedSMS(recipientUser, sender, transferAmount, recipientUser.walletBalance);
+      await sendTransferSentSMS(sender, recipientUser, transferAmount, sender.walletBalance);
+    } catch (smsError) {
+      console.error('SMS Error (non-blocking):', smsError);
+      // Don't fail the transfer if SMS fails
+    }
     
     // Log successful transfer
-    console.log(`Transfer successful: ${sender.email} -> ${recipientUser.email}, Amount: ${transferAmount}`);
+    console.log(`Transfer successful: ${sender.email} -> ${recipientUser.email}, Amount: ${transferAmount}, Reference: ${reference}`);
     
     // Return success response
     res.json({
       success: true,
       message: 'Transfer completed successfully',
       data: {
-        reference,
+        reference: reference, // Return base reference without suffix
         amount: transferAmount,
         recipient: {
           id: recipientUser._id,
@@ -881,6 +918,25 @@ router.post('/transfer', auth, async (req, res) => {
     await session.abortTransaction();
     
     console.error('Transfer Error:', error);
+    
+    // Handle specific MongoDB errors
+    if (error.code === 11000) {
+      // This should rarely happen with UUID, but just in case
+      return res.status(500).json({
+        success: false,
+        error: 'Transfer processing conflict',
+        message: 'A temporary issue occurred. Please try again.'
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: Object.values(error.errors).map(e => e.message).join(', ')
+      });
+    }
+    
     return res.status(500).json({
       success: false,
       error: 'Transfer failed',
@@ -891,7 +947,6 @@ router.post('/transfer', auth, async (req, res) => {
     session.endSession();
   }
 });
-
 /**
  * @route   GET /api/payment/validate-recipient
  * @desc    Validate recipient before transfer

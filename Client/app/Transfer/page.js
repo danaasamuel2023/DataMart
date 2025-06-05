@@ -33,7 +33,6 @@ export default function WalletTransferPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [transferDetails, setTransferDetails] = useState(null);
-  const [userBalance, setUserBalance] = useState(0);
   const [transferHistory, setTransferHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('transfer'); // 'transfer' or 'history'
@@ -77,32 +76,6 @@ export default function WalletTransferPage() {
           setError('Your account has not been approved. Please contact support.');
           return;
         }
-        
-        // Set user balance from localStorage
-        setUserBalance(user.walletBalance || 0);
-        
-        // Optionally fetch latest balance from api/v1
-        try {
-          const response = await axios.get(
-            `http://localhost:5000/api/v1/user/profile`,
-            {
-              headers: {
-                'x-auth-token': token,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          
-          if (response.data?.walletBalance !== undefined) {
-            setUserBalance(response.data.walletBalance);
-            // Update localStorage with latest balance
-            user.walletBalance = response.data.walletBalance;
-            localStorage.setItem('userData', JSON.stringify(user));
-          }
-        } catch (error) {
-          console.error('Error fetching latest balance:', error);
-          // Continue with localStorage balance
-        }
       } catch (error) {
         console.error('Error parsing user data:', error);
         router.push('/SignIn');
@@ -138,7 +111,7 @@ export default function WalletTransferPage() {
       
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/v1/validate-recipient?identifier=${recipient}`,
+          `https://datamartbackened.onrender.com/api/v1/validate-recipient?identifier=${recipient}`,
           {
             headers: {
               'x-auth-token': token,
@@ -187,7 +160,7 @@ export default function WalletTransferPage() {
     
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/v1/transfer-history?type=${historyFilter}&limit=20`,
+        `https://datamartbackened.onrender.com/api/v1/transfer-history?type=${historyFilter}&limit=20`,
         {
           headers: {
             'x-auth-token': token,
@@ -225,11 +198,6 @@ export default function WalletTransferPage() {
       return;
     }
     
-    if (parseFloat(amount) > userBalance) {
-      setError('Insufficient balance');
-      return;
-    }
-    
     setShowConfirmModal(true);
   };
   
@@ -250,7 +218,7 @@ export default function WalletTransferPage() {
     
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/v1/transfer',
+        'https://datamartbackened.onrender.com/api/v1/transfer',
         {
           recipient: recipient,
           amount: parseFloat(amount),
@@ -268,15 +236,6 @@ export default function WalletTransferPage() {
       if (response.data.success) {
         setTransferDetails(response.data.data);
         setShowSuccessModal(true);
-        
-        // Update local balance
-        const newBalance = response.data.data.sender.newBalance;
-        setUserBalance(newBalance);
-        
-        // Update localStorage
-        const userData = JSON.parse(localStorage.getItem('userData'));
-        userData.walletBalance = newBalance;
-        localStorage.setItem('userData', JSON.stringify(userData));
         
         // Reset form
         setRecipient('');
@@ -331,10 +290,6 @@ export default function WalletTransferPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Wallet Transfer</h1>
-          <div className="text-right">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Available Balance</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(userBalance)}</p>
-          </div>
         </div>
         
         {/* Tab Navigation */}
@@ -433,13 +388,9 @@ export default function WalletTransferPage() {
                 placeholder="0.00"
                 step="0.01"
                 min="0.01"
-                max={userBalance}
                 className="w-full px-4 py-2 border rounded-lg text-gray-700 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:border-blue-500"
                 required
               />
-              {amount && parseFloat(amount) > userBalance && (
-                <p className="text-red-500 text-sm mt-1">Insufficient balance</p>
-              )}
             </div>
             
             {/* Description Input */}
@@ -456,27 +407,12 @@ export default function WalletTransferPage() {
               />
             </div>
             
-            {/* Transaction PIN Input (Optional) */}
-            {/* <div className="mb-6">
-              <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                Transaction PIN
-              </label>
-              <input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="Enter your PIN"
-                maxLength="4"
-                className="w-full px-4 py-2 border rounded-lg text-gray-700 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:border-blue-500"
-              />
-            </div> */}
-            
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading || !recipientInfo || !amount || parseFloat(amount) > userBalance}
+              disabled={isLoading || !recipientInfo || !amount}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                isLoading || !recipientInfo || !amount || parseFloat(amount) > userBalance
+                isLoading || !recipientInfo || !amount
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
               }`}
@@ -639,12 +575,6 @@ export default function WalletTransferPage() {
                   </span>
                 </div>
               )}
-              <div className="border-t pt-3 flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">New Balance:</span>
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {formatCurrency(userBalance - parseFloat(amount))}
-                </span>
-              </div>
             </div>
             
             <div className="flex space-x-3">
