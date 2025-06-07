@@ -85,7 +85,7 @@ const RegisterFriendForm = () => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`https://atamartbackened.onrender.com/api/register-friend/${userData.id}`, {
+      const response = await fetch(`https://datamartbackened.onrender.com/api/register-friend/${userData.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
