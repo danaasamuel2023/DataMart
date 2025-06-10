@@ -156,26 +156,28 @@ export default function DataPurchases() {
   }, [searchTerm, filterStatus, filterNetwork, allPurchases]);
 
   // Modified function to check order status for different networks
-  const checkOrderStatus = async (purchaseId, geonetReference, network) => {
-    // Skip if there's no geonetReference or it's an AirtelTigo purchase
-    if (!geonetReference || network === 'at') {
-      return;
-    }
+  // Modified function to check order status for different networks
+const checkOrderStatus = async (purchaseId, geonetReference, network) => {
+  // Skip if there's no geonetReference or it's an AirtelTigo purchase
+  if (!geonetReference || network === 'at') {
+    return;
+  }
+  
+  setCheckingStatus(prev => ({ ...prev, [purchaseId]: true }));
+  
+  try {
+    let statusResponse;
+    let status;
     
-    setCheckingStatus(prev => ({ ...prev, [purchaseId]: true }));
-    
-    try {
-      let statusResponse;
-      let status;
+    // Use Telcel API for Telecel network
+    if (network === 'TELECEL') {
+      // Construct the correct URL for Telecel status check
+      const telcelUrl = `https://iget.onrender.com/api/developer/orders/reference/${geonetReference}`;
       
-      // Use Telcel API for Telecel network
-      if (network === 'TELECEL') {
-        // Replace :orderRef in the URL with the actual reference
-        const telcelUrl = TELCEL_API_URL.replace(':orderRef', geonetReference);
-        
-        console.log('Checking Telcel status with URL:', telcelUrl);
-        console.log('Using geonetReference:', geonetReference);
-        
+      console.log('Checking Telcel status with URL:', telcelUrl);
+      console.log('Using geonetReference:', geonetReference);
+      
+      try {
         // Make request to Telcel API to get current status
         statusResponse = await axios.get(
           telcelUrl,
@@ -187,109 +189,180 @@ export default function DataPurchases() {
         );
         
         console.log('Telcel API Response:', statusResponse.data);
+        console.log('Response structure:', JSON.stringify(statusResponse.data, null, 2));
         
-        // Extract status from Telcel response based on API documentation
-        status = statusResponse.data.data.order.status;
+        // Try multiple paths to extract status from Telecel response
+        if (statusResponse.data?.data?.order?.status) {
+          status = statusResponse.data.data.order.status;
+        } else if (statusResponse.data?.order?.status) {
+          status = statusResponse.data.order.status;
+        } else if (statusResponse.data?.data?.status) {
+          status = statusResponse.data.data.status;
+        } else if (statusResponse.data?.status && typeof statusResponse.data.status === 'string') {
+          status = statusResponse.data.status;
+        } else if (statusResponse.data?.data && typeof statusResponse.data.data === 'string') {
+          // Sometimes APIs return status directly as data
+          status = statusResponse.data.data;
+        }
         
         console.log('Extracted Telcel status:', status);
-      } else {
-        // For other networks, use the original GeoNetTech API
-        const url = GEONETTECH_BASE_URL.replace(':ref', geonetReference);
         
-        console.log('Checking status with URL:', url);
-        console.log('Using geonetReference:', geonetReference);
-        
-        // Make request to Geonettech API to get current status
-        statusResponse = await axios.get(
-          url,
-          {
-            headers: {
-              Authorization: `Bearer ${API_KEY}`
-            }
-          }
-        );
-        
-        console.log('API Response:', statusResponse.data);
-        
-        // Extract status from response
-        status = statusResponse.data.data.status;
-        
-        console.log('Extracted status:', status);
-      }
-      
-      // Only update if we got a valid status back
-      if (status) {
-        // Update status in state
-        const updatedPurchases = allPurchases.map(purchase => {
-          if (purchase._id === purchaseId) {
-            return { ...purchase, status: status };
-          }
-          return purchase;
-        });
-        
-        setAllPurchases(updatedPurchases);
-        
-        // Also update the filtered purchases list
-        const updatedFilteredPurchases = purchases.map(purchase => {
-          if (purchase._id === purchaseId) {
-            return { ...purchase, status: status };
-          }
-          return purchase;
-        });
-        
-        setPurchases(updatedFilteredPurchases);
-
-        // Mark this status as checked
-        setCheckedStatuses(prev => ({
-          ...prev,
-          [purchaseId]: true
-        }));
-        
-        // If status is "completed", we would update our backend, but no endpoint exists
-        // Just log the status change for now
-        if (status === 'completed') {
-          console.log(`Status for order ${purchaseId} is now completed`);
-          // When a real endpoint is available, uncomment the code below
-          /* 
-          try {
-            await axios.post(`${API_BASE_URL}/data/update-status/${purchaseId}`, {
-              status: 'completed'
-            });
-          } catch (updateError) {
-            console.error('Failed to update status in backend:', updateError);
-          }
-          */
+        // If still no status found, log the entire response for debugging
+        if (!status) {
+          console.error('Could not find status in Telcel response. Full response:', statusResponse.data);
         }
-      } else {
-        // If no status returned, keep the original database status
-        // Mark this status as checked (but don't change the actual status)
-        setCheckedStatuses(prev => ({
-          ...prev,
-          [purchaseId]: true
-        }));
+        
+      } catch (telcelError) {
+        console.error('Telcel API Error:', telcelError);
+        if (telcelError.response) {
+          console.error('Telcel Error Response:', telcelError.response.data);
+          console.error('Telcel Error Status:', telcelError.response.status);
+          
+          // If it's a 404, the order might not exist yet
+          if (telcelError.response.status === 404) {
+            console.log('Order not found in Telcel system yet');
+          }
+        }
+        throw telcelError;
       }
       
-    } catch (error) {
-      console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
-      console.error('Error details:', error.response?.data || 'No response data');
+    } else {
+      // For other networks, use the original GeoNetTech API
+      const url = GEONETTECH_BASE_URL.replace(':ref', geonetReference);
       
-      // MODIFIED: Don't update the status on error - keep the original DB status
-      // Instead, just mark it as checked so the status badge shows the original status
+      console.log('Checking status with URL:', url);
+      console.log('Using geonetReference:', geonetReference);
+      
+      // Make request to Geonettech API to get current status
+      statusResponse = await axios.get(
+        url,
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`
+          }
+        }
+      );
+      
+      console.log('API Response:', statusResponse.data);
+      
+      // Extract status from response
+      status = statusResponse.data.data.status;
+      
+      console.log('Extracted status:', status);
+    }
+    
+    // Only update if we got a valid status back
+    if (status) {
+      // Normalize status values (in case they come in different formats)
+      const normalizedStatus = status.toLowerCase().trim();
+      
+      // Map API status values to your expected values
+      const statusMap = {
+        'success': 'completed',
+        'successful': 'completed',
+        'complete': 'completed',
+        'completed': 'completed',
+        'pending': 'pending',
+        'processing': 'processing',
+        'failed': 'failed',
+        'failure': 'failed',
+        'cancelled': 'failed',
+        'canceled': 'failed',
+        'refunded': 'refunded',
+        'delivered': 'completed',
+        'sent': 'completed',
+        'in_progress': 'processing',
+        'in-progress': 'processing',
+        'queued': 'processing'
+      };
+      
+      const mappedStatus = statusMap[normalizedStatus] || normalizedStatus;
+      
+      // Update status in state
+      const updatedPurchases = allPurchases.map(purchase => {
+        if (purchase._id === purchaseId) {
+          return { ...purchase, status: mappedStatus };
+        }
+        return purchase;
+      });
+      
+      setAllPurchases(updatedPurchases);
+      
+      // Also update the filtered purchases list
+      const updatedFilteredPurchases = purchases.map(purchase => {
+        if (purchase._id === purchaseId) {
+          return { ...purchase, status: mappedStatus };
+        }
+        return purchase;
+      });
+      
+      setPurchases(updatedFilteredPurchases);
+
+      // Mark this status as checked
       setCheckedStatuses(prev => ({
         ...prev,
         [purchaseId]: true
       }));
       
-      // Automatically open the dropdown to show status when not already open
-      if (expandedId !== purchaseId) {
-        setExpandedId(purchaseId);
+      // Show a notification to user about status update
+      console.log(`Order ${geonetReference} status updated to: ${mappedStatus}`);
+      
+      // Optional: Show a toast notification
+      // You can add a toast library or create a simple notification
+      if (mappedStatus === 'completed') {
+        console.log(`✅ Order ${geonetReference} has been completed!`);
+      } else if (mappedStatus === 'failed') {
+        console.log(`❌ Order ${geonetReference} has failed.`);
       }
       
-    } finally {
-      setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
+    } else {
+      // If no status returned, mark as checked but keep original status
+      console.warn('No status found in API response for order:', geonetReference);
+      
+      setCheckedStatuses(prev => ({
+        ...prev,
+        [purchaseId]: true
+      }));
+      
+      // Show the current database status
+      const currentPurchase = purchases.find(p => p._id === purchaseId);
+      if (currentPurchase) {
+        console.log(`Using database status for order ${geonetReference}: ${currentPurchase.status}`);
+      }
     }
-  };
-
+    
+  } catch (error) {
+    console.error(`Failed to fetch status for purchase ${purchaseId}:`, error);
+    console.error('Error details:', error.response?.data || error.message);
+    
+    // Mark as checked but keep original status
+    setCheckedStatuses(prev => ({
+      ...prev,
+      [purchaseId]: true
+    }));
+    
+    // Show user-friendly error message in console
+    let errorMessage = 'Unable to check status at this time';
+    
+    if (error.response?.status === 404) {
+      errorMessage = 'Order not found in external system';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Authentication failed with external API';
+    } else if (error.response?.status === 500) {
+      errorMessage = 'External API server error';
+    }
+    
+    console.log(`⚠️ ${errorMessage} for order ${geonetReference}`);
+    
+    // Automatically open the dropdown to show current status when check fails
+    if (expandedId !== purchaseId) {
+      setExpandedId(purchaseId);
+    }
+    
+  } finally {
+    setCheckingStatus(prev => ({ ...prev, [purchaseId]: false }));
+  }
+};
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= pagination.totalPages) {
       setPagination(prev => ({
