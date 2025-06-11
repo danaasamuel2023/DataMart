@@ -39,6 +39,15 @@ const formatPhoneNumber = (phoneNumber) => {
   return cleaned;
 };
 
+// Helper function to format volume display
+const formatVolumeDisplay = (volumeMB) => {
+  if (volumeMB >= 1000) {
+    const gb = volumeMB / 1000;
+    return gb % 1 === 0 ? `${gb}GB` : `${gb.toFixed(1)}GB`;
+  }
+  return `${volumeMB}MB`;
+};
+
 // Check FGMall Console Balance
 router.get('/console-balance', async (req, res) => {
   try {
@@ -85,17 +94,26 @@ router.get('/data-packages', async (req, res) => {
       packageCount: response.data.length
     });
     
-    // Group packages by network
-    const packagesByNetwork = response.data.reduce((acc, pkg) => {
+    // Transform and group packages by network
+    const transformedPackages = response.data.map(pkg => ({
+      ...pkg,
+      volumeMB: parseInt(pkg.volume),
+      volumeGB: parseFloat((parseInt(pkg.volume) / 1000).toFixed(2)),
+      volumeDisplay: formatVolumeDisplay(parseInt(pkg.volume))
+    }));
+    
+    const packagesByNetwork = transformedPackages.reduce((acc, pkg) => {
       if (!acc[pkg.network]) {
         acc[pkg.network] = [];
       }
       acc[pkg.network].push({
         id: pkg.id,
-        volumeMB: parseInt(pkg.volume),
-        volumeGB: parseFloat((parseInt(pkg.volume) / 1000).toFixed(2)),
+        volumeMB: pkg.volumeMB,
+        volumeGB: pkg.volumeGB,
+        volumeDisplay: pkg.volumeDisplay,
         price: parseFloat(pkg.console_price),
-        description: pkg.description
+        description: pkg.description,
+        network_id: pkg.network_id
       });
       return acc;
     }, {});
@@ -103,7 +121,7 @@ router.get('/data-packages', async (req, res) => {
     res.json({
       status: 'success',
       data: {
-        packages: response.data,
+        packages: transformedPackages,
         groupedByNetwork: packagesByNetwork
       }
     });
@@ -178,68 +196,115 @@ async function processIShareOrder(recipient, capacityGB, reference) {
   }
 }
 
-// Process MTN order through FGMall
-async function processMTNOrder(recipient, capacityGB, reference) {
+// Process other networks (MTN, Telecel, Vodafone) order through FGMall
+async function processOtherNetworkOrder(recipient, capacityGB, network, reference) {
   try {
-    logOperation('MTN_ORDER_REQUEST_PREPARED', {
+    logOperation('OTHER_NETWORK_ORDER_REQUEST_PREPARED', {
       recipient,
       capacityGB,
+      network,
       reference
     });
     
     // Format phone number
     const formattedRecipient = formatPhoneNumber(recipient);
     
-    // Convert GB to MB
+    // Map network names to API network names
+    const networkMapping = {
+      'YELLO': 'MTN',
+      'YELLOW': 'MTN',
+      'MTN': 'MTN',
+      'TELECEL': 'Telecel',
+      'VODAFONE': 'Vodafone'
+    };
+    
+    const apiNetworkName = networkMapping[network.toUpperCase()] || network;
+    
+    // First, fetch available packages to find matching one
+    const packagesResponse = await fgmallClient.get('/fetch-data-packages');
+    const networkPackages = packagesResponse.data.filter(pkg => 
+      pkg.network.toUpperCase() === apiNetworkName.toUpperCase()
+    );
+    
+    logOperation('AVAILABLE_NETWORK_PACKAGES', {
+      network: apiNetworkName,
+      packagesFound: networkPackages.length,
+      packages: networkPackages.map(p => ({ 
+        id: p.id,
+        volume: p.volume, 
+        volumeGB: p.volumeGB,
+        network_id: p.network_id,
+        console_price: p.console_price
+      }))
+    });
+    
+    // Convert capacity to MB for matching
     const capacityInMB = capacityGB * 1000;
     
-    // First, fetch available MTN packages to find matching one
-    const packagesResponse = await fgmallClient.get('/fetch-data-packages');
-    const mtnPackages = packagesResponse.data.filter(pkg => pkg.network === 'MTN');
-    
     // Find package with matching volume
-    const matchingPackage = mtnPackages.find(pkg => parseInt(pkg.volume) === capacityInMB);
+    let matchingPackage = null;
     
+    // First try to match by volume in MB (if volume is stored as string like "10000")
+    matchingPackage = networkPackages.find(pkg => parseInt(pkg.volume) === capacityInMB);
+    
+    // If not found and volumes are stored as GB (small numbers), try GB match
     if (!matchingPackage) {
-      throw new Error(`No MTN package found for ${capacityGB}GB`);
+      matchingPackage = networkPackages.find(pkg => parseInt(pkg.volume) === capacityGB);
     }
     
+    if (!matchingPackage) {
+      throw new Error(`No ${apiNetworkName} package found for ${capacityGB}GB (${capacityInMB}MB). Available volumes: ${networkPackages.map(p => p.volume).join(', ')}`);
+    }
+    
+    // API expects shared_bundle in MB based on documentation
     const payload = {
       recipient_msisdn: formattedRecipient,
       network_id: matchingPackage.network_id,
-      shared_bundle: capacityInMB
+      shared_bundle: capacityInMB // Send in MB as per API documentation
     };
     
-    logOperation('MTN_ORDER_REQUEST', payload);
+    logOperation('OTHER_NETWORK_ORDER_REQUEST', {
+      endpoint: '/buy-other-package',
+      payload: payload,
+      packageDetails: {
+        id: matchingPackage.id,
+        volume: matchingPackage.volume,
+        network_id: matchingPackage.network_id,
+        price: matchingPackage.console_price
+      }
+    });
     
     const response = await fgmallClient.post('/buy-other-package', payload);
     
-    logOperation('MTN_ORDER_RESPONSE', {
+    logOperation('OTHER_NETWORK_ORDER_RESPONSE', {
       status: response.status,
       data: response.data
     });
     
-    if (!response.data.success) {
-      throw new Error(response.data.message || 'MTN order failed');
+    // Check for success in response
+    if (response.data.success === false || response.data.status === 'failed') {
+      throw new Error(response.data.message || `${network} order failed`);
     }
     
     return {
       success: true,
       data: response.data,
       transactionCode: response.data.transaction_code,
-      message: response.data.message
+      message: response.data.message || 'Package purchased successfully'
     };
   } catch (error) {
-    logOperation('MTN_ORDER_ERROR', {
+    logOperation('OTHER_NETWORK_ORDER_ERROR', {
       message: error.message,
-      response: error.response?.data
+      response: error.response?.data,
+      status: error.response?.status
     });
     
     return {
       success: false,
       error: {
         message: error.response?.data?.message || error.message,
-        details: error.response?.data || 'No response details available'
+        details: error.response?.data || 'No response details available',
+        status: error.response?.status
       }
     };
   }
@@ -404,7 +469,7 @@ router.post('/purchase-data', async (req, res) => {
     let processingMethod = '';
 
     // Process based on network
-    if (network === 'AT' || network === 'AIRTELTIGO' || network === 'AT_PREMIUM') {
+    if (network === 'AT' || network === 'AIRTELTIGO' || network === 'AT_PREMIUM' || network === 'AirtelTigo') {
       // Process iShare order
       orderReference = generateMixedReference('IS-');
       processingMethod = 'fgmall_ishare';
@@ -425,25 +490,30 @@ router.post('/purchase-data', async (req, res) => {
       apiOrderId = ishareResponse.vendorTranxId;
       orderStatus = 'completed';
       
-    } else if (network === 'MTN') {
-      // Process MTN order
-      orderReference = generateMixedReference('MTN-');
+    } else if (network === 'MTN' || network === 'TELECEL' || network === 'VODAFONE' || network === 'Telecel' || network === 'Vodafone' || network === 'YELLO' || network === 'YELLOW') {
+      // Process other network orders
+      let networkPrefix = network.toUpperCase().substring(0, 3);
+      // Special handling for YELLO/YELLOW -> MTN
+      if (network.toUpperCase() === 'YELLO' || network.toUpperCase() === 'YELLOW') {
+        networkPrefix = 'MTN';
+      }
+      orderReference = generateMixedReference(`${networkPrefix}-`);
       processingMethod = 'fgmall_other';
       
-      const mtnResponse = await processMTNOrder(phoneNumber, capacity, orderReference);
+      const otherNetworkResponse = await processOtherNetworkOrder(phoneNumber, capacity, network, orderReference);
       
-      if (!mtnResponse.success) {
+      if (!otherNetworkResponse.success) {
         await session.abortTransaction();
         session.endSession();
         
         return res.status(400).json({
           status: 'error',
-          message: mtnResponse.error.message || 'Failed to process MTN order'
+          message: otherNetworkResponse.error.message || `Failed to process ${network} order`
         });
       }
       
-      orderResponse = mtnResponse.data;
-      apiOrderId = mtnResponse.transactionCode;
+      orderResponse = otherNetworkResponse.data;
+      apiOrderId = otherNetworkResponse.transactionCode;
       orderStatus = 'completed';
       
     } else {
@@ -617,6 +687,36 @@ router.get('/fgmall-transactions', async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to fetch transactions from FGMall'
+    });
+  }
+});
+
+// Fetch available networks
+router.get('/networks', async (req, res) => {
+  try {
+    logOperation('FETCH_NETWORKS_REQUEST', { timestamp: new Date() });
+    
+    const response = await fgmallClient.get('/fetch-networks');
+    
+    logOperation('FETCH_NETWORKS_RESPONSE', {
+      status: response.status,
+      data: response.data
+    });
+    
+    res.json({
+      status: 'success',
+      data: response.data
+    });
+  } catch (error) {
+    logOperation('FETCH_NETWORKS_ERROR', {
+      message: error.message,
+      response: error.response ? error.response.data : null
+    });
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch networks',
+      details: error.response ? error.response.data : error.message
     });
   }
 });
