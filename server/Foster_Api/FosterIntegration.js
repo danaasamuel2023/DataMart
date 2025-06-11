@@ -488,7 +488,7 @@ router.post('/purchase-data', async (req, res) => {
       
       orderResponse = ishareResponse.data;
       apiOrderId = ishareResponse.vendorTranxId;
-      orderStatus = 'completed';
+      orderStatus = 'processing';
       
     } else if (network === 'MTN' || network === 'TELECEL' || network === 'VODAFONE' || network === 'Telecel' || network === 'Vodafone' || network === 'YELLO' || network === 'YELLOW') {
       // Process other network orders
