@@ -105,7 +105,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['deposit', 'withdrawal', 'transfer', 'refund','purchase'],
+    enum: ['deposit', 'withdrawal', 'transfer', 'refund','purchase', 'wallet-refund'],
     required: true
   },
   amount: {
@@ -114,7 +114,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'cancelled','purchase','accepted'],
+    enum: ['pending', 'completed', 'failed', 'cancelled','purchase','accepted', 'wallet-refund'],
     default: 'pending'
   },
   reference: {
@@ -124,7 +124,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   gateway: {
     type: String,
-    enum: ['paystack', 'manual', 'system','wallet','admin-deposit'],
+    enum: ['paystack', 'manual', 'system','wallet','admin-deposit','wallet-refund'],
     default: 'paystack'
   },
   // Add the new processing field to prevent double processing
