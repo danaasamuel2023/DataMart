@@ -179,7 +179,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -228,7 +228,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/bulk-status-update`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/bulk-status-update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
