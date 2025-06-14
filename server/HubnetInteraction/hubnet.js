@@ -97,6 +97,7 @@ router.post('/purchase-hubnet-data', async (req, res) => {
         switch (type.toLowerCase()) {
           case 'airteltigo': return 'at';
           case 'mtn': return 'mtn';
+          case 'YELLO': return 'mtn';
           case 'big-time': return 'big-time';
           default: return type.toLowerCase();
         }
