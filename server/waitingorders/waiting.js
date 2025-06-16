@@ -1003,7 +1003,7 @@ router.put('/completed/update-status', async (req, res) => {
 
 /**
  * @route   GET /api/orders/export/:status
- * @desc    Export orders by status as Excel file
+ * @desc    Export orders by status as Excel file (Phone Number and Capacity only)
  * @access  Admin only
  */
 router.get('/export/:status', async (req, res) => {
@@ -1028,33 +1028,20 @@ router.get('/export/:status', async (req, res) => {
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Get orders with populated user data
-    const orders = await DataPurchase.find(filter)
+    // Get orders - only need phoneNumber and capacity fields
+    const orders = await DataPurchase.find(filter, 'phoneNumber capacity')
       .sort({ createdAt: -1 })
-      .populate('userId', 'name email phoneNumber')
       .lean();
     
     if (orders.length === 0) {
       return res.status(404).json({ msg: `No ${status} orders found with the specified criteria` });
     }
     
-    // Format data for Excel
+    // Format data for Excel - ONLY Phone Number and Capacity
     const formattedData = orders.map(order => {
       return {
-        'Order ID': order._id.toString(),
-        'Reference': order.geonetReference || '',
-        'Customer': order.userId ? order.userId.name : 'Unknown',
-        'Email': order.userId ? order.userId.email : '',
-        'Phone': order.userId ? order.userId.phoneNumber : '',
-        'Network': order.network || '',
         'Phone Number': order.phoneNumber || '',
-        'Capacity': order.capacity || 0,
-        'Price': order.price || 0,
-        'Gateway': order.gateway || '',
-        'Method': order.method || '',
-        'Created Date': order.createdAt ? new Date(order.createdAt).toLocaleString() : '',
-        'Updated': order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '',
-        'Notes': order.adminNotes || ''
+        'Capacity': order.capacity || 0
       };
     });
     
@@ -1081,7 +1068,7 @@ router.get('/export/:status', async (req, res) => {
 
 /**
  * @route   GET /api/orders/waiting/export
- * @desc    Export waiting orders as Excel file
+ * @desc    Export waiting orders as Excel file (Phone Number and Capacity only)
  * @access  Admin only
  */
 router.get('/waiting/export', async (req, res) => {
@@ -1099,33 +1086,20 @@ router.get('/waiting/export', async (req, res) => {
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Get orders with populated user data
-    const orders = await DataPurchase.find(filter)
+    // Get orders - only need phoneNumber and capacity fields
+    const orders = await DataPurchase.find(filter, 'phoneNumber capacity')
       .sort({ createdAt: -1 })
-      .populate('userId', 'name email phoneNumber')
       .lean();
     
     if (orders.length === 0) {
       return res.status(404).json({ msg: 'No waiting orders found with the specified criteria' });
     }
     
-    // Format data for Excel
+    // Format data for Excel - ONLY Phone Number and Capacity
     const formattedData = orders.map(order => {
       return {
-        'Order ID': order._id.toString(),
-        'Reference': order.geonetReference || '',
-        'Customer': order.userId ? order.userId.name : 'Unknown',
-        'Email': order.userId ? order.userId.email : '',
-        'Phone': order.userId ? order.userId.phoneNumber : '',
-        'Network': order.network || '',
         'Phone Number': order.phoneNumber || '',
-        'Capacity': order.capacity || 0,
-        'Price': order.price || 0,
-        'Gateway': order.gateway || '',
-        'Method': order.method || '',
-        'Created Date': order.createdAt ? new Date(order.createdAt).toLocaleString() : '',
-        'Waiting Since': order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '',
-        'Notes': order.adminNotes || ''
+        'Capacity': order.capacity || 0
       };
     });
     
@@ -1152,7 +1126,7 @@ router.get('/waiting/export', async (req, res) => {
 
 /**
  * @route   POST /api/orders/export-selected
- * @desc    Export selected orders as Excel file
+ * @desc    Export selected orders as Excel file (Phone Number and Capacity only)
  * @access  Admin only
  */
 router.post('/export-selected', async (req, res) => {
@@ -1164,34 +1138,23 @@ router.post('/export-selected', async (req, res) => {
       return res.status(400).json({ msg: 'No order IDs provided for export' });
     }
     
-    // Get orders with populated user data
-    const orders = await DataPurchase.find({ _id: { $in: orderIds } })
+    // Get orders - only need phoneNumber and capacity fields
+    const orders = await DataPurchase.find(
+      { _id: { $in: orderIds } },
+      'phoneNumber capacity'
+    )
       .sort({ createdAt: -1 })
-      .populate('userId', 'name email phoneNumber')
       .lean();
     
     if (orders.length === 0) {
       return res.status(404).json({ msg: 'No orders found with the specified IDs' });
     }
     
-    // Format data for Excel
+    // Format data for Excel - ONLY Phone Number and Capacity
     const formattedData = orders.map(order => {
       return {
-        'Order ID': order._id.toString(),
-        'Reference': order.geonetReference || '',
-        'Status': order.status,
-        'Customer': order.userId ? order.userId.name : 'Unknown',
-        'Email': order.userId ? order.userId.email : '',
-        'Phone': order.userId ? order.userId.phoneNumber : '',
-        'Network': order.network || '',
         'Phone Number': order.phoneNumber || '',
-        'Capacity': order.capacity || 0,
-        'Price': order.price || 0,
-        'Gateway': order.gateway || '',
-        'Method': order.method || '',
-        'Created Date': order.createdAt ? new Date(order.createdAt).toLocaleString() : '',
-        'Updated': order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '',
-        'Notes': order.adminNotes || ''
+        'Capacity': order.capacity || 0
       };
     });
     
