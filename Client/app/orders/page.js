@@ -215,8 +215,8 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
       } catch (telcelError) {
         console.error('Telcel API Error:', telcelError);
         if (telcelError.response) {
-          console.error('Telcel Error Response:', telcelError.response.data);
-          console.error('Telcel Error Status:', telcelError.response.status);
+          // console.error('Telcel Error Response:', telcelError.response.data);
+          // console.error('Telcel Error Status:', telcelError.response.status);
           
           // If it's a 404, the order might not exist yet
           if (telcelError.response.status === 404) {
@@ -230,8 +230,8 @@ const checkOrderStatus = async (purchaseId, geonetReference, network) => {
       // For other networks, use the original GeoNetTech API
       const url = GEONETTECH_BASE_URL.replace(':ref', geonetReference);
       
-      console.log('Checking status with URL:', url);
-      console.log('Using geonetReference:', geonetReference);
+      // console.log('Checking status with URL:', url);
+      // console.log('Using geonetReference:', geonetReference);
       
       // Make request to Geonettech API to get current status
       statusResponse = await axios.get(
