@@ -9,7 +9,7 @@ const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1/checkOrderSt
 const API_KEY = '42|tjhxBxaWWe4mPUpxXN1uIk0KTxypvlSqOIOQWz6K162aa0d6';
 // Add Telcel API endpoint and key
 const TELCEL_API_URL = 'https://iget.onrender.com/api/developer/orders/reference/:orderRef';
-const TELCEL_API_KEY = '4cb6763274e86173d2c22c120493ca67b6185039f826f4aa43bb3057db50f858'; 
+const TELCEL_API_KEY = 'b7975f5ce918b4a253a9c227f651339555094eaee8696ae168e195d09f74617f'; 
 const API_BASE_URL = 'https://datamartbackened.onrender.com/api/v1';
 
 // Format currency as GHS
