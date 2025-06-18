@@ -438,6 +438,7 @@ async function processTelecelOrder(recipient, capacity, reference) {
     }
 }
 
+// Updated purchase endpoint with custom reference support (no schema changes)
 router.post('/purchase', async (req, res, next) => {
     // First try API key authentication
     const apiKey = req.headers['x-api-key'];
@@ -456,7 +457,8 @@ router.post('/purchase', async (req, res, next) => {
             network, 
             capacity, 
             gateway,
-            referrerNumber // Added to support Hubnet referrer functionality
+            referrerNumber, // For Hubnet referrer functionality
+            ref // NEW: Custom reference from developer (optional)
         } = req.body;
 
         logOperation('DATA_PURCHASE_REQUEST', {
@@ -466,6 +468,7 @@ router.post('/purchase', async (req, res, next) => {
             capacity,
             gateway,
             referrerNumber,
+            customReference: ref, // Log custom reference if provided
             timestamp: new Date()
         });
 
@@ -547,7 +550,37 @@ router.post('/purchase', async (req, res, next) => {
 
         // Generate unique references
         const transactionReference = `TRX-${uuidv4()}`;
-        const orderReference = Math.floor(1000 + Math.random() * 900000); // Generates a number between 1000 and 9999
+        
+        // Use custom reference if provided, otherwise generate one
+        let orderReference;
+        if (ref) {
+            // Check if custom reference already exists
+            const existingOrder = await DataPurchase.findOne({ 
+                geonetReference: ref 
+            }).session(session);
+            
+            if (existingOrder) {
+                logOperation('DUPLICATE_REFERENCE_ERROR', {
+                    providedReference: ref,
+                    existingOrderId: existingOrder._id
+                });
+                
+                await session.abortTransaction();
+                session.endSession();
+                
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Reference already exists. Please use a unique reference.'
+                });
+            }
+            
+            orderReference = ref;
+            logOperation('USING_CUSTOM_REFERENCE', { orderReference });
+        } else {
+            // Generate a random reference if not provided
+            orderReference = Math.floor(1000 + Math.random() * 900000).toString();
+            logOperation('GENERATED_REFERENCE', { orderReference });
+        }
 
         // Create Transaction
         const transaction = new Transaction({
@@ -688,7 +721,7 @@ router.post('/purchase', async (req, res, next) => {
                 status: orderStatus,
                 hubnetReference: orderReference,
                 referrerNumber: referrerNumber || null,
-                geonetReference: orderReference, // Keep this for compatibility
+                geonetReference: orderReference, // Store reference here
                 apiResponse: orderResponse,
                 skipGeonettech: shouldSkipApi // Track if API was skipped
             });
@@ -733,6 +766,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
+                    orderReference: orderReference, // Return the reference used
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -815,7 +849,7 @@ router.post('/purchase', async (req, res, next) => {
                 method: 'api',
                 price,
                 status: orderStatus,
-                geonetReference: orderReference,
+                geonetReference: orderReference, // Store reference here
                 apiOrderId: apiOrderId,
                 apiResponse: orderResponse,
                 skipGeonettech: false // Never skip for TELECEL
@@ -854,6 +888,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
+                    orderReference: orderReference, // Return the reference used
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -894,7 +929,7 @@ router.post('/purchase', async (req, res, next) => {
                 method: 'api',
                 price,
                 status: orderStatus,
-                geonetReference: orderReference,
+                geonetReference: orderReference, // Store reference here
                 apiOrderId: apiOrderId,
                 apiResponse: orderResponse,
                 skipGeonettech: true // Track that API was skipped
@@ -934,6 +969,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
+                    orderReference: orderReference, // Return the reference used
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -1066,7 +1102,7 @@ router.post('/purchase', async (req, res, next) => {
                 method: 'api',
                 price,
                 status: orderStatus,
-                geonetReference: orderReference,
+                geonetReference: orderReference, // Store reference here
                 apiOrderId: apiOrderId,
                 apiResponse: orderResponse,
                 skipGeonettech: false // Normal API processing
@@ -1105,6 +1141,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
+                    orderReference: orderReference, // Return the reference used
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -1143,6 +1180,71 @@ router.post('/purchase', async (req, res, next) => {
     }
 });
 
+// NEW ENDPOINT: Check order status by reference
+router.get('/order-status/:reference', async (req, res, next) => {
+    // Support both authentication methods
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey) {
+        return authenticateApiKey(req, res, next);
+    }
+    return authenticateUser(req, res, next);
+}, async (req, res) => {
+    try {
+        const { reference } = req.params;
+        
+        if (!reference) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Reference is required'
+            });
+        }
+
+        // Find order by geonetReference (which now stores both custom and generated references)
+        const order = await DataPurchase.findOne({
+            userId: req.user._id,
+            $or: [
+                { geonetReference: reference },
+                { hubnetReference: reference }
+            ]
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Order not found with the provided reference'
+            });
+        }
+
+        // Return order details
+        res.json({
+            status: 'success',
+            data: {
+                orderId: order._id,
+                reference: reference,
+                phoneNumber: order.phoneNumber,
+                network: order.network,
+                capacity: order.capacity,
+                mb: order.mb,
+                price: order.price,
+                orderStatus: order.status,
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt,
+                apiResponse: order.apiResponse // Include if they need to see API response
+            }
+        });
+
+    } catch (error) {
+        logOperation('ORDER_STATUS_CHECK_ERROR', {
+            reference: req.params.reference,
+            error: error.message
+        });
+
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to check order status'
+        });
+    }
+});
 // Get Purchase History (support both authentication methods)
 router.get('/purchase-history/:userId', async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
