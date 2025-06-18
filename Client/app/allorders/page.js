@@ -15,6 +15,17 @@ const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [networkFilter, setNetworkFilter] = useState("");
   
+  // User search states
+  const [userSearchPhone, setUserSearchPhone] = useState("");
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [searchedUser, setSearchedUser] = useState(null);
+  const [userOrders, setUserOrders] = useState([]);
+  const [userOrdersLoading, setUserOrdersLoading] = useState(false);
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  const [userSearchError, setUserSearchError] = useState("");
+  const [userTotalSpent, setUserTotalSpent] = useState(0);
+  const [userTotalOrders, setUserTotalOrders] = useState(0);
+  
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage, setOrdersPerPage] = useState(100);
@@ -28,6 +39,121 @@ const AdminOrders = () => {
 
   // Debounce timer for search
   const searchDebounceRef = useRef(null);
+
+  // Search for user by phone number
+  const searchUserByPhone = async () => {
+    if (!userSearchPhone.trim()) {
+      setUserSearchError("Please enter a phone number");
+      return;
+    }
+
+    const authToken = localStorage.getItem("authToken");
+    if (!authToken) {
+      setUserSearchError("Unauthorized access!");
+      return;
+    }
+
+    try {
+      setUserSearchLoading(true);
+      setUserSearchError("");
+      setSearchedUser(null);
+      setUserOrders([]);
+
+      // Search for user by phone number
+      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/users?search=${userSearchPhone}&limit=1`, {
+        headers: {
+          'x-auth-token': authToken
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to search user");
+      }
+
+      const data = await res.json();
+      
+      if (data.users && data.users.length > 0) {
+        const foundUser = data.users.find(u => 
+          u.phoneNumber && u.phoneNumber.includes(userSearchPhone)
+        );
+        
+        if (foundUser) {
+          setSearchedUser(foundUser);
+          // Automatically fetch orders for this user
+          await fetchUserOrders(foundUser._id);
+        } else {
+          setUserSearchError("No user found with this phone number");
+        }
+      } else {
+        setUserSearchError("No user found with this phone number");
+      }
+    } catch (error) {
+      console.error("Error searching user:", error);
+      setUserSearchError("Error searching for user. Please try again.");
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  // Fetch orders for a specific user
+  const fetchUserOrders = async (userId) => {
+    const authToken = localStorage.getItem("authToken");
+    if (!authToken) {
+      setUserSearchError("Unauthorized access!");
+      return;
+    }
+
+    try {
+      setUserOrdersLoading(true);
+      setUserSearchError("");
+
+      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/user-orders/${userId}?page=1&limit=1000`, {
+        headers: {
+          'x-auth-token': authToken
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch user orders");
+      }
+
+      const data = await res.json();
+      
+      setUserOrders(data.orders || []);
+      setUserTotalOrders(data.totalOrders || 0);
+      setUserTotalSpent(data.totalSpent || 0);
+    } catch (error) {
+      console.error("Error fetching user orders:", error);
+      setUserSearchError("Error fetching orders. Please try again.");
+    } finally {
+      setUserOrdersLoading(false);
+    }
+  };
+
+  // Export user orders to Excel
+  const exportUserOrdersToExcel = () => {
+    if (!userOrders || userOrders.length === 0) {
+      alert("No orders to export");
+      return;
+    }
+
+    const dataToExport = userOrders.map(order => ({
+      'Reference': order.geonetReference || order.id,
+      'Phone Number': order.phoneNumber,
+      'Capacity (GB)': order.capacity,
+      'Network': order.network,
+      'Price (GHS)': order.price.toFixed(2),
+      'Status': order.status,
+      'Date': new Date(order.createdAt).toLocaleString()
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'User Orders');
+    
+    const fileName = `user_orders_${searchedUser.phoneNumber}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
 
   // Build query string from filters
   const buildQueryString = useCallback(() => {
@@ -68,7 +194,7 @@ const AdminOrders = () => {
       if (endDate) params.append('endDate', endDate);
       if (phoneSearch) params.append('phoneNumber', phoneSearch);
       
-      const res = await fetch(`https://datamartbackened.onrender.com/api/orders?${params.toString()}`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/orders?${params.toString()}`, {
         headers: {
           'x-auth-token': authToken
         }
@@ -179,7 +305,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -228,7 +354,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/bulk-status-update`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/orders/bulk-status-update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -351,6 +477,218 @@ const AdminOrders = () => {
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Admin Orders</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage and monitor all customer orders</p>
         </div>
+        
+        {/* User Search Section */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Quick User Orders Search
+          </h2>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={userSearchPhone}
+                  onChange={(e) => setUserSearchPhone(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && searchUserByPhone()}
+                  placeholder="Enter phone number to search user orders"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg 
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                           focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent
+                           placeholder-gray-400 dark:placeholder-gray-500 transition-colors duration-200"
+                />
+                <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              </div>
+            </div>
+            <button
+              onClick={searchUserByPhone}
+              disabled={userSearchLoading}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 
+                       text-white rounded-lg transition-colors duration-200 flex items-center gap-2
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {userSearchLoading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Search User
+                </>
+              )}
+            </button>
+            {searchedUser && (
+              <button
+                onClick={() => {
+                  setSearchedUser(null);
+                  setUserOrders([]);
+                  setUserSearchPhone("");
+                  setUserSearchError("");
+                }}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 
+                         text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Error Message */}
+          {userSearchError && (
+            <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
+              <p className="text-red-700 dark:text-red-400">{userSearchError}</p>
+            </div>
+          )}
+
+          {/* User Information */}
+          {searchedUser && (
+            <div className="mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Name</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{searchedUser.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{searchedUser.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Phone Number</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{searchedUser.phoneNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Wallet Balance</p>
+                  <p className="font-medium text-gray-900 dark:text-white">GHS {searchedUser.walletBalance.toFixed(2)}</p>
+                </div>
+              </div>
+              
+              {/* Order Statistics */}
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Orders</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">{userTotalOrders}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">GHS {userTotalSpent.toFixed(2)}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Average Order</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    GHS {userTotalOrders > 0 ? (userTotalSpent / userTotalOrders).toFixed(2) : '0.00'}
+                  </p>
+                </div>
+                {userOrders.length > 0 && (
+                  <button
+                    onClick={exportUserOrdersToExcel}
+                    className="ml-auto px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 
+                             text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export User Orders
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* User Orders Table - Show if user is searched */}
+        {searchedUser && userOrders.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-6">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {searchedUser.name}'s Orders ({userOrders.length})
+              </h3>
+            </div>
+            {userOrdersLoading ? (
+              <div className="p-8">
+                <div className="flex justify-center">
+                  <svg className="animate-spin h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-96">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Reference
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Network
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Capacity
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Price
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {userOrders.map((order) => (
+                      <tr key={order._id || order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {order.geonetReference || order.id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {order.phoneNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {order.network}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {order.capacity} GB
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          GHS {order.price.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {formatDate(order.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Filters and Bulk Actions Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 transition-all duration-200">
