@@ -591,7 +591,12 @@ router.delete('/users/:id',auth, adminAuth, async (req, res) => {
  * @desc    Get all data purchase orders
  * @access  Admin
  */
-router.get('/orders',auth, adminAuth, async (req, res) => {
+/**
+ * @route   GET /api/admin/orders
+ * @desc    Get all data purchase orders with user phone search
+ * @access  Admin
+ */
+router.get('/orders', auth, adminAuth, async (req, res) => {
   try {
     const { 
       page = 1, 
@@ -600,7 +605,8 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
       network = '',
       startDate = '',
       endDate = '',
-      phoneNumber = ''
+      phoneNumber = '',
+      userPhone = ''  // New parameter for searching user's phone
     } = req.query;
     
     // Build filter
@@ -616,9 +622,34 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) {
         const endDateObj = new Date(endDate);
-        endDateObj.setDate(endDateObj.getDate() + 1); // Include end date until midnight
+        endDateObj.setDate(endDateObj.getDate() + 1);
         filter.createdAt.$lte = endDateObj;
       }
+    }
+    
+    // If userPhone is provided, find users with that phone number first
+    let userIds = null;
+    if (userPhone) {
+      const users = await User.find({
+        phoneNumber: { $regex: userPhone, $options: 'i' }
+      }).select('_id');
+      
+      userIds = users.map(user => user._id);
+      
+      if (userIds.length === 0) {
+        // No users found with this phone number
+        return res.json({
+          orders: [],
+          totalPages: 0,
+          currentPage: parseInt(page),
+          totalOrders: 0,
+          totalRevenue: 0,
+          message: 'No users found with this phone number'
+        });
+      }
+      
+      // Add user IDs to filter
+      filter.userId = { $in: userIds };
     }
     
     const orders = await DataPurchase.find(filter)
@@ -636,12 +667,57 @@ router.get('/orders',auth, adminAuth, async (req, res) => {
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     
+    // If searching by user phone and found results, also get user statistics
+    let userStats = null;
+    if (userPhone && userIds && userIds.length > 0) {
+      const userStatsAgg = await DataPurchase.aggregate([
+        { $match: { userId: { $in: userIds } } },
+        {
+          $group: {
+            _id: '$userId',
+            totalOrders: { $sum: 1 },
+            totalSpent: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'completed'] }, '$price', 0]
+              }
+            },
+            completedOrders: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'completed'] }, 1, 0]
+              }
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'userInfo'
+          }
+        },
+        { $unwind: '$userInfo' }
+      ]);
+      
+      userStats = userStatsAgg.map(stat => ({
+        userId: stat._id,
+        name: stat.userInfo.name,
+        email: stat.userInfo.email,
+        phoneNumber: stat.userInfo.phoneNumber,
+        walletBalance: stat.userInfo.walletBalance,
+        totalOrders: stat.totalOrders,
+        completedOrders: stat.completedOrders,
+        totalSpent: stat.totalSpent
+      }));
+    }
+    
     res.json({
       orders,
       totalPages: Math.ceil(total / parseInt(limit)),
       currentPage: parseInt(page),
       totalOrders: total,
-      totalRevenue: revenue.length > 0 ? revenue[0].total : 0
+      totalRevenue: revenue.length > 0 ? revenue[0].total : 0,
+      userStats // Include user statistics when searching by user phone
     });
   } catch (err) {
     console.error(err.message);
