@@ -72,7 +72,7 @@ const AdminOrders = () => {
       if (phoneSearch) params.append('phoneNumber', phoneSearch);
       if (userPhone) params.append('userPhone', userPhone); // Add user phone to API call
       
-      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/orders?${params.toString()}`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/orders?${params.toString()}`, {
         headers: {
           'x-auth-token': authToken
         }
@@ -192,7 +192,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/orders/${orderId}/status`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -241,7 +241,7 @@ const AdminOrders = () => {
     }
 
     try {
-      const res = await fetch(`https://datamartbackened.onrender.com/api/admin/orders/bulk-status-update`, {
+      const res = await fetch(`https://datamartbackened.onrender.com/api/orders/bulk-status-update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
