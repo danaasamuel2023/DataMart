@@ -218,6 +218,7 @@ function generateMixedReference(prefix = '') {
 }
 
 // UPDATED purchase-data route with proper Telecel reference handling
+// Updated purchase-data route with web-specific inventory check
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -237,6 +238,7 @@ router.post('/purchase-data', async (req, res) => {
       network,
       capacity,
       price,
+      requestType: 'WEB', // This is always a web request
       timestamp: new Date()
     });
 
@@ -298,18 +300,37 @@ router.post('/purchase-data', async (req, res) => {
     // Get the inventory record
     const inventory = await DataInventory.findOne({ network }).session(session);
     
+    // Check web-specific inventory settings
+    let inStock, skipGeonettech;
+    
+    if (inventory) {
+      // Use web-specific settings, fallback to legacy if not defined
+      inStock = inventory.webInStock !== undefined ? inventory.webInStock : inventory.inStock;
+      skipGeonettech = inventory.webSkipGeonettech !== undefined ? inventory.webSkipGeonettech : inventory.skipGeonettech;
+    } else {
+      // Default values if no inventory record exists
+      inStock = true;
+      skipGeonettech = false;
+    }
+    
     logOperation('DATA_INVENTORY_CHECK', {
       network,
       inventoryFound: !!inventory,
-      inStock: inventory ? inventory.inStock : false,
-      skipGeonettech: inventory ? inventory.skipGeonettech : false
+      requestType: 'WEB',
+      inStock: inStock,
+      skipGeonettech: skipGeonettech,
+      webInStock: inventory ? inventory.webInStock : null,
+      webSkipGeonettech: inventory ? inventory.webSkipGeonettech : null,
+      apiInStock: inventory ? inventory.apiInStock : null,
+      apiSkipGeonettech: inventory ? inventory.apiSkipGeonettech : null
     });
     
-    // Check if in stock
-    if (!inventory || !inventory.inStock) {
+    // Check if in stock (using web-specific setting)
+    if (!inStock) {
       logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
         network,
-        inventoryExists: !!inventory
+        inventoryExists: !!inventory,
+        requestType: 'WEB'
       });
       
       await session.abortTransaction();
@@ -328,7 +349,7 @@ router.post('/purchase-data', async (req, res) => {
     let orderReferencePrefix = '';
     if (network === 'TELECEL') {
       orderReferencePrefix = 'TC-'; // Telecel API
-    } else if (inventory.skipGeonettech) {
+    } else if (skipGeonettech) {
       orderReferencePrefix = 'MN-'; // Manual (API disabled)
     } else {
       orderReferencePrefix = 'GN-'; // Geonettech API
@@ -343,17 +364,18 @@ router.post('/purchase-data', async (req, res) => {
     let orderStatus = 'completed';
     let processingMethod = 'api'; // Default to API
     
-    // Check if we should skip Geonettech API
-    const shouldSkipGeonet = inventory.skipGeonettech && (network !== 'TELECEL');
+    // Check if we should skip Geonettech API (using web-specific setting)
+    const shouldSkipGeonet = skipGeonettech && (network !== 'TELECEL');
     
     logOperation('API_PROCESSING_DECISION', {
       network,
-      skipGeonettech: inventory.skipGeonettech,
+      skipGeonettech: skipGeonettech,
       shouldSkipGeonet,
       orderReference,
       prefix: orderReferencePrefix,
+      requestType: 'WEB',
       reason: shouldSkipGeonet 
-        ? 'Geonettech API disabled for this network' 
+        ? 'Geonettech API disabled for this network (Web)' 
         : 'Normal API processing'
     });
     
@@ -364,7 +386,8 @@ router.post('/purchase-data', async (req, res) => {
         network,
         phoneNumber,
         capacity,
-        orderReference
+        orderReference,
+        requestType: 'WEB'
       });
       
       try {
@@ -451,7 +474,8 @@ router.post('/purchase-data', async (req, res) => {
         capacity,
         orderReference,
         processingMethod,
-        reason: 'Geonettech API disabled for this network'
+        requestType: 'WEB',
+        reason: 'Geonettech API disabled for this network (Web)'
       });
       
       orderStatus = 'pending';
@@ -461,7 +485,7 @@ router.post('/purchase-data', async (req, res) => {
         message: 'Order stored for manual processing',
         reference: orderReference,
         processingMethod: 'manual',
-        skipReason: 'API disabled for network'
+        skipReason: 'API disabled for network (Web)'
       };
     } else {
       // Use Geonettech API normally
@@ -476,7 +500,8 @@ router.post('/purchase-data', async (req, res) => {
         
         logOperation('GEONETTECH_ORDER_REQUEST', {
           ...geonetOrderPayload,
-          processingMethod
+          processingMethod,
+          requestType: 'WEB'
         });
         
         try {
@@ -575,7 +600,7 @@ router.post('/purchase-data', async (req, res) => {
       network,
       capacity,
       gateway: 'wallet',
-      method: 'web',
+      method: 'web', // This is always 'web' for this endpoint
       price,
       status: orderStatus,
       geonetReference: orderReference, // This will now be the Telecel reference for Telecel orders
@@ -615,7 +640,8 @@ router.post('/purchase-data', async (req, res) => {
       skipGeonettech: shouldSkipGeonet,
       newWalletBalance: user.walletBalance,
       telecelReference: network === 'TELECEL' ? orderReference : null,
-      originalInternalReference: network === 'TELECEL' ? originalInternalReference : null
+      originalInternalReference: network === 'TELECEL' ? originalInternalReference : null,
+      requestType: 'WEB'
     });
 
     res.status(201).json({
@@ -652,7 +678,6 @@ router.post('/purchase-data', async (req, res) => {
     });
   }
 });
-
 // Check Order Status
 router.get('/order-status/:orderId', async (req, res) => {
   try {

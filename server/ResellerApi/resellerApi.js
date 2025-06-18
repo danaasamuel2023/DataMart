@@ -439,7 +439,11 @@ async function processTelecelOrder(recipient, capacity, reference) {
 }
 
 // Updated purchase endpoint with custom reference support (no schema changes)
+// Updated purchase endpoint using existing 'method' field
 router.post('/purchase', async (req, res, next) => {
+    // Determine if this is an API request
+    const isApiRequest = !!req.headers['x-api-key'];
+    
     // First try API key authentication
     const apiKey = req.headers['x-api-key'];
     if (apiKey) {
@@ -458,8 +462,11 @@ router.post('/purchase', async (req, res, next) => {
             capacity, 
             gateway,
             referrerNumber, // For Hubnet referrer functionality
-            ref // NEW: Custom reference from developer (optional)
+            ref // Custom reference from developer (optional)
         } = req.body;
+
+        // Determine if this is an API request
+        const isApiRequest = !!req.headers['x-api-key'];
 
         logOperation('DATA_PURCHASE_REQUEST', {
             userId: req.user._id,
@@ -468,7 +475,8 @@ router.post('/purchase', async (req, res, next) => {
             capacity,
             gateway,
             referrerNumber,
-            customReference: ref, // Log custom reference if provided
+            customReference: ref,
+            requestType: isApiRequest ? 'API' : 'WEB',
             timestamp: new Date()
         });
 
@@ -522,21 +530,40 @@ router.post('/purchase', async (req, res, next) => {
             });
         }
 
-        // NEW: Check inventory/stock status for the network
+        // Get the inventory record
         const inventory = await DataInventory.findOne({ network }).session(session);
+        
+        // Check inventory based on request type
+        let inStock, skipGeonettech;
+        
+        if (isApiRequest) {
+            // Use API-specific settings
+            inStock = inventory ? (inventory.apiInStock !== undefined ? inventory.apiInStock : inventory.inStock) : true;
+            skipGeonettech = inventory ? (inventory.apiSkipGeonettech !== undefined ? inventory.apiSkipGeonettech : inventory.skipGeonettech) : false;
+        } else {
+            // Use Web-specific settings
+            inStock = inventory ? (inventory.webInStock !== undefined ? inventory.webInStock : inventory.inStock) : true;
+            skipGeonettech = inventory ? (inventory.webSkipGeonettech !== undefined ? inventory.webSkipGeonettech : inventory.skipGeonettech) : false;
+        }
         
         logOperation('DATA_INVENTORY_CHECK', {
             network,
             inventoryFound: !!inventory,
-            inStock: inventory ? inventory.inStock : false,
-            skipGeonettech: inventory ? inventory.skipGeonettech : false
+            requestType: isApiRequest ? 'API' : 'WEB',
+            inStock: inStock,
+            skipGeonettech: skipGeonettech,
+            webInStock: inventory ? inventory.webInStock : null,
+            webSkipGeonettech: inventory ? inventory.webSkipGeonettech : null,
+            apiInStock: inventory ? inventory.apiInStock : null,
+            apiSkipGeonettech: inventory ? inventory.apiSkipGeonettech : null
         });
         
-        // If inventory doesn't exist or inStock is false, return error immediately
-        if (!inventory || !inventory.inStock) {
+        // Check if in stock
+        if (!inStock) {
             logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
                 network,
-                inventoryExists: !!inventory
+                inventoryExists: !!inventory,
+                requestType: isApiRequest ? 'API' : 'WEB'
             });
             
             await session.abortTransaction();
@@ -587,7 +614,7 @@ router.post('/purchase', async (req, res, next) => {
             userId: req.user._id,
             type: 'purchase',
             amount: price,
-            status: 'completed', // Transaction is always completed (money deducted)
+            status: 'completed',
             reference: transactionReference,
             gateway
         });
@@ -595,15 +622,16 @@ router.post('/purchase', async (req, res, next) => {
         // PROCESSING SECTION
         let orderResponse = null;
         let apiOrderId = null;
-        let orderStatus = 'completed'; // Default status
+        let orderStatus = 'completed';
         
-        // Check if we should skip API calls (from inventory state)
-        const shouldSkipApi = inventory.skipGeonettech && (network !== 'TELECEL');
+        // Check if we should skip API calls based on request type
+        const shouldSkipApi = skipGeonettech && (network !== 'TELECEL');
         
         logOperation('API_PROCESSING_DECISION', {
             network,
-            skipGeonettech: inventory.skipGeonettech,
+            skipGeonettech: skipGeonettech,
             shouldSkipApi,
+            requestType: isApiRequest ? 'API' : 'WEB',
             reason: shouldSkipApi 
                 ? 'API disabled for this network' 
                 : 'Normal API processing'
@@ -618,6 +646,7 @@ router.post('/purchase', async (req, res, next) => {
                     phoneNumber,
                     capacity,
                     orderReference,
+                    requestType: isApiRequest ? 'API' : 'WEB',
                     reason: 'API disabled for this network'
                 });
                 
@@ -716,14 +745,14 @@ router.post('/purchase', async (req, res, next) => {
                 capacity,
                 mb: dataPackage.mb,
                 gateway,
-                method: 'api',
+                method: isApiRequest ? 'api' : 'web', // Use existing enum field
                 price,
                 status: orderStatus,
                 hubnetReference: orderReference,
                 referrerNumber: referrerNumber || null,
-                geonetReference: orderReference, // Store reference here
+                geonetReference: orderReference,
                 apiResponse: orderResponse,
-                skipGeonettech: shouldSkipApi // Track if API was skipped
+                skipGeonettech: shouldSkipApi
             });
 
             // Deduct wallet balance
@@ -757,6 +786,7 @@ router.post('/purchase', async (req, res, next) => {
                 orderStatus,
                 orderReference,
                 skipApi: shouldSkipApi,
+                requestType: isApiRequest ? 'API' : 'WEB',
                 newWalletBalance: req.user.walletBalance
             });
 
@@ -766,7 +796,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
-                    orderReference: orderReference, // Return the reference used
+                    orderReference: orderReference,
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -784,7 +814,8 @@ router.post('/purchase', async (req, res, next) => {
                 network,
                 phoneNumber,
                 capacity,
-                orderReference
+                orderReference,
+                requestType: isApiRequest ? 'API' : 'WEB'
             });
             
             // Try to process the Telecel order
@@ -846,10 +877,10 @@ router.post('/purchase', async (req, res, next) => {
                 capacity,
                 mb: dataPackage.mb,
                 gateway,
-                method: 'api',
+                method: isApiRequest ? 'api' : 'web', // Use existing enum field
                 price,
                 status: orderStatus,
-                geonetReference: orderReference, // Store reference here
+                geonetReference: orderReference,
                 apiOrderId: apiOrderId,
                 apiResponse: orderResponse,
                 skipGeonettech: false // Never skip for TELECEL
@@ -879,6 +910,7 @@ router.post('/purchase', async (req, res, next) => {
                 userId: req.user._id,
                 orderStatus,
                 orderReference,
+                requestType: isApiRequest ? 'API' : 'WEB',
                 newWalletBalance: req.user.walletBalance
             });
 
@@ -888,7 +920,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
-                    orderReference: orderReference, // Return the reference used
+                    orderReference: orderReference,
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -906,6 +938,7 @@ router.post('/purchase', async (req, res, next) => {
                 phoneNumber,
                 capacity,
                 orderReference,
+                requestType: isApiRequest ? 'API' : 'WEB',
                 reason: 'Geonettech API disabled for this network'
             });
             
@@ -926,13 +959,13 @@ router.post('/purchase', async (req, res, next) => {
                 capacity,
                 mb: dataPackage.mb,
                 gateway,
-                method: 'api',
+                method: isApiRequest ? 'api' : 'web', // Use existing enum field
                 price,
                 status: orderStatus,
-                geonetReference: orderReference, // Store reference here
+                geonetReference: orderReference,
                 apiOrderId: apiOrderId,
                 apiResponse: orderResponse,
-                skipGeonettech: true // Track that API was skipped
+                skipGeonettech: true
             });
 
             // Deduct wallet balance
@@ -960,6 +993,7 @@ router.post('/purchase', async (req, res, next) => {
                 orderStatus,
                 orderReference,
                 skipGeonettech: true,
+                requestType: isApiRequest ? 'API' : 'WEB',
                 newWalletBalance: req.user.walletBalance
             });
 
@@ -969,7 +1003,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
-                    orderReference: orderReference, // Return the reference used
+                    orderReference: orderReference,
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -981,7 +1015,7 @@ router.post('/purchase', async (req, res, next) => {
             });
 
         } else {
-            // FIXED: For YELLO network, use Geonettech API with SAME format as web interface
+            // For YELLO network, use Geonettech API
             try {
                 // Check agent wallet balance (only needed for Geonettech)
                 const agentBalance = await checkAgentBalance();
@@ -1007,7 +1041,7 @@ router.post('/purchase', async (req, res, next) => {
                     });
                 }
 
-                // FIXED: Use SAME format as web interface - single object, not array
+                // Use SAME format as web interface - single object, not array
                 const geonetOrderPayload = {
                     network_key: network,
                     ref: orderReference,
@@ -1017,7 +1051,7 @@ router.post('/purchase', async (req, res, next) => {
                 
                 logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
                 
-                // FIXED: Use same endpoint as web interface
+                // Use same endpoint as web interface
                 const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
                 
                 logOperation('GEONETTECH_ORDER_RESPONSE', {
@@ -1099,13 +1133,13 @@ router.post('/purchase', async (req, res, next) => {
                 capacity,
                 mb: dataPackage.mb,
                 gateway,
-                method: 'api',
+                method: isApiRequest ? 'api' : 'web', // Use existing enum field
                 price,
                 status: orderStatus,
-                geonetReference: orderReference, // Store reference here
+                geonetReference: orderReference,
                 apiOrderId: apiOrderId,
                 apiResponse: orderResponse,
-                skipGeonettech: false // Normal API processing
+                skipGeonettech: false
             });
 
             // Deduct wallet balance
@@ -1132,6 +1166,7 @@ router.post('/purchase', async (req, res, next) => {
                 userId: req.user._id,
                 orderStatus,
                 orderReference,
+                requestType: isApiRequest ? 'API' : 'WEB',
                 newWalletBalance: req.user.walletBalance
             });
 
@@ -1141,7 +1176,7 @@ router.post('/purchase', async (req, res, next) => {
                 data: {
                     purchaseId: dataPurchase._id,
                     transactionReference: transaction.reference,
-                    orderReference: orderReference, // Return the reference used
+                    orderReference: orderReference,
                     network,
                     capacity,
                     mb: dataPackage.mb,
@@ -1179,7 +1214,6 @@ router.post('/purchase', async (req, res, next) => {
         });
     }
 });
-
 // NEW ENDPOINT: Check order status by reference
 router.get('/order-status/:reference', async (req, res, next) => {
     // Support both authentication methods

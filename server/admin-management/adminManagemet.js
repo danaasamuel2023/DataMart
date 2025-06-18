@@ -1071,23 +1071,433 @@ const DataPurchaseSchema = new mongoose.Schema({
 });
 */
 
+// Add these routes to your existing admin routes file
+
+/**
+ * @route   GET /api/admin/inventory
+ * @desc    Get all inventory items with separate web/API status
+ * @access  Admin
+ */
+router.get('/inventory', auth, adminAuth, async (req, res) => {
+  try {
+    const inventoryItems = await DataInventory.find({})
+      .populate('webLastUpdatedBy', 'name email')
+      .populate('apiLastUpdatedBy', 'name email')
+      .sort({ network: 1 });
+    
+    // Predefined networks
+    const NETWORKS = ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at"];
+    
+    // Create response with all networks
+    const inventory = NETWORKS.map(network => {
+      const existingItem = inventoryItems.find(item => item.network === network);
+      
+      if (existingItem) {
+        return {
+          network: existingItem.network,
+          // Web settings
+          webInStock: existingItem.webInStock !== undefined ? existingItem.webInStock : existingItem.inStock,
+          webSkipGeonettech: existingItem.webSkipGeonettech !== undefined ? existingItem.webSkipGeonettech : existingItem.skipGeonettech,
+          webLastUpdatedBy: existingItem.webLastUpdatedBy,
+          webLastUpdatedAt: existingItem.webLastUpdatedAt,
+          // API settings
+          apiInStock: existingItem.apiInStock !== undefined ? existingItem.apiInStock : existingItem.inStock,
+          apiSkipGeonettech: existingItem.apiSkipGeonettech !== undefined ? existingItem.apiSkipGeonettech : existingItem.skipGeonettech,
+          apiLastUpdatedBy: existingItem.apiLastUpdatedBy,
+          apiLastUpdatedAt: existingItem.apiLastUpdatedAt,
+          // Legacy fields
+          inStock: existingItem.inStock,
+          skipGeonettech: existingItem.skipGeonettech,
+          // General
+          updatedAt: existingItem.updatedAt
+        };
+      } else {
+        // Return defaults for non-existent networks
+        return {
+          network,
+          // Web defaults
+          webInStock: true,
+          webSkipGeonettech: false,
+          webLastUpdatedBy: null,
+          webLastUpdatedAt: null,
+          // API defaults
+          apiInStock: true,
+          apiSkipGeonettech: false,
+          apiLastUpdatedBy: null,
+          apiLastUpdatedAt: null,
+          // Legacy defaults
+          inStock: true,
+          skipGeonettech: false,
+          updatedAt: null
+        };
+      }
+    });
+    
+    res.json({
+      status: 'success',
+      inventory,
+      totalNetworks: NETWORKS.length
+    });
+  } catch (err) {
+    console.error('Get inventory error:', err.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch inventory'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/inventory/:network
+ * @desc    Get specific network inventory with separate web/API info
+ * @access  Admin
+ */
+router.get('/inventory/:network', auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
+    
+    const inventoryItem = await DataInventory.findOne({ network })
+      .populate('webLastUpdatedBy', 'name email')
+      .populate('apiLastUpdatedBy', 'name email');
+    
+    if (!inventoryItem) {
+      return res.json({
+        network,
+        // Web defaults
+        webInStock: true,
+        webSkipGeonettech: false,
+        webLastUpdatedBy: null,
+        webLastUpdatedAt: null,
+        // API defaults
+        apiInStock: true,
+        apiSkipGeonettech: false,
+        apiLastUpdatedBy: null,
+        apiLastUpdatedAt: null,
+        // Legacy defaults
+        inStock: true,
+        skipGeonettech: false,
+        updatedAt: null,
+        message: 'Network not found in inventory - showing defaults'
+      });
+    }
+    
+    res.json({
+      network: inventoryItem.network,
+      // Web settings
+      webInStock: inventoryItem.webInStock !== undefined ? inventoryItem.webInStock : inventoryItem.inStock,
+      webSkipGeonettech: inventoryItem.webSkipGeonettech !== undefined ? inventoryItem.webSkipGeonettech : inventoryItem.skipGeonettech,
+      webLastUpdatedBy: inventoryItem.webLastUpdatedBy,
+      webLastUpdatedAt: inventoryItem.webLastUpdatedAt,
+      // API settings
+      apiInStock: inventoryItem.apiInStock !== undefined ? inventoryItem.apiInStock : inventoryItem.inStock,
+      apiSkipGeonettech: inventoryItem.apiSkipGeonettech !== undefined ? inventoryItem.apiSkipGeonettech : inventoryItem.skipGeonettech,
+      apiLastUpdatedBy: inventoryItem.apiLastUpdatedBy,
+      apiLastUpdatedAt: inventoryItem.apiLastUpdatedAt,
+      // Legacy fields
+      inStock: inventoryItem.inStock,
+      skipGeonettech: inventoryItem.skipGeonettech,
+      updatedAt: inventoryItem.updatedAt
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   PUT /api/admin/inventory/:network/toggle-web
+ * @desc    Toggle web stock status
+ * @access  Admin
+ */
+router.put('/inventory/:network/toggle-web', auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
+    
+    let inventory = await DataInventory.findOne({ network });
+    
+    if (!inventory) {
+      // Create new inventory record with default values
+      inventory = new DataInventory({
+        network,
+        webInStock: false, // Toggling from default true
+        apiInStock: true,
+        webSkipGeonettech: false,
+        apiSkipGeonettech: false,
+        // Set legacy fields to match web settings initially
+        inStock: false,
+        skipGeonettech: false
+      });
+    } else {
+      // Toggle web stock status
+      if (inventory.webInStock !== undefined) {
+        inventory.webInStock = !inventory.webInStock;
+      } else {
+        // If webInStock doesn't exist, use legacy inStock field
+        inventory.webInStock = !inventory.inStock;
+      }
+    }
+    
+    inventory.webLastUpdatedBy = req.user.id;
+    inventory.webLastUpdatedAt = new Date();
+    inventory.updatedAt = new Date();
+    
+    await inventory.save();
+    
+    res.json({
+      status: 'success',
+      message: `${network} web stock status updated to ${inventory.webInStock ? 'In Stock' : 'Out of Stock'}`,
+      webInStock: inventory.webInStock,
+      webLastUpdatedAt: inventory.webLastUpdatedAt
+    });
+  } catch (error) {
+    console.error('Toggle web stock error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to toggle web stock status'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/inventory/:network/toggle-api
+ * @desc    Toggle API stock status
+ * @access  Admin
+ */
+router.put('/inventory/:network/toggle-api', auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
+    
+    let inventory = await DataInventory.findOne({ network });
+    
+    if (!inventory) {
+      inventory = new DataInventory({
+        network,
+        webInStock: true,
+        apiInStock: false, // Toggling from default true
+        webSkipGeonettech: false,
+        apiSkipGeonettech: false,
+        // Set legacy fields
+        inStock: true,
+        skipGeonettech: false
+      });
+    } else {
+      // Toggle API stock status
+      if (inventory.apiInStock !== undefined) {
+        inventory.apiInStock = !inventory.apiInStock;
+      } else {
+        // If apiInStock doesn't exist, use legacy inStock field
+        inventory.apiInStock = !inventory.inStock;
+      }
+    }
+    
+    inventory.apiLastUpdatedBy = req.user.id;
+    inventory.apiLastUpdatedAt = new Date();
+    inventory.updatedAt = new Date();
+    
+    await inventory.save();
+    
+    res.json({
+      status: 'success',
+      message: `${network} API stock status updated to ${inventory.apiInStock ? 'In Stock' : 'Out of Stock'}`,
+      apiInStock: inventory.apiInStock,
+      apiLastUpdatedAt: inventory.apiLastUpdatedAt
+    });
+  } catch (error) {
+    console.error('Toggle API stock error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to toggle API stock status'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/inventory/:network/toggle-geonettech-web
+ * @desc    Toggle web Geonettech API status
+ * @access  Admin
+ */
+router.put('/inventory/:network/toggle-geonettech-web', auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
+    
+    let inventory = await DataInventory.findOne({ network });
+    
+    if (!inventory) {
+      inventory = new DataInventory({
+        network,
+        webInStock: true,
+        apiInStock: true,
+        webSkipGeonettech: true, // Toggling from default false
+        apiSkipGeonettech: false,
+        // Set legacy fields
+        inStock: true,
+        skipGeonettech: true
+      });
+    } else {
+      // Toggle web Geonettech status
+      if (inventory.webSkipGeonettech !== undefined) {
+        inventory.webSkipGeonettech = !inventory.webSkipGeonettech;
+      } else {
+        // If webSkipGeonettech doesn't exist, use legacy skipGeonettech field
+        inventory.webSkipGeonettech = !inventory.skipGeonettech;
+      }
+    }
+    
+    inventory.webLastUpdatedBy = req.user.id;
+    inventory.webLastUpdatedAt = new Date();
+    inventory.updatedAt = new Date();
+    
+    await inventory.save();
+    
+    res.json({
+      status: 'success',
+      message: `${network} web Geonettech API ${inventory.webSkipGeonettech ? 'disabled' : 'enabled'}`,
+      webSkipGeonettech: inventory.webSkipGeonettech,
+      webLastUpdatedAt: inventory.webLastUpdatedAt
+    });
+  } catch (error) {
+    console.error('Toggle web Geonettech error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to toggle web Geonettech status'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/inventory/:network/toggle-geonettech-api
+ * @desc    Toggle API Geonettech status
+ * @access  Admin
+ */
+router.put('/inventory/:network/toggle-geonettech-api', auth, adminAuth, async (req, res) => {
+  try {
+    const { network } = req.params;
+    
+    let inventory = await DataInventory.findOne({ network });
+    
+    if (!inventory) {
+      inventory = new DataInventory({
+        network,
+        webInStock: true,
+        apiInStock: true,
+        webSkipGeonettech: false,
+        apiSkipGeonettech: true, // Toggling from default false
+        // Set legacy fields
+        inStock: true,
+        skipGeonettech: false
+      });
+    } else {
+      // Toggle API Geonettech status
+      if (inventory.apiSkipGeonettech !== undefined) {
+        inventory.apiSkipGeonettech = !inventory.apiSkipGeonettech;
+      } else {
+        // If apiSkipGeonettech doesn't exist, use legacy skipGeonettech field
+        inventory.apiSkipGeonettech = !inventory.skipGeonettech;
+      }
+    }
+    
+    inventory.apiLastUpdatedBy = req.user.id;
+    inventory.apiLastUpdatedAt = new Date();
+    inventory.updatedAt = new Date();
+    
+    await inventory.save();
+    
+    res.json({
+      status: 'success',
+      message: `${network} API Geonettech ${inventory.apiSkipGeonettech ? 'disabled' : 'enabled'}`,
+      apiSkipGeonettech: inventory.apiSkipGeonettech,
+      apiLastUpdatedAt: inventory.apiLastUpdatedAt
+    });
+  } catch (error) {
+    console.error('Toggle API Geonettech error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to toggle API Geonettech status'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/inventory/migrate
+ * @desc    Migrate existing inventory to new schema
+ * @access  Admin
+ */
+router.post('/inventory/migrate', auth, adminAuth, async (req, res) => {
+  try {
+    const inventories = await DataInventory.find({});
+    let migratedCount = 0;
+    
+    for (const inventory of inventories) {
+      let updated = false;
+      
+      // If new fields don't exist, copy from old fields
+      if (inventory.webInStock === undefined) {
+        inventory.webInStock = inventory.inStock;
+        updated = true;
+      }
+      if (inventory.webSkipGeonettech === undefined) {
+        inventory.webSkipGeonettech = inventory.skipGeonettech;
+        updated = true;
+      }
+      if (inventory.apiInStock === undefined) {
+        inventory.apiInStock = inventory.inStock;
+        updated = true;
+      }
+      if (inventory.apiSkipGeonettech === undefined) {
+        inventory.apiSkipGeonettech = inventory.skipGeonettech;
+        updated = true;
+      }
+      
+      if (updated) {
+        await inventory.save();
+        migratedCount++;
+      }
+    }
+    
+    res.json({
+      status: 'success',
+      message: `Migration completed. ${migratedCount} out of ${inventories.length} inventory records updated.`,
+      totalRecords: inventories.length,
+      migratedRecords: migratedCount
+    });
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to migrate inventory'
+    });
+  }
+});
+
+// Keep the legacy toggle routes for backward compatibility
+// But update them to affect both web and API settings
+
+/**
+ * @route   PUT /api/admin/inventory/:network/toggle
+ * @desc    Toggle stock status (legacy - affects both web and API)
+ * @access  Admin
+ */
 router.put('/inventory/:network/toggle', auth, adminAuth, async (req, res) => {
   try {
     const { network } = req.params;
     
-    // Find the inventory item
     let inventoryItem = await DataInventory.findOne({ network });
     
     if (!inventoryItem) {
-      // Create new inventory item if it doesn't exist
       inventoryItem = new DataInventory({
         network,
-        inStock: false, // Set to false since we're toggling from non-existent (assumed true)
-        skipGeonettech: false // Add default value
+        inStock: false,
+        webInStock: false,
+        apiInStock: false,
+        skipGeonettech: false,
+        webSkipGeonettech: false,
+        apiSkipGeonettech: false
       });
     } else {
-      // Toggle existing item
+      // Toggle all stock statuses
       inventoryItem.inStock = !inventoryItem.inStock;
+      inventoryItem.webInStock = inventoryItem.inStock;
+      inventoryItem.apiInStock = inventoryItem.inStock;
       inventoryItem.updatedAt = Date.now();
     }
     
@@ -1096,8 +1506,10 @@ router.put('/inventory/:network/toggle', auth, adminAuth, async (req, res) => {
     res.json({ 
       network: inventoryItem.network, 
       inStock: inventoryItem.inStock,
+      webInStock: inventoryItem.webInStock,
+      apiInStock: inventoryItem.apiInStock,
       skipGeonettech: inventoryItem.skipGeonettech || false,
-      message: `${network} is now ${inventoryItem.inStock ? 'in stock' : 'out of stock'}`
+      message: `${network} is now ${inventoryItem.inStock ? 'in stock' : 'out of stock'} for both web and API`
     });
   } catch (err) {
     console.error(err.message);
@@ -1107,26 +1519,30 @@ router.put('/inventory/:network/toggle', auth, adminAuth, async (req, res) => {
 
 /**
  * @route   PUT /api/admin/inventory/:network/toggle-geonettech
- * @desc    Toggle Geonettech API for specific network
+ * @desc    Toggle Geonettech API (legacy - affects both web and API)
  * @access  Admin
  */
 router.put('/inventory/:network/toggle-geonettech', auth, adminAuth, async (req, res) => {
   try {
     const { network } = req.params;
     
-    // Find the inventory item
     let inventoryItem = await DataInventory.findOne({ network });
     
     if (!inventoryItem) {
-      // Create new inventory item if it doesn't exist
       inventoryItem = new DataInventory({
         network,
-        inStock: true, // Default to in stock
-        skipGeonettech: true // Set to true since we're toggling from non-existent (assumed false)
+        inStock: true,
+        webInStock: true,
+        apiInStock: true,
+        skipGeonettech: true,
+        webSkipGeonettech: true,
+        apiSkipGeonettech: true
       });
     } else {
-      // Toggle existing item
+      // Toggle all Geonettech settings
       inventoryItem.skipGeonettech = !inventoryItem.skipGeonettech;
+      inventoryItem.webSkipGeonettech = inventoryItem.skipGeonettech;
+      inventoryItem.apiSkipGeonettech = inventoryItem.skipGeonettech;
       inventoryItem.updatedAt = Date.now();
     }
     
@@ -1136,7 +1552,9 @@ router.put('/inventory/:network/toggle-geonettech', auth, adminAuth, async (req,
       network: inventoryItem.network, 
       inStock: inventoryItem.inStock,
       skipGeonettech: inventoryItem.skipGeonettech,
-      message: `${network} Geonettech API is now ${inventoryItem.skipGeonettech ? 'disabled (orders will be pending)' : 'enabled (orders will be processed)'}`
+      webSkipGeonettech: inventoryItem.webSkipGeonettech,
+      apiSkipGeonettech: inventoryItem.apiSkipGeonettech,
+      message: `${network} Geonettech API is now ${inventoryItem.skipGeonettech ? 'disabled' : 'enabled'} for both web and API`
     });
   } catch (err) {
     console.error(err.message);
@@ -1144,81 +1562,6 @@ router.put('/inventory/:network/toggle-geonettech', auth, adminAuth, async (req,
   }
 });
 
-/**
- * @route   GET /api/admin/inventory
- * @desc    Get all inventory items with current status
- * @access  Admin
- */
-router.get('/inventory', auth, adminAuth, async (req, res) => {
-  try {
-    const inventoryItems = await DataInventory.find({}).sort({ network: 1 });
-    
-    // Predefined networks
-    const NETWORKS = ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at"];
-    
-    // Create response with all networks (create missing ones with defaults)
-    const inventory = NETWORKS.map(network => {
-      const existingItem = inventoryItems.find(item => item.network === network);
-      
-      if (existingItem) {
-        return {
-          network: existingItem.network,
-          inStock: existingItem.inStock,
-          skipGeonettech: existingItem.skipGeonettech || false,
-          updatedAt: existingItem.updatedAt
-        };
-      } else {
-        return {
-          network,
-          inStock: true, // Default to in stock
-          skipGeonettech: false, // Default to API enabled
-          updatedAt: null
-        };
-      }
-    });
-    
-    res.json({
-      inventory,
-      totalNetworks: NETWORKS.length
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-/**
- * @route   GET /api/admin/inventory/:network
- * @desc    Get specific network inventory status
- * @access  Admin
- */
-router.get('/inventory/:network', auth, adminAuth, async (req, res) => {
-  try {
-    const { network } = req.params;
-    
-    const inventoryItem = await DataInventory.findOne({ network });
-    
-    if (!inventoryItem) {
-      return res.json({
-        network,
-        inStock: true, // Default to in stock
-        skipGeonettech: false, // Default to API enabled
-        updatedAt: null,
-        message: 'Network not found in inventory - showing defaults'
-      });
-    }
-    
-    res.json({
-      network: inventoryItem.network,
-      inStock: inventoryItem.inStock,
-      skipGeonettech: inventoryItem.skipGeonettech || false,
-      updatedAt: inventoryItem.updatedAt
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
 /**
  * @route   GET /api/admin/transactions
  * @desc    Get all transactions with pagination, filtering and sorting

@@ -153,12 +153,72 @@ const ReferralBonusSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Updated DataInventory Schema - Add this to your schema.js file
+
 const DataInventorySchema = new mongoose.Schema({
-  network: { type: String, enum: ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at","waiting"], required: true },
-  inStock: { type: Boolean, default: true },
-  skipGeonettech: { type: Boolean, default: false },
-  updatedAt: { type: Date, default: Date.now }
+  network: { 
+    type: String, 
+    enum: ["YELLO", "TELECEL", "AT_PREMIUM", "airteltigo", "at", "waiting"], 
+    required: true,
+    unique: true 
+  },
+  
+  // Web User Controls
+  webInStock: { 
+    type: Boolean, 
+    default: true 
+  },
+  webSkipGeonettech: { 
+    type: Boolean, 
+    default: false 
+  },
+  
+  // API Developer Controls
+  apiInStock: { 
+    type: Boolean, 
+    default: true 
+  },
+  apiSkipGeonettech: { 
+    type: Boolean, 
+    default: false 
+  },
+  
+  // Legacy fields (for backward compatibility during migration)
+  inStock: { 
+    type: Boolean, 
+    default: true 
+  },
+  skipGeonettech: { 
+    type: Boolean, 
+    default: false 
+  },
+  
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  
+  // Track who last updated and when
+  webLastUpdatedBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User" 
+  },
+  webLastUpdatedAt: { 
+    type: Date 
+  },
+  apiLastUpdatedBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User" 
+  },
+  apiLastUpdatedAt: { 
+    type: Date 
+  }
 });
+
+// Add indexes for better query performance
+DataInventorySchema.index({ network: 1 });
+DataInventorySchema.index({ webInStock: 1 });
+DataInventorySchema.index({ apiInStock: 1 });
 
 const Schema = mongoose.Schema;
 
