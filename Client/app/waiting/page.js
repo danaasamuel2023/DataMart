@@ -24,7 +24,8 @@ import {
   Loader,
   Copy,
   BarChart,
-  Home
+  Home,
+  Database
 } from 'lucide-react';
 
 // API base URL - update as needed
@@ -39,6 +40,9 @@ const STATUS_TABS = [
   { id: 'failed', label: 'Failed', color: 'red', tooltip: 'Failed orders' },
   { id: 'on', label: 'On', color: 'indigo', tooltip: 'Orders that are active/on' }
 ];
+
+// Common capacity options (in GB)
+const CAPACITY_OPTIONS = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100];
 
 export default function OrderManagementPage() {
   const router = useRouter();
@@ -63,7 +67,9 @@ export default function OrderManagementPage() {
     startDate: '',
     endDate: '',
     limit: 2000,
-    todayOnly: false
+    todayOnly: false,
+    includedCapacities: [],
+    excludedCapacities: []
   });
   
   // Selected orders for bulk actions
@@ -85,6 +91,9 @@ export default function OrderManagementPage() {
   
   // Networks from schema
   const networks = ['YELLO', 'TELECEL', 'AT_PREMIUM', 'airteltigo', 'at'];
+  
+  // Available capacities from orders
+  const [availableCapacities, setAvailableCapacities] = useState([]);
   
   // Toggle dark mode
   const toggleDarkMode = () => {
@@ -136,6 +145,33 @@ export default function OrderManagementPage() {
     fetchOrders(tabId);
   };
 
+  // Filter orders by capacity on client side
+  const filterOrdersByCapacity = (ordersList) => {
+    if (filters.includedCapacities.length === 0 && filters.excludedCapacities.length === 0) {
+      return ordersList;
+    }
+    
+    return ordersList.filter(order => {
+      const capacity = order.capacity;
+      
+      // If there are included capacities, order must match one of them
+      if (filters.includedCapacities.length > 0) {
+        if (!filters.includedCapacities.includes(capacity)) {
+          return false;
+        }
+      }
+      
+      // If there are excluded capacities, order must not match any of them
+      if (filters.excludedCapacities.length > 0) {
+        if (filters.excludedCapacities.includes(capacity)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
   // Fetch orders based on status
   const fetchOrders = async (status = activeTab) => {
     setLoading(true);
@@ -159,8 +195,22 @@ export default function OrderManagementPage() {
         }
       });
       
-      setOrders(response.data.orders);
-      setPagination(response.data.pagination);
+      // Apply capacity filters on client side
+      const filteredOrders = filterOrdersByCapacity(response.data.orders);
+      
+      // Extract unique capacities from all orders
+      const capacities = [...new Set(response.data.orders.map(order => order.capacity))].sort((a, b) => a - b);
+      setAvailableCapacities(capacities);
+      
+      setOrders(filteredOrders);
+      
+      // Update pagination to reflect filtered results
+      const filteredTotal = filteredOrders.length;
+      setPagination({
+        ...response.data.pagination,
+        total: filteredTotal,
+        pages: Math.ceil(filteredTotal / filters.limit)
+      });
     } catch (err) {
       console.error(`Error fetching ${status} orders:`, err);
       setError(err.response?.data?.msg || `Error fetching ${status} orders`);
@@ -334,6 +384,40 @@ export default function OrderManagementPage() {
     }
   };
   
+  // Toggle capacity inclusion
+  const toggleCapacityInclusion = (capacity) => {
+    if (filters.includedCapacities.includes(capacity)) {
+      setFilters({
+        ...filters,
+        includedCapacities: filters.includedCapacities.filter(c => c !== capacity)
+      });
+    } else {
+      // Remove from excluded if present
+      setFilters({
+        ...filters,
+        includedCapacities: [...filters.includedCapacities, capacity],
+        excludedCapacities: filters.excludedCapacities.filter(c => c !== capacity)
+      });
+    }
+  };
+  
+  // Toggle capacity exclusion
+  const toggleCapacityExclusion = (capacity) => {
+    if (filters.excludedCapacities.includes(capacity)) {
+      setFilters({
+        ...filters,
+        excludedCapacities: filters.excludedCapacities.filter(c => c !== capacity)
+      });
+    } else {
+      // Remove from included if present
+      setFilters({
+        ...filters,
+        excludedCapacities: [...filters.excludedCapacities, capacity],
+        includedCapacities: filters.includedCapacities.filter(c => c !== capacity)
+      });
+    }
+  };
+  
   // Apply filters
   const applyFilters = (e) => {
     e.preventDefault();
@@ -349,7 +433,9 @@ export default function OrderManagementPage() {
       startDate: '',
       endDate: '',
       limit: 20,
-      todayOnly: false
+      todayOnly: false,
+      includedCapacities: [],
+      excludedCapacities: []
     });
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchOrders();
@@ -637,7 +723,6 @@ export default function OrderManagementPage() {
                       <option value="50">50</option>
                       <option value="100">100</option>
                       <option value="2000">2000</option>
-
                     </select>
                   </div>
                 </div>
@@ -662,6 +747,78 @@ export default function OrderManagementPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+              
+              {/* Capacity Filters */}
+              <div className="mt-6 border-t pt-4 dark:border-gray-700">
+                <h3 className="text-sm font-medium mb-3 flex items-center">
+                  <Database className="h-4 w-4 mr-2" />
+                  Capacity Filters
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Include Capacities */}
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      Include Capacities (GB) - Only show these capacities
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableCapacities.map(capacity => (
+                        <button
+                          key={`include-${capacity}`}
+                          type="button"
+                          onClick={() => toggleCapacityInclusion(capacity)}
+                          className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                            filters.includedCapacities.includes(capacity)
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {capacity} GB
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Exclude Capacities */}
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      Exclude Capacities (GB) - Hide these capacities
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableCapacities.map(capacity => (
+                        <button
+                          key={`exclude-${capacity}`}
+                          type="button"
+                          onClick={() => toggleCapacityExclusion(capacity)}
+                          className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                            filters.excludedCapacities.includes(capacity)
+                              ? 'bg-red-500 text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {capacity} GB
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Active capacity filters display */}
+                {(filters.includedCapacities.length > 0 || filters.excludedCapacities.length > 0) && (
+                  <div className="mt-3 text-sm">
+                    {filters.includedCapacities.length > 0 && (
+                      <p className="text-green-600 dark:text-green-400">
+                        Including: {filters.includedCapacities.map(c => `${c}GB`).join(', ')}
+                      </p>
+                    )}
+                    {filters.excludedCapacities.length > 0 && (
+                      <p className="text-red-600 dark:text-red-400">
+                        Excluding: {filters.excludedCapacities.map(c => `${c}GB`).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="mt-4 flex justify-end space-x-3">
@@ -775,6 +932,11 @@ export default function OrderManagementPage() {
           ) : orders.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-lg">No {activeTab} orders found</p>
+              {(filters.includedCapacities.length > 0 || filters.excludedCapacities.length > 0) && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  Try adjusting your capacity filters
+                </p>
+              )}
               <button 
                 onClick={() => fetchOrders()}
                 className="mt-4 px-4 py-2 rounded flex items-center mx-auto bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white transition-colors"
@@ -862,7 +1024,7 @@ export default function OrderManagementPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm">{order.capacity} GB</div>
+                        <div className="text-sm font-medium">{order.capacity} GB</div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">₵{order.price?.toFixed(2)}</div>
                       </td>
                       <td className="px-6 py-4 text-sm">

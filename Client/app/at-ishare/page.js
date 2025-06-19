@@ -1,9 +1,8 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 
-const HubnetBundleCards = () => {
+const FGMallATBundleCards = () => {
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -20,22 +19,22 @@ const HubnetBundleCards = () => {
     }
   }, []);
 
-  // Only include AirtelTigo bundles
+  // Only include AirtelTigo bundles - same as original but with FGMall pricing/network code
   const bundles = [
-    { capacity: '1', mb: '1000', price: '3.95', network: 'at' },
-    { capacity: '2', mb: '2000', price: '8.35', network: 'at' },
-    { capacity: '3', mb: '3000', price: '13.25', network: 'at' },
-    { capacity: '4', mb: '4000', price: '16.50', network: 'at' },
-    { capacity: '5', mb: '5000', price: '19.50', network: 'at' },
-    { capacity: '6', mb: '6000', price: '23.50', network: 'at' },
-    { capacity: '8', mb: '8000', price: '30.50', network: 'at' },
-    { capacity: '10', mb: '10000', price: '38.50', network: 'at' },
-    { capacity: '12', mb: '12000', price: '45.50', network: 'at' },
-    { capacity: '15', mb: '15000', price: '57.50', network: 'at' },
-    { capacity: '25', mb: '25000', price: '95.00', network: 'at' },
-    { capacity: '30', mb: '30000', price: '115.00', network: 'at' },
-    { capacity: '40', mb: '40000', price: '151.00', network: 'at' },
-    { capacity: '50', mb: '50000', price: '190.00', network: 'at' }
+    { capacity: '1', mb: '1000', price: '3.95', network: 'AT_PREMIUM' },
+    { capacity: '2', mb: '2000', price: '8.35', network: 'AT_PREMIUM' },
+    { capacity: '3', mb: '3000', price: '13.25', network: 'AT_PREMIUM' },
+    { capacity: '4', mb: '4000', price: '16.50', network: 'AT_PREMIUM' },
+    { capacity: '5', mb: '5000', price: '19.50', network: 'AT_PREMIUM' },
+    { capacity: '6', mb: '6000', price: '23.50', network: 'AT_PREMIUM' },
+    { capacity: '8', mb: '8000', price: '30.50', network: 'AT_PREMIUM' },
+    { capacity: '10', mb: '10000', price: '38.50', network: 'AT_PREMIUM' },
+    { capacity: '12', mb: '12000', price: '45.50', network: 'AT_PREMIUM' },
+    { capacity: '15', mb: '15000', price: '57.50', network: 'AT_PREMIUM' },
+    { capacity: '25', mb: '25000', price: '95.00', network: 'AT_PREMIUM' },
+    { capacity: '30', mb: '30000', price: '115.00', network: 'AT_PREMIUM' },
+    { capacity: '40', mb: '40000', price: '151.00', network: 'AT_PREMIUM' },
+    { capacity: '50', mb: '50000', price: '190.00', network: 'AT_PREMIUM' }
   ];
 
   // Network Logo Component for AirtelTigo
@@ -142,19 +141,25 @@ const HubnetBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/purchase-hubnet-data', {
-        userId: userData.id,
-        phoneNumber: phoneNumber,
-        network: bundle.network,
-        dataAmountGB: bundle.capacity,
-        price: parseFloat(bundle.price)
-      }, {
+      // Use the FGMall purchase-data endpoint
+      const response = await fetch('https://datamartbackened.onrender.com/api/foster/purchase-data', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: userData.id,
+          phoneNumber: phoneNumber,
+          network: bundle.network, // 'AT_PREMIUM' for FGMall
+          capacity: parseFloat(bundle.capacity),
+          price: parseFloat(bundle.price)
+        })
       });
 
-      if (response.data.status === 'success') {
+      const data = await response.json();
+
+      if (data.status === 'success') {
         setGlobalMessage({ 
           text: `${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}`, 
           type: 'success' 
@@ -165,13 +170,15 @@ const HubnetBundleCards = () => {
         
         // Auto-scroll to the top to see the success message
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        throw new Error(data.message || 'Purchase failed');
       }
     } catch (error) {
       console.error('Purchase error:', error);
       setBundleMessages(prev => ({ 
         ...prev, 
         [index]: { 
-          text: error.response?.data?.message || 'Failed to purchase data bundle', 
+          text: error.message || 'Failed to purchase data bundle', 
           type: 'error' 
         } 
       }));
@@ -182,7 +189,7 @@ const HubnetBundleCards = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-4 text-center">AirtelTigo Data Bundles</h1>
+      <h1 className="text-3xl font-bold mb-4 text-center">AirtelTigo Data Bundles (Premium)</h1>
       
       {/* Important Notice Box */}
       <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg shadow">
@@ -325,4 +332,4 @@ const HubnetBundleCards = () => {
   );
 };
 
-export default HubnetBundleCards;
+export default FGMallATBundleCards;
