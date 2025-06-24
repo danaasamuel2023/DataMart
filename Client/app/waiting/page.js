@@ -25,7 +25,13 @@ import {
   Copy,
   BarChart,
   Home,
-  Database
+  Database,
+  Hash,
+  Target,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  Settings
 } from 'lucide-react';
 
 // API base URL - update as needed
@@ -40,9 +46,6 @@ const STATUS_TABS = [
   { id: 'failed', label: 'Failed', color: 'red', tooltip: 'Failed orders' },
   { id: 'on', label: 'On', color: 'indigo', tooltip: 'Orders that are active/on' }
 ];
-
-// Common capacity options (in GB)
-const CAPACITY_OPTIONS = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100];
 
 export default function OrderManagementPage() {
   const router = useRouter();
@@ -80,6 +83,21 @@ export default function OrderManagementPage() {
   const [newStatus, setNewStatus] = useState('');
   const [statusNotes, setStatusNotes] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState(null);
+  
+  // Range update functionality
+  const [showRangeUpdate, setShowRangeUpdate] = useState(false);
+  const [rangeUpdateMode, setRangeUpdateMode] = useState('upTo'); // 'upTo', 'fromNumber', 'between'
+  const [rangeNumber, setRangeNumber] = useState('');
+  const [rangeStartNumber, setRangeStartNumber] = useState('');
+  const [rangeEndNumber, setRangeEndNumber] = useState('');
+  const [rangeUpdateStatus, setRangeUpdateStatus] = useState('');
+  const [rangeUpdateNotes, setRangeUpdateNotes] = useState('');
+  const [rangeUpdateLoading, setRangeUpdateLoading] = useState(false);
+  const [rangePreview, setRangePreview] = useState(null);
+  
+  // Advanced selection state
+  const [showAdvancedSelection, setShowAdvancedSelection] = useState(false);
+  const [selectionRange, setSelectionRange] = useState({ start: '', end: '' });
   
   // Clipboard state
   const [copyAfterUpdate, setCopyAfterUpdate] = useState(false);
@@ -128,7 +146,6 @@ export default function OrderManagementPage() {
       setStatusCounts(ordersByStatus);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      // Don't set error state here to avoid disrupting the main UI
     }
   };
 
@@ -187,7 +204,7 @@ export default function OrderManagementPage() {
       queryParams.append('limit', filters.limit);
       queryParams.append('page', pagination.page);
       
-      const token = localStorage.getItem('token'); // Assuming token-based auth
+      const token = localStorage.getItem('token');
       
       const response = await axios.get(`${API_BASE_URL}/orders/${status}?${queryParams.toString()}`, {
         headers: {
@@ -221,12 +238,10 @@ export default function OrderManagementPage() {
   
   // Format orders for clipboard (number capacity format with spaces between)
   const formatOrdersForClipboard = () => {
-    // Get the selected orders
     const ordersToFormat = selectedOrders.length > 0 
       ? orders.filter(order => selectedOrders.includes(order._id)) 
       : orders;
     
-    // Format each order as "phoneNumber capacity"
     return ordersToFormat.map(order => `${order.phoneNumber} ${order.capacity}`).join('\n');
   };
 
@@ -245,6 +260,102 @@ export default function OrderManagementPage() {
       });
   };
   
+  // Preview range update
+  const previewRangeUpdate = async () => {
+    if (!rangeUpdateStatus) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Build preview request
+      let previewData = {
+        currentStatus: activeTab,
+        newStatus: rangeUpdateStatus,
+        preview: true
+      };
+      
+      // Add range parameters based on mode
+      if (rangeUpdateMode === 'upTo' && rangeNumber) {
+        previewData.upToOrderNumber = parseInt(rangeNumber);
+      } else if (rangeUpdateMode === 'fromNumber' && rangeNumber) {
+        previewData.fromOrderNumber = parseInt(rangeNumber);
+      } else if (rangeUpdateMode === 'between' && rangeStartNumber && rangeEndNumber) {
+        previewData.fromOrderNumber = parseInt(rangeStartNumber);
+        previewData.upToOrderNumber = parseInt(rangeEndNumber);
+      }
+      
+      const response = await axios.post(`${API_BASE_URL}/orders/range-update-preview`, previewData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      setRangePreview(response.data);
+    } catch (err) {
+      console.error('Error previewing range update:', err);
+      setError(err.response?.data?.msg || 'Error previewing range update');
+    }
+  };
+  
+  // Execute range update
+  const executeRangeUpdate = async () => {
+    if (!rangeUpdateStatus) return;
+    
+    setRangeUpdateLoading(true);
+    setError(null);
+    setUpdateSuccess(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Build update request
+      let updateData = {
+        currentStatus: activeTab,
+        newStatus: rangeUpdateStatus,
+        notes: rangeUpdateNotes || `Range update from ${activeTab} to ${rangeUpdateStatus}`
+      };
+      
+      // Add range parameters based on mode
+      if (rangeUpdateMode === 'upTo' && rangeNumber) {
+        updateData.upToOrderNumber = parseInt(rangeNumber);
+      } else if (rangeUpdateMode === 'fromNumber' && rangeNumber) {
+        updateData.fromOrderNumber = parseInt(rangeNumber);
+      } else if (rangeUpdateMode === 'between' && rangeStartNumber && rangeEndNumber) {
+        updateData.fromOrderNumber = parseInt(rangeStartNumber);
+        updateData.upToOrderNumber = parseInt(rangeEndNumber);
+      }
+      
+      const response = await axios.put(`${API_BASE_URL}/orders/range-update`, updateData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      setUpdateSuccess(response.data.msg);
+      setShowRangeUpdate(false);
+      setRangePreview(null);
+      
+      // Reset range form
+      setRangeNumber('');
+      setRangeStartNumber('');
+      setRangeEndNumber('');
+      setRangeUpdateStatus('');
+      setRangeUpdateNotes('');
+      
+      // Refresh orders and dashboard
+      fetchOrders();
+      fetchDashboardData();
+      
+    } catch (err) {
+      console.error('Error executing range update:', err);
+      setError(err.response?.data?.msg || 'Error executing range update');
+    } finally {
+      setRangeUpdateLoading(false);
+    }
+  };
+  
   // Update status of selected orders
   const updateOrderStatus = async () => {
     if (!newStatus || selectedOrders.length === 0) {
@@ -258,7 +369,6 @@ export default function OrderManagementPage() {
     try {
       const token = localStorage.getItem('token');
       
-      // Use the specific route for the current tab if available
       const updateEndpoint = `${API_BASE_URL}/orders/${activeTab}/update-status`;
       
       const response = await axios.put(
@@ -293,52 +403,58 @@ export default function OrderManagementPage() {
       fetchDashboardData();
     } catch (err) {
       console.error('Error updating order status:', err);
-      // More detailed error message that includes response data if available
       setError(
         err.response?.data?.msg || 
         `Error updating orders: ${err.message || 'Unknown error'}`
       );
-      
-      // Log more details for debugging
-      if (err.response) {
-        console.error('Error response:', err.response.data);
-      }
     } finally {
       setStatusUpdateLoading(false);
     }
+  };
+  
+  // Select orders by range
+  const selectOrdersByRange = () => {
+    if (!selectionRange.start || !selectionRange.end) return;
+    
+    const start = parseInt(selectionRange.start) - 1; // Convert to 0-based index
+    const end = parseInt(selectionRange.end) - 1;
+    
+    if (start < 0 || end >= orders.length || start > end) {
+      setError('Invalid range selection');
+      return;
+    }
+    
+    const rangeOrders = orders.slice(start, end + 1);
+    const rangeOrderIds = rangeOrders.map(order => order._id);
+    
+    setSelectedOrders(rangeOrderIds);
+    setShowAdvancedSelection(false);
+    setSelectionRange({ start: '', end: '' });
   };
   
   // Export orders
   const exportOrders = () => {
     const token = localStorage.getItem('token');
     
-    // If we have selected orders, use the selected orders export
     if (selectedOrders.length > 0) {
-      // For selected orders, we need to use POST with a body
       const formData = new FormData();
       formData.append('orderIds', JSON.stringify(selectedOrders));
       
-      // Create headers
       const headers = new Headers();
       headers.append('Authorization', `Bearer ${token}`);
       
-      // Create request
       const request = new Request(`${API_BASE_URL}/orders/export-selected`, {
         method: 'POST',
         headers: headers,
         body: formData
       });
       
-      // Use fetch for file download
       fetch(request)
         .then(response => {
-          if (!response.ok) {
-            throw new Error('Export failed');
-          }
+          if (!response.ok) throw new Error('Export failed');
           return response.blob();
         })
         .then(blob => {
-          // Create a link to download the file
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
@@ -352,15 +468,12 @@ export default function OrderManagementPage() {
           console.error('Error exporting selected orders:', err);
           setError('Failed to export selected orders');
         });
-        
     } else {
-      // For all orders with filters, use GET with query params
       const queryParams = new URLSearchParams();
       if (filters.network) queryParams.append('network', filters.network);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
       
-      // Using window.open for file download
       window.open(`${API_BASE_URL}/orders/export/${activeTab}?${queryParams.toString()}&token=${token}`, '_blank');
     }
   };
@@ -392,7 +505,6 @@ export default function OrderManagementPage() {
         includedCapacities: filters.includedCapacities.filter(c => c !== capacity)
       });
     } else {
-      // Remove from excluded if present
       setFilters({
         ...filters,
         includedCapacities: [...filters.includedCapacities, capacity],
@@ -409,7 +521,6 @@ export default function OrderManagementPage() {
         excludedCapacities: filters.excludedCapacities.filter(c => c !== capacity)
       });
     } else {
-      // Remove from included if present
       setFilters({
         ...filters,
         excludedCapacities: [...filters.excludedCapacities, capacity],
@@ -421,7 +532,7 @@ export default function OrderManagementPage() {
   // Apply filters
   const applyFilters = (e) => {
     e.preventDefault();
-    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+    setPagination(prev => ({ ...prev, page: 1 }));
     fetchOrders();
     setShowFilterPanel(false);
   };
@@ -445,7 +556,7 @@ export default function OrderManagementPage() {
   // Set today's date filter
   const setTodayFilter = () => {
     const today = new Date();
-    const formattedDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    const formattedDate = today.toISOString().split('T')[0];
     
     setFilters({
       ...filters,
@@ -455,7 +566,6 @@ export default function OrderManagementPage() {
     });
     
     setPagination(prev => ({ ...prev, page: 1 }));
-    // Will fetch when Apply is clicked
   };
   
   // Apply custom page size
@@ -491,7 +601,6 @@ export default function OrderManagementPage() {
   
   // Get available statuses for current tab
   const getAvailableStatuses = () => {
-    // Each status can be changed to any other status except itself
     return STATUS_TABS
       .filter(tab => tab.id !== activeTab)
       .map(tab => ({ id: tab.id, label: tab.label }));
@@ -501,7 +610,7 @@ export default function OrderManagementPage() {
   useEffect(() => {
     fetchOrders();
     fetchDashboardData();
-  }, [pagination.page]); // Fetch when page changes
+  }, [pagination.page]);
   
   // Update selectAll when all items are manually selected
   useEffect(() => {
@@ -512,17 +621,27 @@ export default function OrderManagementPage() {
     }
   }, [selectedOrders, orders]);
 
+  // Preview range update when parameters change
+  useEffect(() => {
+    if (rangeUpdateStatus && 
+        ((rangeUpdateMode === 'upTo' && rangeNumber) ||
+         (rangeUpdateMode === 'fromNumber' && rangeNumber) ||
+         (rangeUpdateMode === 'between' && rangeStartNumber && rangeEndNumber))) {
+      previewRangeUpdate();
+    }
+  }, [rangeUpdateStatus, rangeUpdateMode, rangeNumber, rangeStartNumber, rangeEndNumber]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-200">
       <Head>
-        <title>Order Management | Admin Dashboard</title>
-        <meta name="description" content="Manage orders by status" />
+        <title>Enhanced Order Management | Admin Dashboard</title>
+        <meta name="description" content="Manage orders with advanced range updates" />
       </Head>
       
       {/* Header */}
       <header className="p-4 border-b bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-          <h1 className="text-2xl font-bold mb-4 md:mb-0">Order Management</h1>
+          <h1 className="text-2xl font-bold mb-4 md:mb-0">Enhanced Order Management</h1>
           
           <div className="flex items-center space-x-4">
             <button
@@ -531,6 +650,22 @@ export default function OrderManagementPage() {
             >
               <Filter className="h-5 w-5 mr-2" />
               Filters
+            </button>
+            
+            <button
+              onClick={() => setShowRangeUpdate(!showRangeUpdate)}
+              className="px-3 py-2 rounded-md flex items-center bg-purple-500 hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700 text-white transition-colors"
+            >
+              <Target className="h-5 w-5 mr-2" />
+              Range Update
+            </button>
+            
+            <button
+              onClick={() => setShowAdvancedSelection(!showAdvancedSelection)}
+              className="px-3 py-2 rounded-md flex items-center bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white transition-colors"
+            >
+              <Hash className="h-5 w-5 mr-2" />
+              Select Range
             </button>
             
             <button
@@ -547,7 +682,7 @@ export default function OrderManagementPage() {
               disabled={orders.length === 0}
             >
               <Copy className="h-5 w-5 mr-2" />
-              Copy to Clipboard
+              Copy
             </button>
             
             <button
@@ -559,23 +694,11 @@ export default function OrderManagementPage() {
             </button>
             
             <button
-              onClick={() => router.push('/admin')}
-              className="px-3 py-2 rounded-md flex items-center bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
-            >
-              <Home className="h-5 w-5 mr-2" />
-              Admin Home
-            </button>
-            
-            <button
               onClick={toggleDarkMode}
               className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
               aria-label="Toggle dark mode"
             >
-              {darkMode ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
+              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -645,6 +768,216 @@ export default function OrderManagementPage() {
             })}
           </div>
         </div>
+
+        {/* Range Update Panel */}
+        {showRangeUpdate && (
+          <div className="mb-6 p-6 rounded-lg shadow-md bg-white dark:bg-gray-800 transition-colors border-l-4 border-purple-500">
+            <div className="flex items-center mb-4">
+              <Target className="h-6 w-6 text-purple-500 mr-2" />
+              <h2 className="text-xl font-semibold">Range Update</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Update Mode</label>
+                <select
+                  value={rangeUpdateMode}
+                  onChange={e => setRangeUpdateMode(e.target.value)}
+                  className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                >
+                  <option value="upTo">Up to Order #</option>
+                  <option value="fromNumber">From Order # onwards</option>
+                  <option value="between">Between Order #s</option>
+                </select>
+              </div>
+              
+              {rangeUpdateMode === 'upTo' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Up to Order Number</label>
+                  <input
+                    type="number"
+                    placeholder="e.g., 100"
+                    value={rangeNumber}
+                    onChange={e => setRangeNumber(e.target.value)}
+                    className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Will update orders 1 to {rangeNumber || 'X'}
+                  </p>
+                </div>
+              )}
+              
+              {rangeUpdateMode === 'fromNumber' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">From Order Number</label>
+                  <input
+                    type="number"
+                    placeholder="e.g., 50"
+                    value={rangeNumber}
+                    onChange={e => setRangeNumber(e.target.value)}
+                    className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Will update orders from {rangeNumber || 'X'} onwards
+                  </p>
+                </div>
+              )}
+              
+              {rangeUpdateMode === 'between' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">From Order #</label>
+                    <input
+                      type="number"
+                      placeholder="e.g., 50"
+                      value={rangeStartNumber}
+                      onChange={e => setRangeStartNumber(e.target.value)}
+                      className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">To Order #</label>
+                    <input
+                      type="number"
+                      placeholder="e.g., 100"
+                      value={rangeEndNumber}
+                      onChange={e => setRangeEndNumber(e.target.value)}
+                      className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                    />
+                  </div>
+                </>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">New Status</label>
+                <select
+                  value={rangeUpdateStatus}
+                  onChange={e => setRangeUpdateStatus(e.target.value)}
+                  className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                >
+                  <option value="">Select Status</option>
+                  {getAvailableStatuses().map(status => (
+                    <option key={status.id} value={status.id}>{status.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Update Notes</label>
+              <input
+                type="text"
+                placeholder="Optional notes for this range update"
+                value={rangeUpdateNotes}
+                onChange={e => setRangeUpdateNotes(e.target.value)}
+                className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+              />
+            </div>
+            
+            {/* Range Preview */}
+            {rangePreview && (
+              <div className="mb-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 border border-blue-200 dark:border-blue-700">
+                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Preview Results:</h3>
+                <div className="text-sm text-blue-700 dark:text-blue-300">
+                  <p>Orders to be updated: <span className="font-semibold">{rangePreview.count}</span></p>
+                  <p>From status: <span className="font-semibold">{activeTab}</span></p>
+                  <p>To status: <span className="font-semibold">{rangeUpdateStatus}</span></p>
+                  {rangePreview.range && (
+                    <p>Range: <span className="font-semibold">{rangePreview.range}</span></p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowRangeUpdate(false)}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeRangeUpdate}
+                disabled={!rangeUpdateStatus || rangeUpdateLoading || !rangePreview}
+                className={`px-4 py-2 rounded flex items-center ${
+                  !rangeUpdateStatus || rangeUpdateLoading || !rangePreview
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-purple-500 hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700 text-white'
+                } transition-colors`}
+              >
+                {rangeUpdateLoading ? (
+                  <>
+                    <Loader className="h-5 w-5 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-5 w-5 mr-2" />
+                    Execute Range Update
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Advanced Selection Panel */}
+        {showAdvancedSelection && (
+          <div className="mb-6 p-4 rounded-lg shadow-md bg-white dark:bg-gray-800 transition-colors border-l-4 border-orange-500">
+            <div className="flex items-center mb-4">
+              <Hash className="h-5 w-5 text-orange-500 mr-2" />
+              <h3 className="text-lg font-semibold">Advanced Selection</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">From Order Position</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={orders.length}
+                  placeholder="e.g., 1"
+                  value={selectionRange.start}
+                  onChange={e => setSelectionRange({...selectionRange, start: e.target.value})}
+                  className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">To Order Position</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={orders.length}
+                  placeholder="e.g., 10"
+                  value={selectionRange.end}
+                  onChange={e => setSelectionRange({...selectionRange, end: e.target.value})}
+                  className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                />
+              </div>
+              
+              <div className="flex items-end">
+                <button
+                  onClick={selectOrdersByRange}
+                  disabled={!selectionRange.start || !selectionRange.end}
+                  className={`w-full px-4 py-2 rounded flex items-center justify-center ${
+                    !selectionRange.start || !selectionRange.end
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white'
+                  } transition-colors`}
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Select Range
+                </button>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Select orders from position {selectionRange.start || 'X'} to {selectionRange.end || 'Y'} 
+              (Total visible orders: {orders.length})
+            </p>
+          </div>
+        )}
         
         {/* Copy success message */}
         {copySuccess && (
@@ -712,19 +1045,17 @@ export default function OrderManagementPage() {
                 
                 <div>
                   <label className="block text-sm font-medium mb-1">Items per page</label>
-                  <div className="flex space-x-2">
-                    <select
-                      value={filters.limit}
-                      onChange={e => setFilters({...filters, limit: parseInt(e.target.value)})}
-                      className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
-                    >
-                      <option value="10">10</option>
-                      <option value="20">20</option>
-                      <option value="50">50</option>
-                      <option value="100">100</option>
-                      <option value="2000">2000</option>
-                    </select>
-                  </div>
+                  <select
+                    value={filters.limit}
+                    onChange={e => setFilters({...filters, limit: parseInt(e.target.value)})}
+                    className="w-full p-2 rounded border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white transition-colors"
+                  >
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="2000">2000</option>
+                  </select>
                 </div>
                 
                 <div>
@@ -757,7 +1088,6 @@ export default function OrderManagementPage() {
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Include Capacities */}
                   <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
                       Include Capacities (GB) - Only show these capacities
@@ -780,7 +1110,6 @@ export default function OrderManagementPage() {
                     </div>
                   </div>
                   
-                  {/* Exclude Capacities */}
                   <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
                       Exclude Capacities (GB) - Hide these capacities
@@ -804,7 +1133,6 @@ export default function OrderManagementPage() {
                   </div>
                 </div>
                 
-                {/* Active capacity filters display */}
                 {(filters.includedCapacities.length > 0 || filters.excludedCapacities.length > 0) && (
                   <div className="mt-3 text-sm">
                     {filters.includedCapacities.length > 0 && (
@@ -958,6 +1286,7 @@ export default function OrderManagementPage() {
                           onChange={toggleSelectAll}
                           className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
                         />
+                        <span className="ml-2">#</span>
                       </div>
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
@@ -993,7 +1322,7 @@ export default function OrderManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {orders.map((order) => (
+                  {orders.map((order, index) => (
                     <tr 
                       key={order._id}
                       className={`${
@@ -1003,12 +1332,17 @@ export default function OrderManagementPage() {
                       } hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedOrders.includes(order._id)}
-                          onChange={() => toggleOrderSelection(order._id)}
-                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
-                        />
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrders.includes(order._id)}
+                            onChange={() => toggleOrderSelection(order._id)}
+                            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="ml-2 text-sm font-mono text-gray-500 dark:text-gray-400">
+                            {(pagination.page - 1) * filters.limit + index + 1}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium">#{order._id.substring(0, 8)}...</div>
@@ -1109,16 +1443,12 @@ export default function OrderManagementPage() {
                       let pageNum;
                       
                       if (pagination.pages <= 5) {
-                        // If 5 pages or less, show all pages
                         pageNum = i + 1;
                       } else if (pagination.page <= 3) {
-                        // If current page is 1-3, show pages 1-5
                         pageNum = i + 1;
                       } else if (pagination.page >= pagination.pages - 2) {
-                        // If current page is among the last 3, show the last 5 pages
                         pageNum = pagination.pages - 4 + i;
                       } else {
-                        // Otherwise show 2 pages before and after the current page
                         pageNum = pagination.page - 2 + i;
                       }
                       

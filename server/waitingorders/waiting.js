@@ -28,13 +28,11 @@ router.get('/:status', async (req, res) => {
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
-        // For startDate, set to the beginning of the day (00:00:00)
         const start = new Date(startDate);
         start.setHours(0, 0, 0, 0);
         filter.createdAt.$gte = start;
       }
       if (endDate) {
-        // For endDate, set to the end of the day (23:59:59)
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = end;
@@ -44,9 +42,9 @@ router.get('/:status', async (req, res) => {
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Fetch orders with pagination
+    // Fetch orders with pagination - IMPORTANT: Sort by createdAt for consistent order numbering
     const orders = await DataPurchase.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 }) // Ascending order for consistent numbering
       .skip(skip)
       .limit(parseInt(limit))
       .populate('userId', 'name email phoneNumber');
@@ -69,6 +67,270 @@ router.get('/:status', async (req, res) => {
 });
 
 /**
+ * @route   POST /api/orders/range-update-preview
+ * @desc    Preview range update operation before execution
+ * @access  Admin only
+ */
+router.post('/range-update-preview', async (req, res) => {
+  try {
+    const { 
+      currentStatus, 
+      newStatus, 
+      upToOrderNumber, 
+      fromOrderNumber,
+      network, 
+      startDate, 
+      endDate 
+    } = req.body;
+    
+    // Validate statuses
+    const validStatuses = ['pending', 'completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
+    if (!validStatuses.includes(currentStatus) || !validStatuses.includes(newStatus)) {
+      return res.status(400).json({ msg: 'Invalid status values' });
+    }
+    
+    // Build base filter
+    let filter = { status: currentStatus };
+    if (network) filter.network = network;
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+    
+    // Get all orders matching base criteria (sorted by creation date for consistent numbering)
+    const allOrders = await DataPurchase.find(filter, '_id createdAt phoneNumber capacity')
+      .sort({ createdAt: 1 });
+    
+    let affectedOrders = [];
+    let rangeDescription = '';
+    
+    // Apply range filters
+    if (upToOrderNumber && fromOrderNumber) {
+      // Between range
+      const startIndex = Math.max(0, fromOrderNumber - 1);
+      const endIndex = Math.min(allOrders.length, upToOrderNumber);
+      affectedOrders = allOrders.slice(startIndex, endIndex);
+      rangeDescription = `Orders ${fromOrderNumber} to ${upToOrderNumber}`;
+    } else if (upToOrderNumber) {
+      // Up to order number
+      const endIndex = Math.min(allOrders.length, upToOrderNumber);
+      affectedOrders = allOrders.slice(0, endIndex);
+      rangeDescription = `Orders 1 to ${upToOrderNumber}`;
+    } else if (fromOrderNumber) {
+      // From order number onwards
+      const startIndex = Math.max(0, fromOrderNumber - 1);
+      affectedOrders = allOrders.slice(startIndex);
+      rangeDescription = `Orders ${fromOrderNumber} onwards`;
+    } else {
+      // All orders
+      affectedOrders = allOrders;
+      rangeDescription = 'All orders';
+    }
+    
+    // Calculate some statistics
+    const capacityBreakdown = affectedOrders.reduce((acc, order) => {
+      acc[order.capacity] = (acc[order.capacity] || 0) + 1;
+      return acc;
+    }, {});
+    
+    res.json({
+      count: affectedOrders.length,
+      totalAvailable: allOrders.length,
+      range: rangeDescription,
+      currentStatus,
+      newStatus,
+      capacityBreakdown,
+      sampleOrders: affectedOrders.slice(0, 5).map(order => ({
+        phoneNumber: order.phoneNumber,
+        capacity: order.capacity,
+        createdAt: order.createdAt
+      }))
+    });
+    
+  } catch (err) {
+    console.error('Error previewing range update:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+/**
+ * @route   PUT /api/orders/range-update
+ * @desc    Execute range update operation
+ * @access  Admin only
+ */
+router.put('/range-update', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { 
+      currentStatus, 
+      newStatus, 
+      upToOrderNumber, 
+      fromOrderNumber,
+      notes,
+      network, 
+      startDate, 
+      endDate 
+    } = req.body;
+    
+    // Validate statuses
+    const validStatuses = ['pending', 'completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
+    if (!validStatuses.includes(currentStatus) || !validStatuses.includes(newStatus)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ msg: 'Invalid status values' });
+    }
+    
+    // Build base filter
+    let filter = { status: currentStatus };
+    if (network) filter.network = network;
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+    
+    // Get all orders matching base criteria (sorted by creation date for consistent numbering)
+    const allOrders = await DataPurchase.find(filter, '_id createdAt')
+      .sort({ createdAt: 1 })
+      .session(session);
+    
+    if (allOrders.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ msg: `No ${currentStatus} orders found with the specified criteria` });
+    }
+    
+    let orderIdsToUpdate = [];
+    let rangeDescription = '';
+    
+    // Apply range filters to get specific order IDs
+    if (upToOrderNumber && fromOrderNumber) {
+      // Between range
+      const startIndex = Math.max(0, fromOrderNumber - 1);
+      const endIndex = Math.min(allOrders.length, upToOrderNumber);
+      orderIdsToUpdate = allOrders.slice(startIndex, endIndex).map(order => order._id);
+      rangeDescription = `orders ${fromOrderNumber} to ${upToOrderNumber}`;
+    } else if (upToOrderNumber) {
+      // Up to order number
+      const endIndex = Math.min(allOrders.length, upToOrderNumber);
+      orderIdsToUpdate = allOrders.slice(0, endIndex).map(order => order._id);
+      rangeDescription = `orders 1 to ${upToOrderNumber}`;
+    } else if (fromOrderNumber) {
+      // From order number onwards
+      const startIndex = Math.max(0, fromOrderNumber - 1);
+      orderIdsToUpdate = allOrders.slice(startIndex).map(order => order._id);
+      rangeDescription = `orders ${fromOrderNumber} onwards`;
+    } else {
+      // All orders
+      orderIdsToUpdate = allOrders.map(order => order._id);
+      rangeDescription = 'all orders';
+    }
+    
+    if (orderIdsToUpdate.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ msg: 'No orders found in the specified range' });
+    }
+    
+    // Get user ID for record keeping
+    let updatedById = null;
+    if (req.user && (req.user._id || req.user.id)) {
+      updatedById = req.user._id || req.user.id;
+    }
+    
+    // Prepare update operation
+    const updateOperation = {
+      $set: {
+        status: newStatus,
+        processing: newStatus === 'processing',
+        adminNotes: notes || `Range update: Updated ${rangeDescription} from '${currentStatus}' to '${newStatus}'`,
+        updatedAt: new Date()
+      }
+    };
+    
+    if (updatedById) {
+      updateOperation.$set.updatedBy = updatedById;
+    }
+    
+    // Execute the update
+    const updateResult = await DataPurchase.updateMany(
+      { _id: { $in: orderIdsToUpdate } },
+      updateOperation,
+      { session }
+    );
+    
+    // If updating to completed status, update related transactions
+    if (newStatus === 'completed') {
+      const references = await DataPurchase.find(
+        { _id: { $in: orderIdsToUpdate } },
+        'geonetReference',
+        { session }
+      ).distinct('geonetReference');
+      
+      const validReferences = references.filter(ref => ref);
+      
+      if (validReferences.length > 0) {
+        await Transaction.updateMany(
+          {
+            reference: { $in: validReferences },
+            type: 'purchase',
+            status: 'pending'
+          },
+          {
+            $set: {
+              status: 'completed',
+              updatedAt: new Date()
+            }
+          },
+          { session }
+        );
+      }
+    }
+    
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.json({
+      msg: `Successfully updated ${updateResult.modifiedCount} ${rangeDescription} from '${currentStatus}' to '${newStatus}'`,
+      affected: orderIdsToUpdate.length,
+      updated: updateResult.modifiedCount,
+      range: rangeDescription,
+      currentStatus,
+      newStatus
+    });
+    
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Error executing range update:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+/**
  * @route   GET /api/orders/waiting
  * @desc    Get all waiting orders with filtering options
  * @access  Admin only
@@ -77,38 +339,31 @@ router.get('/waiting', async (req, res) => {
   try {
     const { network, startDate, endDate, limit = 100, page = 1 } = req.query;
     
-    // Build filter object with status fixed to 'waiting'
     const filter = { status: 'waiting' };
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
-        // For startDate, set to the beginning of the day (00:00:00)
         const start = new Date(startDate);
         start.setHours(0, 0, 0, 0);
         filter.createdAt.$gte = start;
       }
       if (endDate) {
-        // For endDate, set to the end of the day (23:59:59)
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = end;
       }
     }
     
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Fetch waiting orders with pagination
     const orders = await DataPurchase.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 }) // Consistent ordering
       .skip(skip)
       .limit(parseInt(limit))
       .populate('userId', 'name email phoneNumber');
     
-    // Get total count for pagination
     const total = await DataPurchase.countDocuments(filter);
     
     res.json({
@@ -134,11 +389,9 @@ router.get('/pending', async (req, res) => {
   try {
     const { network, startDate, endDate, limit = 100, page = 1 } = req.query;
     
-    // Build filter object with status fixed to 'pending'
     const filter = { status: 'pending' };
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
@@ -153,17 +406,14 @@ router.get('/pending', async (req, res) => {
       }
     }
     
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Fetch pending orders with pagination
     const orders = await DataPurchase.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .skip(skip)
       .limit(parseInt(limit))
       .populate('userId', 'name email phoneNumber');
     
-    // Get total count for pagination
     const total = await DataPurchase.countDocuments(filter);
     
     res.json({
@@ -189,11 +439,9 @@ router.get('/processing', async (req, res) => {
   try {
     const { network, startDate, endDate, limit = 100, page = 1 } = req.query;
     
-    // Build filter object with status fixed to 'processing'
     const filter = { status: 'processing' };
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
@@ -208,17 +456,14 @@ router.get('/processing', async (req, res) => {
       }
     }
     
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Fetch processing orders with pagination
     const orders = await DataPurchase.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .skip(skip)
       .limit(parseInt(limit))
       .populate('userId', 'name email phoneNumber');
     
-    // Get total count for pagination
     const total = await DataPurchase.countDocuments(filter);
     
     res.json({
@@ -244,11 +489,9 @@ router.get('/completed', async (req, res) => {
   try {
     const { network, startDate, endDate, limit = 100, page = 1 } = req.query;
     
-    // Build filter object with status fixed to 'completed'
     const filter = { status: 'completed' };
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
@@ -263,17 +506,14 @@ router.get('/completed', async (req, res) => {
       }
     }
     
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Fetch completed orders with pagination
     const orders = await DataPurchase.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .skip(skip)
       .limit(parseInt(limit))
       .populate('userId', 'name email phoneNumber');
     
-    // Get total count for pagination
     const total = await DataPurchase.countDocuments(filter);
     
     res.json({
@@ -291,19 +531,17 @@ router.get('/completed', async (req, res) => {
 });
 
 /**
- * @route   GET /api/orders/on
- * @desc    Get all 'on' status orders with filtering options
+ * @route   GET /api/orders/failed
+ * @desc    Get all failed orders with filtering options
  * @access  Admin only
  */
-router.get('/on', async (req, res) => {
+router.get('/failed', async (req, res) => {
   try {
     const { network, startDate, endDate, limit = 100, page = 1 } = req.query;
     
-    // Build filter object with status fixed to 'on'
-    const filter = { status: 'on' };
+    const filter = { status: 'failed' };
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
@@ -318,17 +556,64 @@ router.get('/on', async (req, res) => {
       }
     }
     
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Fetch 'on' status orders with pagination
     const orders = await DataPurchase.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .skip(skip)
       .limit(parseInt(limit))
       .populate('userId', 'name email phoneNumber');
     
-    // Get total count for pagination
+    const total = await DataPurchase.countDocuments(filter);
+    
+    res.json({
+      orders,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching failed orders:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+/**
+ * @route   GET /api/orders/on
+ * @desc    Get all 'on' status orders with filtering options
+ * @access  Admin only
+ */
+router.get('/on', async (req, res) => {
+  try {
+    const { network, startDate, endDate, limit = 100, page = 1 } = req.query;
+    
+    const filter = { status: 'on' };
+    if (network) filter.network = network;
+    
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const orders = await DataPurchase.find(filter)
+      .sort({ createdAt: 1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('userId', 'name email phoneNumber');
+    
     const total = await DataPurchase.countDocuments(filter);
     
     res.json({
@@ -347,7 +632,7 @@ router.get('/on', async (req, res) => {
 
 /**
  * @route   PUT /api/orders/update-status
- * @desc    Update status of orders
+ * @desc    Update status of orders (general endpoint)
  * @access  Admin only
  */
 router.put('/update-status', async (req, res) => {
@@ -365,7 +650,6 @@ router.put('/update-status', async (req, res) => {
       endDate 
     } = req.body;
     
-    // Validate status
     const validStatuses = ['pending', 'completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
     if (!validStatuses.includes(newStatus)) {
       await session.abortTransaction();
@@ -373,30 +657,24 @@ router.put('/update-status', async (req, res) => {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Build filter object
     let filter = {};
     
-    // If current status is specified, filter by it
     if (currentStatus && validStatuses.includes(currentStatus)) {
       filter.status = currentStatus;
     }
     
-    // If specific order IDs are provided, use them
     if (orderIds && Array.isArray(orderIds) && orderIds.length > 0) {
       filter._id = { $in: orderIds };
     }
     
-    // Additional filters
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Check how many orders will be affected
     const affectedCount = await DataPurchase.countDocuments(filter);
     
     if (affectedCount === 0) {
@@ -408,41 +686,34 @@ router.put('/update-status', async (req, res) => {
       });
     }
     
-    // Get user ID for record keeping, set to null if not available
     let updatedById = null;
     if (req.user && (req.user._id || req.user.id)) {
       updatedById = req.user._id || req.user.id;
     }
     
-    // Update orders - use MongoDB update operation structure
     const updateOperation = {
       $set: {
         status: newStatus,
-        processing: newStatus === 'processing', // Set processing flag based on new status
+        processing: newStatus === 'processing',
         adminNotes: notes || `Updated from '${currentStatus || 'previous status'}' to '${newStatus}'`,
         updatedAt: new Date()
       }
     };
     
-    // Only add updatedBy if we have a valid user ID
     if (updatedById) {
       updateOperation.$set.updatedBy = updatedById;
     }
     
-    // Update orders
     const updateResult = await DataPurchase.updateMany(
       filter,
       updateOperation,
       { session }
     );
     
-    // If updating to completed status, update transactions as well
     if (newStatus === 'completed') {
-      // Get all references
       const references = await DataPurchase.find(filter, 'geonetReference', { session })
         .distinct('geonetReference');
       
-      // Filter out empty references
       const validReferences = references.filter(ref => ref);
       
       if (validReferences.length > 0) {
@@ -481,6 +752,8 @@ router.put('/update-status', async (req, res) => {
   }
 });
 
+// Individual status-specific update endpoints (keeping existing functionality)
+
 /**
  * @route   PUT /api/orders/waiting/update-status
  * @desc    Update status of waiting orders
@@ -500,7 +773,6 @@ router.put('/waiting/update-status', async (req, res) => {
       endDate 
     } = req.body;
     
-    // Validate status
     const validStatuses = ['pending', 'completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
     if (!validStatuses.includes(newStatus)) {
       await session.abortTransaction();
@@ -508,25 +780,20 @@ router.put('/waiting/update-status', async (req, res) => {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Build filter object
     let filter = { status: 'waiting' };
     
-    // If specific order IDs are provided, use them
     if (orderIds && Array.isArray(orderIds) && orderIds.length > 0) {
       filter = { _id: { $in: orderIds }, status: 'waiting' };
     }
     
-    // Additional filters
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Check how many orders will be affected
     const affectedCount = await DataPurchase.countDocuments(filter);
     
     if (affectedCount === 0) {
@@ -538,41 +805,34 @@ router.put('/waiting/update-status', async (req, res) => {
       });
     }
     
-    // Get user ID for record keeping, set to null if not available
     let updatedById = null;
     if (req.user && (req.user._id || req.user.id)) {
       updatedById = req.user._id || req.user.id;
     }
     
-    // Update orders - use MongoDB update operation structure
     const updateOperation = {
       $set: {
         status: newStatus,
-        processing: newStatus === 'processing', // Set processing flag based on new status
+        processing: newStatus === 'processing',
         adminNotes: notes || `Updated from 'waiting' to '${newStatus}'`,
         updatedAt: new Date()
       }
     };
     
-    // Only add updatedBy if we have a valid user ID
     if (updatedById) {
       updateOperation.$set.updatedBy = updatedById;
     }
     
-    // Update orders
     const updateResult = await DataPurchase.updateMany(
       filter,
       updateOperation,
       { session }
     );
     
-    // If updating to completed status, update transactions as well
     if (newStatus === 'completed') {
-      // Get all references
       const references = await DataPurchase.find(filter, 'geonetReference', { session })
         .distinct('geonetReference');
       
-      // Filter out empty references
       const validReferences = references.filter(ref => ref);
       
       if (validReferences.length > 0) {
@@ -630,7 +890,6 @@ router.put('/processing/update-status', async (req, res) => {
       endDate 
     } = req.body;
     
-    // Validate status
     const validStatuses = ['pending', 'completed', 'failed', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
     if (!validStatuses.includes(newStatus)) {
       await session.abortTransaction();
@@ -638,25 +897,20 @@ router.put('/processing/update-status', async (req, res) => {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Build filter object
     let filter = { status: 'processing' };
     
-    // If specific order IDs are provided, use them
     if (orderIds && Array.isArray(orderIds) && orderIds.length > 0) {
       filter = { _id: { $in: orderIds }, status: 'processing' };
     }
     
-    // Additional filters
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Check how many orders will be affected
     const affectedCount = await DataPurchase.countDocuments(filter);
     
     if (affectedCount === 0) {
@@ -668,41 +922,34 @@ router.put('/processing/update-status', async (req, res) => {
       });
     }
     
-    // Get user ID for record keeping, set to null if not available
     let updatedById = null;
     if (req.user && (req.user._id || req.user.id)) {
       updatedById = req.user._id || req.user.id;
     }
     
-    // Update orders - use MongoDB update operation structure
     const updateOperation = {
       $set: {
         status: newStatus,
-        processing: false, // Clear processing flag as we're changing status
+        processing: false,
         adminNotes: notes || `Updated from 'processing' to '${newStatus}'`,
         updatedAt: new Date()
       }
     };
     
-    // Only add updatedBy if we have a valid user ID
     if (updatedById) {
       updateOperation.$set.updatedBy = updatedById;
     }
     
-    // Update orders
     const updateResult = await DataPurchase.updateMany(
       filter,
       updateOperation,
       { session }
     );
     
-    // If updating to completed status, update transactions as well
     if (newStatus === 'completed') {
-      // Get all references
       const references = await DataPurchase.find(filter, 'geonetReference', { session })
         .distinct('geonetReference');
       
-      // Filter out empty references
       const validReferences = references.filter(ref => ref);
       
       if (validReferences.length > 0) {
@@ -760,7 +1007,6 @@ router.put('/pending/update-status', async (req, res) => {
       endDate 
     } = req.body;
     
-    // Validate status
     const validStatuses = ['completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
     if (!validStatuses.includes(newStatus)) {
       await session.abortTransaction();
@@ -768,25 +1014,20 @@ router.put('/pending/update-status', async (req, res) => {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Build filter object
     let filter = { status: 'pending' };
     
-    // If specific order IDs are provided, use them
     if (orderIds && Array.isArray(orderIds) && orderIds.length > 0) {
       filter = { _id: { $in: orderIds }, status: 'pending' };
     }
     
-    // Additional filters
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Check how many orders will be affected
     const affectedCount = await DataPurchase.countDocuments(filter);
     
     if (affectedCount === 0) {
@@ -798,41 +1039,34 @@ router.put('/pending/update-status', async (req, res) => {
       });
     }
     
-    // Get user ID for record keeping, set to null if not available
     let updatedById = null;
     if (req.user && (req.user._id || req.user.id)) {
       updatedById = req.user._id || req.user.id;
     }
     
-    // Update orders - use MongoDB update operation structure
     const updateOperation = {
       $set: {
         status: newStatus,
-        processing: newStatus === 'processing', // Set processing flag based on new status
+        processing: newStatus === 'processing',
         adminNotes: notes || `Updated from 'pending' to '${newStatus}'`,
         updatedAt: new Date()
       }
     };
     
-    // Only add updatedBy if we have a valid user ID
     if (updatedById) {
       updateOperation.$set.updatedBy = updatedById;
     }
     
-    // Update orders
     const updateResult = await DataPurchase.updateMany(
       filter,
       updateOperation,
       { session }
     );
     
-    // If updating to completed status, update transactions as well
     if (newStatus === 'completed') {
-      // Get all references
       const references = await DataPurchase.find(filter, 'geonetReference', { session })
         .distinct('geonetReference');
       
-      // Filter out empty references
       const validReferences = references.filter(ref => ref);
       
       if (validReferences.length > 0) {
@@ -890,7 +1124,6 @@ router.put('/completed/update-status', async (req, res) => {
       endDate 
     } = req.body;
     
-    // Validate status
     const validStatuses = ['pending', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
     if (!validStatuses.includes(newStatus)) {
       await session.abortTransaction();
@@ -898,25 +1131,20 @@ router.put('/completed/update-status', async (req, res) => {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Build filter object
     let filter = { status: 'completed' };
     
-    // If specific order IDs are provided, use them
     if (orderIds && Array.isArray(orderIds) && orderIds.length > 0) {
       filter = { _id: { $in: orderIds }, status: 'completed' };
     }
     
-    // Additional filters
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Check how many orders will be affected
     const affectedCount = await DataPurchase.countDocuments(filter);
     
     if (affectedCount === 0) {
@@ -928,40 +1156,33 @@ router.put('/completed/update-status', async (req, res) => {
       });
     }
     
-    // Get user ID for record keeping, set to null if not available
     let updatedById = null;
     if (req.user && (req.user._id || req.user.id)) {
       updatedById = req.user._id || req.user.id;
     }
     
-    // Update orders - use MongoDB update operation structure
     const updateOperation = {
       $set: {
         status: newStatus,
-        processing: newStatus === 'processing', // Set processing flag based on new status
+        processing: newStatus === 'processing',
         adminNotes: notes || `Updated from 'completed' to '${newStatus}'`,
         updatedAt: new Date()
       }
     };
     
-    // Only add updatedBy if we have a valid user ID
     if (updatedById) {
       updateOperation.$set.updatedBy = updatedById;
     }
     
-    // Update orders
     const updateResult = await DataPurchase.updateMany(
       filter,
       updateOperation,
       { session }
     );
     
-    // If moving from completed to another status, we may need to update related transactions as well
-    // Get all references
     const references = await DataPurchase.find(filter, 'geonetReference', { session })
       .distinct('geonetReference');
     
-    // Filter out empty references
     const validReferences = references.filter(ref => ref);
     
     if (validReferences.length > 0) {
@@ -1011,33 +1232,28 @@ router.get('/export/:status', async (req, res) => {
     const { status } = req.params;
     const { network, startDate, endDate } = req.query;
     
-    // Validate status
     const validStatuses = ['pending', 'completed', 'failed', 'processing', 'refunded', 'refund', 'delivered', 'on', 'waiting'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ msg: 'Invalid status value' });
     }
     
-    // Build filter object
     const filter = { status };
     if (network) filter.network = network;
     
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
     
-    // Get orders - only need phoneNumber and capacity fields
     const orders = await DataPurchase.find(filter, 'phoneNumber capacity')
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .lean();
     
     if (orders.length === 0) {
       return res.status(404).json({ msg: `No ${status} orders found with the specified criteria` });
     }
     
-    // Format data for Excel - ONLY Phone Number and Capacity
     const formattedData = orders.map(order => {
       return {
         'Phone Number': order.phoneNumber || '',
@@ -1045,81 +1261,19 @@ router.get('/export/:status', async (req, res) => {
       };
     });
     
-    // Create workbook
     const XLSX = require('xlsx');
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, `${status.charAt(0).toUpperCase() + status.slice(1)} Orders`);
     
-    // Generate excel file buffer
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
     
-    // Set headers for file download
     res.setHeader('Content-Disposition', `attachment; filename=${status}_orders_export.xlsx`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     
-    // Send file
     res.send(excelBuffer);
   } catch (err) {
     console.error(`Error exporting ${req.params.status} orders:`, err.message);
-    res.status(500).json({ msg: 'Server error' });
-  }
-});
-
-/**
- * @route   GET /api/orders/waiting/export
- * @desc    Export waiting orders as Excel file (Phone Number and Capacity only)
- * @access  Admin only
- */
-router.get('/waiting/export', async (req, res) => {
-  try {
-    const { network, startDate, endDate } = req.query;
-    
-    // Build filter object
-    const filter = { status: 'waiting' };
-    if (network) filter.network = network;
-    
-    // Date range filter
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
-    
-    // Get orders - only need phoneNumber and capacity fields
-    const orders = await DataPurchase.find(filter, 'phoneNumber capacity')
-      .sort({ createdAt: -1 })
-      .lean();
-    
-    if (orders.length === 0) {
-      return res.status(404).json({ msg: 'No waiting orders found with the specified criteria' });
-    }
-    
-    // Format data for Excel - ONLY Phone Number and Capacity
-    const formattedData = orders.map(order => {
-      return {
-        'Phone Number': order.phoneNumber || '',
-        'Capacity': order.capacity || 0
-      };
-    });
-    
-    // Create workbook
-    const XLSX = require('xlsx');
-    const worksheet = XLSX.utils.json_to_sheet(formattedData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Waiting Orders');
-    
-    // Generate excel file buffer
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
-    
-    // Set headers for file download
-    res.setHeader('Content-Disposition', 'attachment; filename=waiting_orders_export.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    
-    // Send file
-    res.send(excelBuffer);
-  } catch (err) {
-    console.error('Error exporting waiting orders:', err.message);
     res.status(500).json({ msg: 'Server error' });
   }
 });
@@ -1133,24 +1287,21 @@ router.post('/export-selected', async (req, res) => {
   try {
     const { orderIds } = req.body;
     
-    // Validate orderIds
     if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
       return res.status(400).json({ msg: 'No order IDs provided for export' });
     }
     
-    // Get orders - only need phoneNumber and capacity fields
     const orders = await DataPurchase.find(
       { _id: { $in: orderIds } },
       'phoneNumber capacity'
     )
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .lean();
     
     if (orders.length === 0) {
       return res.status(404).json({ msg: 'No orders found with the specified IDs' });
     }
     
-    // Format data for Excel - ONLY Phone Number and Capacity
     const formattedData = orders.map(order => {
       return {
         'Phone Number': order.phoneNumber || '',
@@ -1158,20 +1309,16 @@ router.post('/export-selected', async (req, res) => {
       };
     });
     
-    // Create workbook
     const XLSX = require('xlsx');
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Orders');
     
-    // Generate excel file buffer
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
     
-    // Set headers for file download
     res.setHeader('Content-Disposition', 'attachment; filename=selected_orders_export.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     
-    // Send file
     res.send(excelBuffer);
   } catch (err) {
     console.error('Error exporting selected orders:', err.message);
@@ -1186,12 +1333,10 @@ router.post('/export-selected', async (req, res) => {
  */
 router.get('/today', async (req, res) => {
   try {
-    // Get today's date range (start of day to current time)
     const today = new Date();
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
     
-    // Build filter for today's date
     const todayFilter = {
       createdAt: {
         $gte: startOfDay,
@@ -1199,10 +1344,8 @@ router.get('/today', async (req, res) => {
       }
     };
     
-    // Get total orders count
     const totalOrders = await DataPurchase.countDocuments(todayFilter);
     
-    // Get total orders amount (sum of price field)
     const ordersAggregate = await DataPurchase.aggregate([
       { $match: todayFilter },
       { $group: {
@@ -1225,7 +1368,6 @@ router.get('/today', async (req, res) => {
     const ordersProcessingAmount = ordersAggregate.length > 0 ? ordersAggregate[0].processingAmount : 0;
     const ordersOnAmount = ordersAggregate.length > 0 ? ordersAggregate[0].onAmount : 0;
     
-    // Get orders by status
     const ordersByStatus = await DataPurchase.aggregate([
       { $match: todayFilter },
       { $group: {
@@ -1235,7 +1377,6 @@ router.get('/today', async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
     
-    // Get orders by network
     const ordersByNetwork = await DataPurchase.aggregate([
       { $match: todayFilter },
       { $group: {
@@ -1246,7 +1387,6 @@ router.get('/today', async (req, res) => {
       { $sort: { count: -1 } }
     ]);
     
-    // Get deposits information
     const depositsFilter = {
       ...todayFilter,
       type: 'deposit'
@@ -1261,7 +1401,6 @@ router.get('/today', async (req, res) => {
       }}
     ]);
     
-    // Transform deposits data for easier consumption
     const deposits = {
       total: 0,
       totalAmount: 0,
@@ -1277,10 +1416,8 @@ router.get('/today', async (req, res) => {
       };
     });
     
-    // Get new users count for today
     const newUsers = await User.countDocuments(todayFilter);
     
-    // Prepare response
     const dashboardData = {
       date: today,
       orders: {
