@@ -29,7 +29,7 @@ export default function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Registration closed state
-  const [isRegistrationClosed, setIsRegistrationClosed] = useState(true);
+  const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
 
   const handleChange = (e) => {
