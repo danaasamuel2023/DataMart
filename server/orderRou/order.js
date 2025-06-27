@@ -176,7 +176,7 @@ const validatePhoneNumber = (network, phoneNumber) => {
   
   switch (network) {
     case 'YELLO': // MTN validation
-      const mtnPrefixes = ['024', '054', '055', '059'];
+      const mtnPrefixes = ['024', '054', '055', '059','026','025','053','027','057','023'];
       if (cleanNumber.length === 10 && cleanNumber.startsWith('0')) {
         const prefix = cleanNumber.substring(0, 3);
         if (mtnPrefixes.includes(prefix)) {
