@@ -18,53 +18,211 @@ const geonetClient = axios.create({
   }
 });
 
+// Telecel API Configuration
+const TELECEL_API_URL = 'https://iget.onrender.com/api/developer/orders/place';
+const TELECEL_API_KEY = 'b7975f5ce918b4a253a9c227f651339555094eaee8696ae168e195d09f74617f';
+
 // Enhanced logging function
 const logOperation = (operation, data) => {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] [${operation}]`, JSON.stringify(data, null, 2));
 };
 
-// Check Agent Wallet Balance
-router.get('/agent-balance', async (req, res) => {
-  try {
-    logOperation('AGENT_BALANCE_REQUEST', { timestamp: new Date() });
-    
-    const response = await geonetClient.get('/checkBalance');
-    
-    logOperation('AGENT_BALANCE_RESPONSE', {
-      status: response.status,
-      data: response.data
-    });
-    
-    res.json({
-      status: 'success',
-      data: {
-        balance: parseFloat(response.data.data.balance.replace(/,/g, ''))
-      }
-    });
-  } catch (error) {
-    logOperation('AGENT_BALANCE_ERROR', {
-      message: error.message,
-      response: error.response ? error.response.data : null,
-      stack: error.stack
-    });
-    
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to fetch agent balance',
-      details: error.response ? error.response.data : error.message
-    });
+// ===== OFFICIAL PRICING STRUCTURES =====
+const OFFICIAL_PRICING = {
+  'YELLO': { // MTN pricing structure
+    '1': 4.50,
+    '2': 9.20,
+    '3': 13.50,
+    '4': 18.50,
+    '5': 23.50,
+    '6': 27.00,
+    '8': 35.50,
+    '10': 43.50,
+    '15': 62.50,
+    '20': 83.00,
+    '25': 105.00,
+    '30': 129.00,
+    '40': 166.00,
+    '50': 207.00,
+    '100': 407.00
+  },
+  'at': { // AirtelTigo pricing structure
+    '1': 3.95,
+    '2': 8.35,
+    '3': 13.25,
+    '4': 16.50,
+    '5': 19.50,
+    '6': 23.50,
+    '8': 30.50,
+    '10': 38.50,
+    '12': 45.50,
+    '15': 57.50,
+    '25': 95.00,
+    '30': 115.00,
+    '40': 151.00,
+    '50': 190.00
+  },
+  'TELECEL': { // Telecel pricing structure
+    '5': 23.00,
+    '10': 40.50,
+    '15': 60.50,
+    '20': 81.00,
+    '25': 99.00,
+    '30': 118.00,
+    '40': 155.00,
+    '50': 195.00
   }
-});
+};
 
-// Purchase Data Bundle with Inventory Check
-const TELECEL_API_URL = 'https://iget.onrender.com/api/developer/orders/place';
-const TELECEL_API_KEY = 'b7975f5ce918b4a253a9c227f651339555094eaee8696ae168e195d09f74617f';
+// ===== PRICE VALIDATION FUNCTION =====
+const validatePrice = (network, capacity, submittedPrice, userId, phoneNumber, req) => {
+  // Convert capacity to string for lookup
+  const capacityStr = capacity.toString();
+  
+  // Check if network exists
+  if (!OFFICIAL_PRICING[network]) {
+    logOperation('PRICE_VALIDATION_INVALID_NETWORK', {
+      network,
+      availableNetworks: Object.keys(OFFICIAL_PRICING),
+      userId
+    });
+    return {
+      isValid: false,
+      message: 'Invalid network selected',
+      code: 'INVALID_NETWORK'
+    };
+  }
 
-// Helper function for Telecel API integration - UPDATED WITH PROPER REFERENCE EXTRACTION
+  // Get official price
+  const officialPrice = OFFICIAL_PRICING[network][capacityStr];
+  
+  if (officialPrice === undefined) {
+    logOperation('PRICE_VALIDATION_INVALID_CAPACITY', {
+      network,
+      capacity: capacityStr,
+      availableCapacities: Object.keys(OFFICIAL_PRICING[network]),
+      userId
+    });
+    return {
+      isValid: false,
+      message: `Invalid data capacity for ${network}. Available options: ${Object.keys(OFFICIAL_PRICING[network]).join(', ')}GB`,
+      code: 'INVALID_CAPACITY'
+    };
+  }
+
+  // Validate submitted price
+  const submittedPriceFloat = parseFloat(submittedPrice);
+  const tolerance = 0.01; // 1 cent tolerance
+  
+  if (Math.abs(submittedPriceFloat - officialPrice) > tolerance) {
+    logOperation('PRICE_VALIDATION_MISMATCH', {
+      network,
+      capacity: capacityStr,
+      submittedPrice: submittedPriceFloat,
+      officialPrice,
+      difference: Math.abs(submittedPriceFloat - officialPrice),
+      userId,
+      phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX', // Privacy
+      suspiciousActivity: true,
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      ipAddress: req.ip || req.connection.remoteAddress || 'Unknown'
+    });
+    return {
+      isValid: false,
+      message: 'Invalid price. Please refresh the page and try again.',
+      code: 'PRICE_MISMATCH'
+    };
+  }
+
+  // Check for suspicious pricing patterns
+  const priceRatio = submittedPriceFloat / officialPrice;
+  if (priceRatio < 0.5 || priceRatio > 2.0) {
+    logOperation('PRICE_VALIDATION_SUSPICIOUS_RATIO', {
+      network,
+      capacity: capacityStr,
+      submittedPrice: submittedPriceFloat,
+      officialPrice,
+      ratio: priceRatio,
+      userId,
+      phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+      highRiskActivity: true
+    });
+    return {
+      isValid: false,
+      message: 'Price validation failed. Please contact support if this error persists.',
+      code: 'SUSPICIOUS_PRICING'
+    };
+  }
+
+  logOperation('PRICE_VALIDATION_SUCCESS', {
+    network,
+    capacity: capacityStr,
+    validatedPrice: officialPrice,
+    submittedPrice: submittedPriceFloat,
+    userId
+  });
+
+  return {
+    isValid: true,
+    validatedPrice: officialPrice,
+    message: 'Price validation successful'
+  };
+};
+
+// ===== PHONE NUMBER VALIDATION FUNCTION =====
+const validatePhoneNumber = (network, phoneNumber) => {
+  const cleanNumber = phoneNumber.replace(/[\s-]/g, '');
+  
+  switch (network) {
+    case 'YELLO': // MTN validation
+      const mtnPrefixes = ['024', '054', '055', '059'];
+      if (cleanNumber.length === 10 && cleanNumber.startsWith('0')) {
+        const prefix = cleanNumber.substring(0, 3);
+        if (mtnPrefixes.includes(prefix)) {
+          return { isValid: true, message: '' };
+        } else {
+          return { isValid: false, message: 'Please enter a valid MTN number (024, 054, 055, 059)' };
+        }
+      } else {
+        return { isValid: false, message: 'Please enter a valid 10-digit MTN number starting with 0' };
+      }
+      
+    case 'at': // AirtelTigo validation
+      const airtelTigoPrefixes = ['026', '056', '027', '057', '023', '053'];
+      if (cleanNumber.length === 10) {
+        const prefix = cleanNumber.substring(0, 3);
+        if (airtelTigoPrefixes.includes(prefix)) {
+          return { isValid: true, message: '' };
+        } else {
+          return { isValid: false, message: 'Please enter a valid AirtelTigo number (026, 056, 027, 057, 023, 053)' };
+        }
+      } else {
+        return { isValid: false, message: 'Please enter a valid 10-digit AirtelTigo number' };
+      }
+      
+    case 'TELECEL': // Telecel validation
+      const telecelPrefixes = ['020', '050'];
+      const cleanTelecelNumber = phoneNumber.trim().replace(/[\s-]/g, '');
+      if (cleanTelecelNumber.length === 10) {
+        const prefix = cleanTelecelNumber.substring(0, 3);
+        if (telecelPrefixes.includes(prefix)) {
+          return { isValid: true, message: '' };
+        } else {
+          return { isValid: false, message: 'Please enter a valid Telecel number (020, 050)' };
+        }
+      } else {
+        return { isValid: false, message: 'Please enter a valid 10-digit Telecel number' };
+      }
+      
+    default:
+      return { isValid: false, message: 'Unsupported network' };
+  }
+};
+
+// Helper function for Telecel API integration
 async function processTelecelOrder(recipient, capacity, reference) {
   try {
-    // Convert GB to MB if needed (assuming capacity might be in GB)
     const capacityInMB = capacity >= 1 && capacity < 1000 ? capacity * 1000 : capacity;
     
     logOperation('TELECEL_ORDER_REQUEST_PREPARED', {
@@ -74,17 +232,15 @@ async function processTelecelOrder(recipient, capacity, reference) {
       reference
     });
     
-    // Format payload for Telecel API 
     const telecelPayload = {
       recipientNumber: recipient,
-      capacity: capacity, // Use GB for Telecel API
-      bundleType: "Telecel-5959", // Specific bundle type required for Telecel
+      capacity: capacity,
+      bundleType: "Telecel-5959",
       reference: reference,
     };
     
     logOperation('TELECEL_ORDER_REQUEST', telecelPayload);
     
-    // Call Telecel API to process the order
     const response = await axios.post(
       TELECEL_API_URL,
       telecelPayload,
@@ -105,7 +261,6 @@ async function processTelecelOrder(recipient, capacity, reference) {
     // Extract the Telecel order reference from the response
     let telecelOrderReference = null;
     
-    // Try multiple paths where the reference might be
     if (response.data?.data?.order?.orderReference) {
       telecelOrderReference = response.data.data.order.orderReference;
     } else if (response.data?.data?.orderReference) {
@@ -130,7 +285,6 @@ async function processTelecelOrder(recipient, capacity, reference) {
     return {
       success: true,
       data: response.data,
-      // Return the Telecel reference if found, otherwise use our original reference
       orderId: telecelOrderReference || reference,
       telecelReference: telecelOrderReference
     };
@@ -155,9 +309,7 @@ async function processTelecelOrder(recipient, capacity, reference) {
 // Function to check Telecel order status
 async function checkTelecelOrderStatus(reference) {
   try {
-    logOperation('TELECEL_STATUS_CHECK_REQUEST', {
-      reference
-    });
+    logOperation('TELECEL_STATUS_CHECK_REQUEST', { reference });
     
     const response = await axios.get(
       `https://iget.onrender.com/api/developer/orders/reference/${reference}`,
@@ -196,7 +348,6 @@ function generateMixedReference(prefix = '') {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const numbers = '0123456789';
   
-  // Generate pattern: 2 letters + 4 numbers + 2 letters (e.g., AB1234CD)
   let reference = prefix;
   
   // Add 2 random letters
@@ -217,8 +368,40 @@ function generateMixedReference(prefix = '') {
   return reference;
 }
 
-// UPDATED purchase-data route with proper Telecel reference handling
-// Updated purchase-data route with web-specific inventory check
+// Check Agent Wallet Balance
+router.get('/agent-balance', async (req, res) => {
+  try {
+    logOperation('AGENT_BALANCE_REQUEST', { timestamp: new Date() });
+    
+    const response = await geonetClient.get('/checkBalance');
+    
+    logOperation('AGENT_BALANCE_RESPONSE', {
+      status: response.status,
+      data: response.data
+    });
+    
+    res.json({
+      status: 'success',
+      data: {
+        balance: parseFloat(response.data.data.balance.replace(/,/g, ''))
+      }
+    });
+  } catch (error) {
+    logOperation('AGENT_BALANCE_ERROR', {
+      message: error.message,
+      response: error.response ? error.response.data : null,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch agent balance',
+      details: error.response ? error.response.data : error.message
+    });
+  }
+});
+
+// ===== MAIN PURCHASE DATA ROUTE WITH COMPLETE VALIDATION =====
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -234,11 +417,11 @@ router.post('/purchase-data', async (req, res) => {
 
     logOperation('DATA_PURCHASE_REQUEST', {
       userId,
-      phoneNumber,
+      phoneNumber: phoneNumber?.substring(0, 3) + 'XXXXXXX', // Privacy
       network,
       capacity,
       price,
-      requestType: 'WEB', // This is always a web request
+      requestType: 'WEB',
       timestamp: new Date()
     });
 
@@ -263,6 +446,37 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
+    // ===== PRICE VALIDATION =====
+    const priceValidation = validatePrice(network, capacity, price, userId, phoneNumber, req);
+    if (!priceValidation.isValid) {
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: priceValidation.message,
+        code: priceValidation.code
+      });
+    }
+
+    // ===== PHONE NUMBER VALIDATION =====
+    const phoneValidation = validatePhoneNumber(network, phoneNumber);
+    if (!phoneValidation.isValid) {
+      logOperation('PHONE_VALIDATION_FAILED', {
+        network,
+        phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+        validationMessage: phoneValidation.message
+      });
+      
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: phoneValidation.message
+      });
+    }
+
     // Find user
     const user = await User.findById(userId).session(session);
     if (!user) {
@@ -277,13 +491,14 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
-    // Check user wallet balance
-    if (user.walletBalance < price) {
+    // Check user wallet balance using validated price
+    const validatedPrice = priceValidation.validatedPrice;
+    if (user.walletBalance < validatedPrice) {
       logOperation('DATA_PURCHASE_INSUFFICIENT_BALANCE', {
         userId,
         walletBalance: user.walletBalance,
-        requiredAmount: price,
-        shortfall: price - user.walletBalance
+        requiredAmount: validatedPrice,
+        shortfall: validatedPrice - user.walletBalance
       });
       
       await session.abortTransaction();
@@ -293,7 +508,7 @@ router.post('/purchase-data', async (req, res) => {
         status: 'error',
         message: 'Insufficient wallet balance',
         currentBalance: user.walletBalance,
-        requiredAmount: price
+        requiredAmount: validatedPrice
       });
     }
 
@@ -304,11 +519,9 @@ router.post('/purchase-data', async (req, res) => {
     let inStock, skipGeonettech;
     
     if (inventory) {
-      // Use web-specific settings, fallback to legacy if not defined
       inStock = inventory.webInStock !== undefined ? inventory.webInStock : inventory.inStock;
       skipGeonettech = inventory.webSkipGeonettech !== undefined ? inventory.webSkipGeonettech : inventory.skipGeonettech;
     } else {
-      // Default values if no inventory record exists
       inStock = true;
       skipGeonettech = false;
     }
@@ -318,14 +531,10 @@ router.post('/purchase-data', async (req, res) => {
       inventoryFound: !!inventory,
       requestType: 'WEB',
       inStock: inStock,
-      skipGeonettech: skipGeonettech,
-      webInStock: inventory ? inventory.webInStock : null,
-      webSkipGeonettech: inventory ? inventory.webSkipGeonettech : null,
-      apiInStock: inventory ? inventory.apiInStock : null,
-      apiSkipGeonettech: inventory ? inventory.apiSkipGeonettech : null
+      skipGeonettech: skipGeonettech
     });
     
-    // Check if in stock (using web-specific setting)
+    // Check if in stock
     if (!inStock) {
       logOperation('DATA_INVENTORY_OUT_OF_STOCK', {
         network,
@@ -342,29 +551,28 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
     
-    // Generate unique mixed references with prefixes
+    // Generate unique references
     const transactionReference = `TRX-${uuidv4()}`;
     
     // Determine order reference prefix based on processing method
     let orderReferencePrefix = '';
     if (network === 'TELECEL') {
-      orderReferencePrefix = 'TC-'; // Telecel API
+      orderReferencePrefix = 'TC-';
     } else if (skipGeonettech) {
-      orderReferencePrefix = 'MN-'; // Manual (API disabled)
+      orderReferencePrefix = 'MN-';
     } else {
-      orderReferencePrefix = 'GN-'; // Geonettech API
+      orderReferencePrefix = 'GN-';
     }
     
     let orderReference = generateMixedReference(orderReferencePrefix);
-    const originalInternalReference = orderReference; // Store the original internal reference
+    const originalInternalReference = orderReference;
 
     // PROCESSING SECTION
     let orderResponse = null;
     let apiOrderId = null;
     let orderStatus = 'completed';
-    let processingMethod = 'api'; // Default to API
+    let processingMethod = 'api';
     
-    // Check if we should skip Geonettech API (using web-specific setting)
     const shouldSkipGeonet = skipGeonettech && (network !== 'TELECEL');
     
     logOperation('API_PROCESSING_DECISION', {
@@ -373,18 +581,15 @@ router.post('/purchase-data', async (req, res) => {
       shouldSkipGeonet,
       orderReference,
       prefix: orderReferencePrefix,
-      requestType: 'WEB',
-      reason: shouldSkipGeonet 
-        ? 'Geonettech API disabled for this network (Web)' 
-        : 'Normal API processing'
+      requestType: 'WEB'
     });
     
     if (network === 'TELECEL') {
-      // Telecel API processing - UPDATED SECTION
+      // Telecel API processing
       processingMethod = 'telecel_api';
       logOperation('USING_TELECEL_API', {
         network,
-        phoneNumber,
+        phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
         capacity,
         orderReference,
         requestType: 'WEB'
@@ -423,11 +628,8 @@ router.post('/purchase-data', async (req, res) => {
         orderResponse = telecelResponse.data;
         orderStatus = 'completed';
         
-        // IMPORTANT: Use the Telecel reference if we got one
         if (telecelResponse.telecelReference) {
           apiOrderId = telecelResponse.telecelReference;
-          // Update the orderReference to use Telecel's reference
-          // This ensures we can check status later using Telecel's reference
           orderReference = telecelResponse.telecelReference;
           
           logOperation('TELECEL_REFERENCE_UPDATE', {
@@ -436,7 +638,6 @@ router.post('/purchase-data', async (req, res) => {
             finalReference: orderReference
           });
         } else {
-          // Fallback to our reference if Telecel didn't return one
           apiOrderId = orderReference;
           logOperation('TELECEL_NO_REFERENCE_RETURNED', {
             usingOriginalReference: orderReference
@@ -466,16 +667,15 @@ router.post('/purchase-data', async (req, res) => {
         });
       }
     } else if (shouldSkipGeonet) {
-      // Skip Geonettech API - store as pending with manual processing flag
+      // Skip Geonettech API - store as pending
       processingMethod = 'manual';
       logOperation('SKIPPING_GEONETTECH_API', {
         network,
-        phoneNumber,
+        phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
         capacity,
         orderReference,
         processingMethod,
-        requestType: 'WEB',
-        reason: 'Geonettech API disabled for this network (Web)'
+        requestType: 'WEB'
       });
       
       orderStatus = 'pending';
@@ -488,7 +688,7 @@ router.post('/purchase-data', async (req, res) => {
         skipReason: 'API disabled for network (Web)'
       };
     } else {
-      // Use Geonettech API normally
+      // Use Geonettech API
       processingMethod = 'geonettech_api';
       try {
         const geonetOrderPayload = {
@@ -583,39 +783,38 @@ router.post('/purchase-data', async (req, res) => {
       }
     }
 
-    // Create Transaction
+    // Create Transaction using validated price
     const transaction = new Transaction({
       userId,
       type: 'purchase',
-      amount: price,
+      amount: validatedPrice,
       status: 'completed',
       reference: transactionReference,
       gateway: 'wallet'
     });
 
-    // Create Data Purchase with processing method tracking - UPDATED
+    // Create Data Purchase using validated price
     const dataPurchase = new DataPurchase({
       userId,
       phoneNumber,
       network,
       capacity,
       gateway: 'wallet',
-      method: 'web', // This is always 'web' for this endpoint
-      price,
+      method: 'web',
+      price: validatedPrice,
       status: orderStatus,
-      geonetReference: orderReference, // This will now be the Telecel reference for Telecel orders
+      geonetReference: orderReference,
       apiOrderId: apiOrderId,
       apiResponse: orderResponse,
       skipGeonettech: shouldSkipGeonet,
       processingMethod: processingMethod,
       orderReferencePrefix: orderReferencePrefix,
-      // Add an additional field to track the original reference if needed
       originalReference: network === 'TELECEL' ? originalInternalReference : null
     });
 
-    // Update user wallet
+    // Update user wallet using validated price
     const previousBalance = user.walletBalance;
-    user.walletBalance -= price;
+    user.walletBalance -= validatedPrice;
 
     // Save all documents
     await transaction.save({ session });
@@ -626,7 +825,7 @@ router.post('/purchase-data', async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    // Prepare response message based on order status and processing method
+    // Prepare response message
     let responseMessage = 'Data bundle purchased successfully';
     if (orderStatus === 'pending' && processingMethod === 'manual') {
       responseMessage = 'Order placed successfully. Your order will be processed manually.';
@@ -639,6 +838,7 @@ router.post('/purchase-data', async (req, res) => {
       processingMethod,
       skipGeonettech: shouldSkipGeonet,
       newWalletBalance: user.walletBalance,
+      validatedPrice: validatedPrice,
       telecelReference: network === 'TELECEL' ? orderReference : null,
       originalInternalReference: network === 'TELECEL' ? originalInternalReference : null,
       requestType: 'WEB'
@@ -654,7 +854,8 @@ router.post('/purchase-data', async (req, res) => {
         orderStatus: orderStatus,
         orderReference: orderReference,
         processingMethod: processingMethod,
-        orderPrefix: orderReferencePrefix
+        orderPrefix: orderReferencePrefix,
+        validatedPrice: validatedPrice
       }
     });
 
@@ -678,6 +879,191 @@ router.post('/purchase-data', async (req, res) => {
     });
   }
 });
+
+// ===== HUBNET/AIRTELTIGO SPECIFIC PURCHASE ROUTE =====
+router.post('/purchase-hubnet-data', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { 
+      userId, 
+      phoneNumber, 
+      network, 
+      dataAmountGB, 
+      price 
+    } = req.body;
+
+    logOperation('HUBNET_DATA_PURCHASE_REQUEST', {
+      userId,
+      phoneNumber: phoneNumber?.substring(0, 3) + 'XXXXXXX',
+      network,
+      dataAmountGB,
+      price,
+      requestType: 'HUBNET',
+      timestamp: new Date()
+    });
+
+    // Validate inputs
+    if (!userId || !phoneNumber || !network || !dataAmountGB || !price) {
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: 'Missing required fields'
+      });
+    }
+
+    // ===== PRICE VALIDATION FOR HUBNET =====
+    const priceValidation = validatePrice(network, dataAmountGB, price, userId, phoneNumber, req);
+    if (!priceValidation.isValid) {
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: priceValidation.message,
+        code: priceValidation.code
+      });
+    }
+
+    // ===== PHONE NUMBER VALIDATION FOR HUBNET =====
+    const phoneValidation = validatePhoneNumber(network, phoneNumber);
+    if (!phoneValidation.isValid) {
+      logOperation('HUBNET_PHONE_VALIDATION_FAILED', {
+        network,
+        phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+        validationMessage: phoneValidation.message
+      });
+      
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: phoneValidation.message
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      logOperation('HUBNET_USER_NOT_FOUND', { userId });
+      
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    // Check user wallet balance using validated price
+    const validatedPrice = priceValidation.validatedPrice;
+    if (user.walletBalance < validatedPrice) {
+      logOperation('HUBNET_INSUFFICIENT_BALANCE', {
+        userId,
+        walletBalance: user.walletBalance,
+        requiredAmount: validatedPrice,
+        shortfall: validatedPrice - user.walletBalance
+      });
+      
+      await session.abortTransaction();
+      session.endSession();
+      
+      return res.status(400).json({
+        status: 'error',
+        message: 'Insufficient wallet balance',
+        currentBalance: user.walletBalance,
+        requiredAmount: validatedPrice
+      });
+    }
+
+    // Generate transaction reference
+    const transactionReference = `HUBNET-${uuidv4()}`;
+    const orderReference = generateMixedReference('HN-');
+
+    // Create Transaction using validated price
+    const transaction = new Transaction({
+      userId,
+      type: 'purchase',
+      amount: validatedPrice,
+      status: 'completed',
+      reference: transactionReference,
+      gateway: 'wallet'
+    });
+
+    // Create Data Purchase using validated price
+    const dataPurchase = new DataPurchase({
+      userId,
+      phoneNumber,
+      network,
+      capacity: dataAmountGB,
+      gateway: 'wallet',
+      method: 'hubnet',
+      price: validatedPrice,
+      status: 'completed',
+      geonetReference: orderReference,
+      apiOrderId: orderReference,
+      apiResponse: { status: 'success', message: 'HubNet order processed', reference: orderReference },
+      skipGeonettech: false,
+      processingMethod: 'hubnet_api',
+      orderReferencePrefix: 'HN-'
+    });
+
+    // Update user wallet using validated price
+    user.walletBalance -= validatedPrice;
+
+    // Save all documents
+    await transaction.save({ session });
+    await dataPurchase.save({ session });
+    await user.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    logOperation('HUBNET_PURCHASE_SUCCESS', {
+      userId,
+      orderReference,
+      newWalletBalance: user.walletBalance,
+      validatedPrice: validatedPrice,
+      network,
+      capacity: dataAmountGB
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: 'HubNet data bundle purchased successfully',
+      data: {
+        transaction,
+        dataPurchase,
+        newWalletBalance: user.walletBalance,
+        orderStatus: 'completed',
+        orderReference: orderReference,
+        processingMethod: 'hubnet_api',
+        validatedPrice: validatedPrice
+      }
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    
+    logOperation('HUBNET_PURCHASE_ERROR', {
+      message: error.message,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      status: 'error',
+      message: 'Could not complete your HubNet purchase. Please try again later.'
+    });
+  }
+});
+
 // Check Order Status
 router.get('/order-status/:orderId', async (req, res) => {
   try {
