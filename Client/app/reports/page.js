@@ -1,178 +1,134 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Settings, 
-  BarChart3, 
-  FileText, 
-  Users, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle,
-  TrendingUp,
-  Save,
-  RefreshCw,
-  Search,
-  Filter,
-  Calendar,
-  Network,
-  Shield,
-  LogOut,
-  Moon,
-  Sun,
-  Download,
-  Trash2
+  Settings, BarChart3, FileText, Users, Clock, CheckCircle, XCircle, AlertTriangle,
+  TrendingUp, Save, RefreshCw, Search, Filter, Calendar, Network, Shield, LogOut,
+  Moon, Sun, Download, Trash2, Copy, CheckSquare, Square, Menu, X
 } from 'lucide-react';
 
+// Constants
+const API_BASE = 'https://datamartbackened.onrender.com/api/v1/reports';
+const STATUS_OPTIONS = ['pending', 'under_review', 'investigating', 'resolved', 'rejected'];
+const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'];
+const RESOLUTION_TYPES = ['refund', 'resend', 'compensation', 'no_action'];
+
+// Utility functions
+const getStatusColor = (status) => {
+  const colors = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    under_review: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    investigating: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    resolved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+};
+
+const getPriorityColor = (priority) => {
+  const colors = {
+    low: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    high: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    urgent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+  };
+  return colors[priority] || colors.low;
+};
+
+const formatDate = (dateString) => new Date(dateString).toLocaleString();
+
+// Components
+const LoadingSpinner = () => (
+  <div className="text-center py-8">
+    <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+    <p className="mt-2 text-gray-600 dark:text-gray-400">Loading...</p>
+  </div>
+);
+
+const MessageAlert = ({ message, type }) => {
+  if (!message) return null;
+  
+  const colors = {
+    success: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
+    error: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200',
+    info: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+  };
+  
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+      <div className={`p-4 rounded-lg transition-colors ${colors[type] || colors.info}`}>
+        {message}
+      </div>
+    </div>
+  );
+};
+
+const Modal = ({ isOpen, onClose, title, children, size = "max-w-4xl" }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className={`bg-white dark:bg-gray-800 rounded-lg ${size} w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700`}>
+        <div className="p-4 sm:p-6">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-1">
+              <XCircle className="w-6 h-6" />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminReportDashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('');
-  const [authToken, setAuthToken] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Dashboard state
-  const [analytics, setAnalytics] = useState(null);
-  const [hourlyAnalytics, setHourlyAnalytics] = useState(null);
-
-  // Reports state
-  const [reports, setReports] = useState([]);
-  const [pagination, setPagination] = useState({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState({
-    status: '',
-    priority: '',
-    search: ''
+  // State Management
+  const [state, setState] = useState({
+    activeTab: 'dashboard',
+    userData: null,
+    loading: false,
+    authLoading: true,
+    message: '',
+    messageType: '',
+    authToken: null,
+    darkMode: false,
+    mobileMenuOpen: false,
+    analytics: null,
+    hourlyAnalytics: null,
+    reports: [],
+    pagination: {},
+    currentPage: 1,
+    filters: { status: '', priority: '', search: '', referenceType: '' },
+    selectedReports: new Set(),
+    settings: {
+      isReportingEnabled: true,
+      reportTimeLimit: 'same_day',
+      reportTimeLimitHours: 24,
+      allowedReportDays: 1,
+      maxReportsPerUser: 5,
+      maxReportsPerUserPerDay: 3,
+      allowedReportReasons: ['Data not received', 'Wrong amount credited', 'Network error', 'Slow delivery', 'Double charging', 'Other'],
+      autoResolveAfterDays: 7
+    },
+    selectedReport: null,
+    reportUpdate: { status: '', priority: '', adminNote: '', resolutionType: '', amount: '', description: '' },
+    bulkStatus: '',
+    bulkPriority: '',
+    bulkAdminNote: '',
+    showBulkStatusModal: false
   });
 
-  // Settings state
-  const [settings, setSettings] = useState({
-    isReportingEnabled: true,
-    reportTimeLimit: 'same_day',
-    reportTimeLimitHours: 24,
-    allowedReportDays: 1,
-    maxReportsPerUser: 5,
-    maxReportsPerUserPerDay: 3,
-    allowedReportReasons: [
-      'Data not received',
-      'Wrong amount credited',
-      'Network error',
-      'Slow delivery',
-      'Double charging',
-      'Other'
-    ],
-    autoResolveAfterDays: 7
-  });
+  // Destructure commonly used state
+  const { activeTab, userData, loading, authLoading, message, messageType, authToken, darkMode, 
+          analytics, reports, filters, selectedReports, selectedReport, reportUpdate, settings,
+          showBulkStatusModal, bulkStatus, bulkPriority, bulkAdminNote, mobileMenuOpen } = state;
 
-  // Report update state
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [reportUpdate, setReportUpdate] = useState({
-    status: '',
-    priority: '',
-    adminNote: '',
-    resolutionType: '',
-    amount: '',
-    description: ''
-  });
+  // Helper to update state
+  const updateState = (updates) => setState(prev => ({ ...prev, ...updates }));
 
-  const API_BASE = 'https://datamartbackened.onrender.com/api/v1/reports';
-
-  // Initialize dark mode and authentication
-  useEffect(() => {
-    // Check for saved dark mode preference
-    const savedDarkMode = localStorage.getItem('darkMode');
-    if (savedDarkMode) {
-      setDarkMode(JSON.parse(savedDarkMode));
-    } else {
-      // Default to system preference
-      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
-    }
-    
-    checkAuthentication();
-  }, []);
-
-  // Apply dark mode to document
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
-  }, [darkMode]);
-
-  // Load data when user and tab changes
-  useEffect(() => {
-    if (userData && authToken) {
-      if (activeTab === 'dashboard') {
-        loadAnalytics();
-        loadHourlyAnalytics();
-      } else if (activeTab === 'reports') {
-        loadReports();
-      } else if (activeTab === 'settings') {
-        loadSettings();
-      }
-    }
-  }, [userData, authToken, activeTab, currentPage, filters]);
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
-
-  const checkAuthentication = async () => {
-    setAuthLoading(true);
-    try {
-      // Get token and user data from localStorage
-      const token = localStorage.getItem('authToken');
-      const storedUserData = localStorage.getItem('userData');
-      
-      if (!token || !storedUserData) {
-        handleUnauthorized('Please log in to access this dashboard');
-        return;
-      }
-
-      // Parse stored user data
-      const user = JSON.parse(storedUserData);
-      
-      // Check if user has required permissions
-      if (!user || (user.role !== 'admin' && user.role !== 'reporter')) {
-        handleUnauthorized('Insufficient permissions - Admin or Reporter role required');
-        return;
-      }
-
-      setAuthToken(token);
-      setUserData(user);
-      
-    } catch (error) {
-      console.error('Authentication check failed:', error);
-      handleUnauthorized('Invalid user data - Please log in again');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleUnauthorized = (reason) => {
-    console.warn('Unauthorized access:', reason);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-    setAuthToken(null);
-    setUserData(null);
-    showMessage('Please log in with proper credentials', 'error');
-  };
-
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-    setAuthToken(null);
-    setUserData(null);
-    showMessage('Logged out successfully', 'info');
-    window.location.href = '/login';
-  };
-
-  const makeAuthenticatedRequest = async (url, options = {}) => {
+  // Authentication & API Methods
+  const makeAuthenticatedRequest = useCallback(async (url, options = {}) => {
     const defaultOptions = {
       headers: {
         'Authorization': `Bearer ${authToken}`,
@@ -183,229 +139,110 @@ const AdminReportDashboard = () => {
 
     const response = await fetch(url, { ...options, headers: defaultOptions.headers });
     
-    // Handle authentication errors
-    if (response.status === 401) {
-      handleUnauthorized('Session expired');
-      throw new Error('Session expired');
-    }
-    
-    if (response.status === 403) {
-      handleUnauthorized('Access forbidden');
-      throw new Error('Access forbidden');
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized(response.status === 401 ? 'Session expired' : 'Access forbidden');
+      throw new Error(response.status === 401 ? 'Session expired' : 'Access forbidden');
     }
 
     return response;
-  };
+  }, [authToken]);
 
-  const showMessage = (msg, type = 'info') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => setMessage(''), 5000);
-  };
+  const showMessage = useCallback((msg, type = 'info') => {
+    updateState({ message: msg, messageType: type });
+    setTimeout(() => updateState({ message: '' }), 5000);
+  }, []);
 
-  // Debug function to check report structure
-  const debugReportStructure = (report) => {
-    console.log('Report structure debug:', {
-      _id: report._id,
-      reportId: report.reportId,
-      hasReportId: !!report.reportId,
-      reportIdType: typeof report.reportId,
-      allKeys: Object.keys(report)
-    });
-  };
+  const handleUnauthorized = useCallback((reason) => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    updateState({ authToken: null, userData: null });
+    showMessage('Please log in with proper credentials', 'error');
+  }, [showMessage]);
 
-  // Enhanced report management button click handler
-  const handleManageReport = (report) => {
-    console.log('Managing report:', report);
-    debugReportStructure(report);
-    
-    setSelectedReport(report);
-    setReportUpdate({
-      status: report.status || '',
-      priority: report.priority || 'medium',
-      adminNote: '',
-      resolutionType: '',
-      amount: '',
-      description: ''
-    });
-  };
-
-  const exportAllReports = async () => {
-    try {
-      setLoading(true);
-      
-      // Use the new bulk export endpoint
-      const response = await makeAuthenticatedRequest(`${API_BASE}/admin/reports/bulk/export`, {
-        method: 'POST',
-        body: JSON.stringify({
-          format: 'csv',
-          includeUserDetails: true,
-          includePurchaseDetails: true,
-          includeAdminNotes: false
-        })
-      });
-
-      if (response.ok) {
-        // Get filename from response headers or create default
-        const disposition = response.headers.get('Content-Disposition');
-        const filename = disposition 
-          ? disposition.split('filename=')[1]?.replace(/"/g, '') 
-          : `all_reports_export_${new Date().toISOString().split('T')[0]}.csv`;
-        
-        // Download the file
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        showMessage('Reports exported successfully', 'success');
-      } else {
-        const errorData = await response.json();
-        showMessage(errorData.message || 'Error exporting reports', 'error');
-      }
-    } catch (error) {
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
-        showMessage('Error exporting reports', 'error');
-        console.error('Export error:', error);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAnalytics = async () => {
+  // Data Loading Methods
+  const loadAnalytics = useCallback(async () => {
     if (!authToken) return;
     
-    setLoading(true);
+    updateState({ loading: true });
     try {
       const response = await makeAuthenticatedRequest(`${API_BASE}/admin/analytics?days=30`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
       const data = await response.json();
+      
       if (data.success) {
-        setAnalytics(data.data);
+        updateState({ analytics: data.data });
       } else {
         showMessage(data.message || 'Failed to load analytics', 'error');
       }
     } catch (error) {
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
+      if (!['Session expired', 'Access forbidden'].includes(error.message)) {
         showMessage('Error loading analytics', 'error');
-        console.error('Analytics error:', error);
       }
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [authToken, makeAuthenticatedRequest, showMessage]);
 
-  const loadHourlyAnalytics = async () => {
+  const loadReports = useCallback(async () => {
     if (!authToken) return;
     
-    try {
-      const response = await makeAuthenticatedRequest(`${API_BASE}/admin/analytics/hourly?days=7`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      if (data.success) {
-        setHourlyAnalytics(data.data);
-      }
-    } catch (error) {
-      console.error('Error loading hourly analytics:', error);
-    }
-  };
-
-  const loadReports = async () => {
-    if (!authToken) return;
-    
-    setLoading(true);
+    updateState({ loading: true });
     try {
       const params = new URLSearchParams({
-        page: currentPage.toString(),
+        page: state.currentPage.toString(),
         limit: '20',
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       });
 
       const response = await makeAuthenticatedRequest(`${API_BASE}/admin/reports?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
       const data = await response.json();
+      
       if (data.success) {
-        console.log('Reports loaded:', data.data.reports);
-        // Debug: Log the first report structure
-        if (data.data.reports.length > 0) {
-          console.log('First report structure:', data.data.reports[0]);
-          console.log('First report status:', data.data.reports[0].status);
-          console.log('First report priority:', data.data.reports[0].priority);
-          // Check if status field exists in the data
-          data.data.reports.forEach((report, index) => {
-            if (!report.status) {
-              console.warn(`Report at index ${index} has no status field!`, report);
-            }
-          });
-        }
-        setReports(data.data.reports);
-        setPagination(data.data.pagination);
+        updateState({ 
+          reports: data.data.reports,
+          pagination: data.data.pagination,
+          selectedReports: new Set()
+        });
       } else {
         showMessage(data.message || 'Failed to load reports', 'error');
       }
     } catch (error) {
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
+      if (!['Session expired', 'Access forbidden'].includes(error.message)) {
         showMessage('Error loading reports', 'error');
-        console.error('Reports error:', error);
       }
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [authToken, state.currentPage, filters, makeAuthenticatedRequest, showMessage]);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     if (!authToken || userData?.role !== 'admin') return;
     
-    setLoading(true);
+    updateState({ loading: true });
     try {
       const response = await makeAuthenticatedRequest(`${API_BASE}/admin/settings`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
       const data = await response.json();
+      
       if (data.success) {
-        setSettings(data.data);
+        updateState({ settings: data.data });
       } else {
         showMessage(data.message || 'Failed to load settings', 'error');
       }
     } catch (error) {
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
+      if (!['Session expired', 'Access forbidden'].includes(error.message)) {
         showMessage('Error loading settings', 'error');
-        console.error('Settings error:', error);
       }
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [authToken, userData, makeAuthenticatedRequest, showMessage]);
 
-  const updateSettings = async () => {
+  const updateSettings = useCallback(async () => {
     if (!authToken || userData?.role !== 'admin') {
       showMessage('Admin access required to update settings', 'error');
       return;
     }
     
-    setLoading(true);
+    updateState({ loading: true });
     try {
       const response = await makeAuthenticatedRequest(`${API_BASE}/admin/settings`, {
         method: 'PUT',
@@ -415,223 +252,329 @@ const AdminReportDashboard = () => {
       const data = await response.json();
       if (data.success) {
         showMessage('Settings updated successfully', 'success');
-        setSettings(data.data);
+        updateState({ settings: data.data });
       } else {
         showMessage(data.message || 'Error updating settings', 'error');
       }
     } catch (error) {
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
+      if (!['Session expired', 'Access forbidden'].includes(error.message)) {
         showMessage('Error updating settings', 'error');
       }
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [authToken, userData, settings, makeAuthenticatedRequest, showMessage]);
 
-  // Fixed updateReportStatus function
-  const updateReportStatus = async () => {
-    if (!selectedReport || !authToken) {
-      showMessage('No report selected', 'error');
-      return;
-    }
+  // Report Management
+  const updateReportStatus = useCallback(async () => {
+    if (!selectedReport || !authToken) return;
 
-    // Validate that we have required fields
-    if (!reportUpdate.status && !reportUpdate.priority && !reportUpdate.adminNote) {
-      showMessage('Please provide at least one update (status, priority, or note)', 'error');
-      return;
-    }
-
-    setLoading(true);
+    updateState({ loading: true });
     try {
-      console.log('Updating report:', {
-        reportId: selectedReport.reportId,
-        reportMongoId: selectedReport._id,
-        updates: reportUpdate
-      });
-
-      // Use the human-readable reportId (like RPT000001) not the MongoDB _id
-      const reportIdToUse = selectedReport.reportId;
-      
-      const response = await makeAuthenticatedRequest(`${API_BASE}/admin/reports/${reportIdToUse}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          status: reportUpdate.status || selectedReport.status,
-          priority: reportUpdate.priority || selectedReport.priority,
-          adminNote: reportUpdate.adminNote || ''
-        })
-      });
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE}/admin/reports/${selectedReport.reportId}/status`, 
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            status: reportUpdate.status || selectedReport.status,
+            priority: reportUpdate.priority || selectedReport.priority,
+            adminNote: reportUpdate.adminNote || ''
+          })
+        }
+      );
 
       const data = await response.json();
       
       if (response.ok && data.success) {
         showMessage('Report updated successfully', 'success');
-        setSelectedReport(null);
-        setReportUpdate({ status: '', priority: '', adminNote: '', resolutionType: '', amount: '', description: '' });
-        loadReports(); // Reload the reports list
-        
-        // Refresh analytics if we're on dashboard
-        if (activeTab === 'dashboard') {
-          loadAnalytics();
-        }
+        updateState({ selectedReport: null });
+        loadReports();
+        if (activeTab === 'dashboard') loadAnalytics();
       } else {
-        console.error('Update failed:', {
-          status: response.status,
-          data: data
-        });
         showMessage(data.message || 'Error updating report', 'error');
       }
     } catch (error) {
-      console.error('Error updating report:', error);
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
+      if (!['Session expired', 'Access forbidden'].includes(error.message)) {
         showMessage('Network error updating report', 'error');
       }
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [selectedReport, authToken, reportUpdate, activeTab, makeAuthenticatedRequest, showMessage, loadReports, loadAnalytics]);
 
-  // Fixed resolveReport function
-  const resolveReport = async () => {
-    if (!selectedReport || !authToken) {
-      showMessage('No report selected', 'error');
+  // Bulk update status
+  const bulkUpdateStatus = useCallback(async () => {
+    if (selectedReports.size === 0) {
+      showMessage('Please select reports first', 'error');
       return;
     }
 
-    if (!reportUpdate.resolutionType) {
-      showMessage('Please select a resolution type', 'error');
+    if (!bulkStatus && !bulkPriority && !bulkAdminNote) {
+      showMessage('Please select at least one field to update', 'error');
       return;
     }
 
-    // Validate amount for refund/compensation
-    if ((reportUpdate.resolutionType === 'refund' || reportUpdate.resolutionType === 'compensation') && 
-        (!reportUpdate.amount || isNaN(parseFloat(reportUpdate.amount)) || parseFloat(reportUpdate.amount) <= 0)) {
-      showMessage('Please enter a valid amount for refund/compensation', 'error');
-      return;
-    }
-
-    setLoading(true);
+    updateState({ loading: true });
     try {
-      console.log('Resolving report:', {
-        reportId: selectedReport.reportId,
-        resolutionType: reportUpdate.resolutionType,
-        amount: reportUpdate.amount,
-        description: reportUpdate.description
-      });
+      const reportIds = Array.from(selectedReports).map(reportMongoId => {
+        const report = reports.find(r => r._id === reportMongoId);
+        return report?.reportId;
+      }).filter(Boolean);
 
-      // Use the human-readable reportId (like RPT000001) not the MongoDB _id
-      const reportIdToUse = selectedReport.reportId;
-      
-      const response = await makeAuthenticatedRequest(`${API_BASE}/admin/reports/${reportIdToUse}/resolve`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          resolutionType: reportUpdate.resolutionType,
-          amount: reportUpdate.amount ? parseFloat(reportUpdate.amount) : null,
-          description: reportUpdate.description || `Report resolved with ${reportUpdate.resolutionType}`,
-          adminNote: reportUpdate.adminNote || `Resolved: ${reportUpdate.resolutionType}`
-        })
-      });
+      let successCount = 0;
+      let failCount = 0;
 
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        let successMessage = 'Report resolved successfully';
-        if (reportUpdate.resolutionType === 'refund' && reportUpdate.amount) {
-          successMessage += ` with GHS ${reportUpdate.amount} refund`;
+      for (const reportId of reportIds) {
+        try {
+          const updateData = {};
+          if (bulkStatus) updateData.status = bulkStatus;
+          if (bulkPriority) updateData.priority = bulkPriority;
+          if (bulkAdminNote) updateData.adminNote = bulkAdminNote;
+
+          const response = await makeAuthenticatedRequest(`${API_BASE}/admin/reports/${reportId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to update report ${reportId}:`, error);
+          failCount++;
         }
-        showMessage(successMessage, 'success');
-        
-        setSelectedReport(null);
-        setReportUpdate({ status: '', priority: '', adminNote: '', resolutionType: '', amount: '', description: '' });
-        loadReports(); // Reload the reports list
-        
-        // Refresh analytics
-        if (activeTab === 'dashboard') {
-          loadAnalytics();
-        }
-      } else {
-        console.error('Resolution failed:', {
-          status: response.status,
-          data: data
+      }
+
+      if (successCount > 0) {
+        showMessage(`Successfully updated ${successCount} reports${failCount > 0 ? `, ${failCount} failed` : ''}`, 'success');
+        updateState({ 
+          selectedReports: new Set(),
+          showBulkStatusModal: false,
+          bulkStatus: '',
+          bulkPriority: '',
+          bulkAdminNote: ''
         });
-        showMessage(data.message || 'Error resolving report', 'error');
+        loadReports();
+      } else {
+        showMessage('Failed to update reports', 'error');
       }
     } catch (error) {
-      console.error('Error resolving report:', error);
-      if (error.message !== 'Session expired' && error.message !== 'Access forbidden') {
-        showMessage('Network error resolving report', 'error');
-      }
+      console.error('Bulk status update error:', error);
+      showMessage('Network error updating status', 'error');
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [selectedReports, reports, bulkStatus, bulkPriority, bulkAdminNote, makeAuthenticatedRequest, showMessage, loadReports]);
 
-  const getStatusColor = (status) => {
-    if (!status) return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+  // Effects
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode');
+    updateState({ 
+      darkMode: savedDarkMode ? JSON.parse(savedDarkMode) : window.matchMedia('(prefers-color-scheme: dark)').matches 
+    });
     
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      under_review: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      investigating: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      resolved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      auto_resolved: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-  };
+    // Check authentication
+    const checkAuth = async () => {
+      updateState({ authLoading: true });
+      try {
+        const token = localStorage.getItem('authToken');
+        const storedUserData = localStorage.getItem('userData');
+        
+        if (!token || !storedUserData) {
+          handleUnauthorized('Please log in to access this dashboard');
+          return;
+        }
 
-  const getPriorityColor = (priority) => {
-    if (!priority) return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+        const user = JSON.parse(storedUserData);
+        
+        if (!user || (user.role !== 'admin' && user.role !== 'reporter')) {
+          handleUnauthorized('Insufficient permissions');
+          return;
+        }
+
+        updateState({ authToken: token, userData: user });
+      } catch (error) {
+        handleUnauthorized('Invalid user data');
+      } finally {
+        updateState({ authLoading: false });
+      }
+    };
     
-    const colors = {
-      low: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-      medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      high: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      urgent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-    };
-    return colors[priority] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-  };
+    checkAuth();
+  }, []);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
 
-  // Show loading screen during authentication
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md text-center">
-          <RefreshCw className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
-          <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Verifying Access</h2>
-          <p className="text-gray-600 dark:text-gray-400">Please wait while we verify your credentials...</p>
+  useEffect(() => {
+    if (userData && authToken) {
+      if (activeTab === 'dashboard') {
+        loadAnalytics();
+      } else if (activeTab === 'reports') {
+        loadReports();
+      } else if (activeTab === 'settings' && userData.role === 'admin') {
+        loadSettings();
+      }
+    }
+  }, [userData, authToken, activeTab, state.currentPage, filters, loadAnalytics, loadReports, loadSettings]);
+
+  // Render helpers
+  const renderDashboard = () => (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Summary Cards */}
+      {analytics && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {[
+            { icon: FileText, color: 'blue', label: 'Total Reports', value: analytics.summary.totalReports },
+            { icon: Clock, color: 'yellow', label: 'Pending', value: analytics.summary.pendingReports },
+            { icon: CheckCircle, color: 'green', label: 'Resolved', value: analytics.summary.resolvedReports },
+            { icon: TrendingUp, color: 'purple', label: 'Resolution Rate', value: `${analytics.summary.resolutionRate}%` }
+          ].map(({ icon: Icon, color, label, value }) => (
+            <div key={label} className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center">
+                <Icon className={`w-6 h-6 sm:w-8 sm:h-8 text-${color}-500`} />
+                <div className="ml-3 sm:ml-4">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">{label}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
 
-  // Show access denied if not authenticated or authorized
+  const renderReportsTable = () => (
+    <div className="overflow-x-auto -mx-4 sm:mx-0">
+      <table className="w-full min-w-full">
+        <thead className="bg-gray-50 dark:bg-gray-700">
+          <tr>
+            <th className="px-3 sm:px-6 py-3 text-left">
+              <button
+                onClick={() => {
+                  const newSelected = selectedReports.size === reports.length ? new Set() : new Set(reports.map(r => r._id));
+                  updateState({ selectedReports: newSelected });
+                }}
+                className="flex items-center space-x-1 sm:space-x-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                {selectedReports.size === reports.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                <span className="hidden sm:inline">Select</span>
+              </button>
+            </th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Report</th>
+            <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Order Info</th>
+            <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reason</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+            <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Priority</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          {reports.map((report) => (
+            <tr key={report._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <button
+                  onClick={() => {
+                    const newSelected = new Set(selectedReports);
+                    newSelected.has(report._id) ? newSelected.delete(report._id) : newSelected.add(report._id);
+                    updateState({ selectedReports: newSelected });
+                  }}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  {selectedReports.has(report._id) ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4" />}
+                </button>
+              </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">#{report.reportId}</div>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{report.phoneNumber}</div>
+              </td>
+              <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">{report.userId?.name}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{report.userId?.email}</div>
+              </td>
+              <td className="px-3 sm:px-6 py-4">
+                <div className="text-xs sm:text-sm text-gray-900 dark:text-white">
+                  {report.purchaseId?.geonetReference || 'N/A'}
+                  {report.purchaseId?.geonetReference && (
+                    <span className={`ml-1 sm:ml-2 px-1 sm:px-2 py-0.5 sm:py-1 text-xs rounded-full ${
+                      report.purchaseId.geonetReference.startsWith('MN') 
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300'
+                        : report.purchaseId.geonetReference.startsWith('GN')
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                      {report.purchaseId.geonetReference.substring(0, 2)}
+                    </span>
+                  )}
+                </div>
+                {report.purchaseId?.createdAt && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {new Date(report.purchaseId.createdAt).toLocaleDateString()}
+                  </div>
+                )}
+              </td>
+              <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
+                <div className="text-sm text-gray-900 dark:text-white">{report.reportReason}</div>
+              </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}`}>
+                  {report.status}
+                </span>
+              </td>
+              <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
+                  {report.priority?.toUpperCase()}
+                </span>
+              </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button
+                  onClick={() => {
+                    updateState({ 
+                      selectedReport: report,
+                      reportUpdate: { status: '', priority: '', adminNote: '', resolutionType: '', amount: '', description: '' }
+                    });
+                  }}
+                  className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Manage
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // Loading state
+  if (authLoading) return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <LoadingSpinner />
+    </div>
+  );
+
+  // Auth check
   if (!userData || !authToken || (userData.role !== 'admin' && userData.role !== 'reporter')) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md text-center max-w-md">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-md text-center max-w-md w-full">
           <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-center mb-2 text-gray-900 dark:text-white">Access Denied</h2>
           <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
             You need admin or reporter privileges to access this dashboard.
           </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => window.location.href = '/login'}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Go to Login
-            </button>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
-            >
-              Go to Home
-            </button>
-          </div>
+          <button
+            onClick={() => window.location.href = '/login'}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Go to Login
+          </button>
         </div>
       </div>
     );
@@ -640,428 +583,269 @@ const AdminReportDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Report Dashboard</h1>
-              <p className="text-gray-600 dark:text-gray-400 flex items-center">
-                <Shield className="w-4 h-4 mr-1" />
-                Welcome, {userData.name} ({userData.role})
-              </p>
-            </div>
             <div className="flex items-center space-x-4">
+              {/* Mobile menu button */}
               <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'dashboard'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                onClick={() => updateState({ mobileMenuOpen: !mobileMenuOpen })}
+                className="lg:hidden p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
               >
-                <BarChart3 className="w-4 h-4 inline mr-2" />
-                Dashboard
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
-              <button
-                onClick={() => setActiveTab('reports')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'reports'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                <FileText className="w-4 h-4 inline mr-2" />
-                Reports
-              </button>
-              {userData.role === 'admin' && (
+              
+              <div>
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  {userData.name} ({userData.role})
+                </p>
+              </div>
+            </div>
+            
+            {/* Desktop navigation */}
+            <div className="hidden lg:flex items-center space-x-4">
+              {['dashboard', 'reports', ...(userData.role === 'admin' ? ['settings'] : [])].map(tab => (
                 <button
-                  onClick={() => setActiveTab('settings')}
+                  key={tab}
+                  onClick={() => updateState({ activeTab: tab })}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    activeTab === 'settings'
+                    activeTab === tab
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  <Settings className="w-4 h-4 inline mr-2" />
-                  Settings
+                  {tab === 'dashboard' && <BarChart3 className="w-4 h-4 inline mr-2" />}
+                  {tab === 'reports' && <FileText className="w-4 h-4 inline mr-2" />}
+                  {tab === 'settings' && <Settings className="w-4 h-4 inline mr-2" />}
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
-              )}
+              ))}
               <button
-                onClick={toggleDarkMode}
+                onClick={() => updateState({ darkMode: !darkMode })}
                 className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
               <button
-                onClick={logout}
+                onClick={() => {
+                  localStorage.removeItem('authToken');
+                  localStorage.removeItem('userData');
+                  window.location.href = '/login';
+                }}
                 className="px-4 py-2 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 flex items-center transition-colors"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </button>
             </div>
+
+            {/* Mobile dark mode toggle */}
+            <div className="flex lg:hidden items-center space-x-2">
+              <button
+                onClick={() => updateState({ darkMode: !darkMode })}
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('authToken');
+                  localStorage.removeItem('userData');
+                  window.location.href = '/login';
+                }}
+                className="p-2 rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+
+          {/* Mobile navigation */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden pb-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+              <div className="flex flex-col space-y-2 mt-4">
+                {['dashboard', 'reports', ...(userData.role === 'admin' ? ['settings'] : [])].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      updateState({ activeTab: tab, mobileMenuOpen: false });
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors text-left ${
+                      activeTab === tab
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    {tab === 'dashboard' && <BarChart3 className="w-4 h-4 inline mr-2" />}
+                    {tab === 'reports' && <FileText className="w-4 h-4 inline mr-2" />}
+                    {tab === 'settings' && <Settings className="w-4 h-4 inline mr-2" />}
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Message Alert */}
-      {message && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <div className={`p-4 rounded-lg transition-colors ${
-            messageType === 'success' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
-            messageType === 'error' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
-            'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-          }`}>
-            {message}
-          </div>
-        </div>
-      )}
+      <MessageAlert message={message} type={messageType} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            {/* Summary Cards */}
-            {analytics && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center">
-                    <FileText className="w-8 h-8 text-blue-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Reports</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.summary.totalReports}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center">
-                    <Clock className="w-8 h-8 text-yellow-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.summary.pendingReports}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center">
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Resolved</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.summary.resolvedReports}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center">
-                    <TrendingUp className="w-8 h-8 text-purple-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Resolution Rate</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.summary.resolutionRate}%</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Hourly Analytics */}
-            {hourlyAnalytics && (
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
-                  <Calendar className="w-5 h-5 mr-2" />
-                  "Data Not Received" Reports - Hourly Analysis
-                </h3>
-                
-                {/* Peak Hours */}
-                {hourlyAnalytics.peakHours && hourlyAnalytics.peakHours.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">Peak Problem Hours</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {hourlyAnalytics.peakHours.slice(0, 3).map((peak, index) => (
-                        <div key={peak.hour} className={`p-4 rounded-lg border ${
-                          index === 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' :
-                          index === 1 ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' :
-                          'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                        }`}>
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{peak.timeRange}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{peak.totalReports} reports</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500">Severity: {peak.severity}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Network Issues */}
-                {hourlyAnalytics.networkStats && Object.keys(hourlyAnalytics.networkStats).length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">Network Performance</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Object.entries(hourlyAnalytics.networkStats).map(([network, stats]) => (
-                        <div key={network} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <Network className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2" />
-                              <span className="font-medium text-gray-900 dark:text-white">{network}</span>
-                            </div>
-                            <span className="text-sm font-bold text-red-600 dark:text-red-400">{stats.total} issues</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Insights */}
-                {hourlyAnalytics.insights && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">Key Insights</h4>
-                    <div className="space-y-2">
-                      {hourlyAnalytics.insights.mostProblematicHour && (
-                        <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                          <p className="text-sm text-red-800 dark:text-red-200">
-                            <strong>Most Problematic Hour:</strong> {hourlyAnalytics.insights.mostProblematicHour.timeRange} 
-                            ({hourlyAnalytics.insights.mostProblematicHour.totalReports} reports)
-                          </p>
-                        </div>
-                      )}
-                      {hourlyAnalytics.insights.networkMostAffected && (
-                        <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                          <p className="text-sm text-orange-800 dark:text-orange-200">
-                            <strong>Most Affected Network:</strong> {hourlyAnalytics.insights.networkMostAffected[0]} 
-                            ({hourlyAnalytics.insights.networkMostAffected[1].total} total issues)
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Smart Recommendations */}
-            {analytics && analytics.insights && analytics.insights.recommendations && (
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
-                  <AlertTriangle className="w-5 h-5 mr-2" />
-                  Smart Recommendations
-                </h3>
-                <div className="space-y-3">
-                  {analytics.insights.recommendations.map((rec, index) => (
-                    <div key={index} className={`p-4 rounded-lg border ${
-                      rec.severity === 'high' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' :
-                      rec.severity === 'medium' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' :
-                      'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                    }`}>
-                      <div className="flex items-start">
-                        <AlertTriangle className={`w-5 h-5 mt-0.5 mr-3 ${
-                          rec.severity === 'high' ? 'text-red-500' :
-                          rec.severity === 'medium' ? 'text-yellow-500' :
-                          'text-blue-500'
-                        }`} />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{rec.message}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{rec.recommendation}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'dashboard' && renderDashboard()}
 
         {/* Reports Tab */}
         {activeTab === 'reports' && (
-          <div className="space-y-6">
-            {/* Filters and Export Controls */}
+          <div className="space-y-4 sm:space-y-6">
+            {/* Filters */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                <div className="flex flex-wrap gap-4 items-center flex-1">
-                  <div>
-                    <select
-                      value={filters.status}
-                      onChange={(e) => setFilters({...filters, status: e.target.value})}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">All Status</option>
-                      <option value="pending">Pending</option>
-                      <option value="under_review">Under Review</option>
-                      <option value="investigating">Investigating</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
-                  <div>
-                    <select
-                      value={filters.priority}
-                      onChange={(e) => setFilters({...filters, priority: e.target.value})}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">All Priority</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-64">
-                    <input
-                      type="text"
-                      placeholder="Search reports..."
-                      value={filters.search}
-                      onChange={(e) => setFilters({...filters, search: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    />
-                  </div>
-                  <button
-                    onClick={loadReports}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center transition-colors"
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    Search
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:gap-4 items-end">
+                <select
+                  value={filters.status}
+                  onChange={(e) => updateState({ filters: {...filters, status: e.target.value} })}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">All Status</option>
+                  {STATUS_OPTIONS.map(status => (
+                    <option key={status} value={status}>{status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                  ))}
+                </select>
                 
-                {/* Export Controls */}
-                <div className="flex gap-2 items-center">
-                  <button
-                    onClick={exportAllReports}
-                    disabled={loading}
-                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center text-sm transition-colors"
-                  >
-                    <Download className="w-4 h-4 mr-1" />
-                    Export All
-                  </button>
-                </div>
+                <select
+                  value={filters.priority}
+                  onChange={(e) => updateState({ filters: {...filters, priority: e.target.value} })}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">All Priority</option>
+                  {PRIORITY_OPTIONS.map(priority => (
+                    <option key={priority} value={priority}>{priority.charAt(0).toUpperCase() + priority.slice(1)}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={filters.referenceType}
+                  onChange={(e) => updateState({ filters: {...filters, referenceType: e.target.value} })}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">All References</option>
+                  <option value="MN">MN References</option>
+                  <option value="GN">GN References</option>
+                </select>
+                
+                <input
+                  type="text"
+                  placeholder="Search reports..."
+                  value={filters.search}
+                  onChange={(e) => updateState({ filters: {...filters, search: e.target.value} })}
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+                
+                <button
+                  onClick={loadReports}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center text-sm"
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
+                </button>
               </div>
             </div>
 
-            {/* Reports List */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-              {loading ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600" />
-                  <p className="mt-2 text-gray-600 dark:text-gray-400">Loading reports...</p>
+            {/* Bulk Actions */}
+            {selectedReports.size > 0 && (
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg shadow-lg">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="bg-white/20 backdrop-blur px-3 py-1 rounded-full">
+                    <span className="text-sm font-bold text-white">
+                      {selectedReports.size} report(s) selected
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:gap-3">
+                    <button
+                      onClick={() => updateState({ showBulkStatusModal: true })}
+                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-medium text-sm transition-all duration-200 flex items-center shadow-md hover:shadow-lg"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Update Status
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const selectedReportsList = Array.from(selectedReports).map(id => 
+                          reports.find(r => r._id === id)
+                        ).filter(Boolean);
+                        
+                        const text = selectedReportsList.map(report => {
+                          const ref = report.purchaseId?.geonetReference || 'N/A';
+                          const phone = report.phoneNumber || 'N/A';
+                          const capacity = report.purchaseId?.capacity ? `${report.purchaseId.capacity}GB` : 'N/A';
+                          const network = report.purchaseId?.network || 'N/A';
+                          const orderDate = report.purchaseId?.createdAt 
+                            ? new Date(report.purchaseId.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'N/A';
+                          
+                          return `Ref: ${ref}\nPhone: ${phone}\nData: ${capacity}\nNetwork: ${network}\nOrder Date: ${orderDate}`;
+                        }).join('\n\n');
+                        
+                        navigator.clipboard.writeText(text).then(() => {
+                          showMessage('Orders copied to clipboard', 'success');
+                        });
+                      }}
+                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm transition-all duration-200 flex items-center shadow-md hover:shadow-lg"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Orders
+                    </button>
+                    
+                    <button
+                      onClick={() => updateState({ selectedReports: new Set() })}
+                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm transition-all duration-200 shadow-md hover:shadow-lg"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
-              ) : reports.length === 0 ? (
+              </div>
+            )}
+
+            {/* Reports Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+              {loading ? <LoadingSpinner /> : reports.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-gray-600 dark:text-gray-400">No reports found</p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Report
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          User
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Order Ref
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Reason
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Priority
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Created
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {reports.map((report) => (
-                        <tr key={report._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">#{report.reportId}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">{report.phoneNumber}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{report.userId?.name}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">{report.userId?.email}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 dark:text-white">
-                              {report.purchaseId?.geonetReference || 'N/A'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 dark:text-white">{report.reportReason}</div>
-                            {report.customReason && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">{report.customReason}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}`}>
-                              {report.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
-                              {report.priority.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {formatDate(report.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() => handleManageReport(report)}
-                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                              Manage
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
+              ) : renderReportsTable()}
+              
               {/* Pagination */}
-              {pagination.pages > 1 && (
-                <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-                    {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} reports
+              {state.pagination.pages > 1 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 gap-4">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center sm:text-left">
+                    Showing {((state.pagination.page - 1) * state.pagination.limit) + 1} to{' '}
+                    {Math.min(state.pagination.page * state.pagination.limit, state.pagination.total)} of {state.pagination.total} reports
                   </p>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage <= 1}
-                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                      onClick={() => updateState({ currentPage: state.currentPage - 1 })}
+                      disabled={state.currentPage <= 1}
+                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
                     >
                       Previous
                     </button>
-                    <span className="px-3 py-1 bg-blue-600 text-white rounded">
-                      {currentPage}
+                    <span className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
+                      {state.currentPage}
                     </span>
                     <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage >= pagination.pages}
-                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                      onClick={() => updateState({ currentPage: state.currentPage + 1 })}
+                      disabled={state.currentPage >= state.pagination.pages}
+                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
                     >
                       Next
                     </button>
@@ -1072,22 +856,22 @@ const AdminReportDashboard = () => {
           </div>
         )}
 
-        {/* Settings Tab - Only for Admins */}
-        {activeTab === 'settings' && userData.role === 'admin' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold mb-6 flex items-center text-gray-900 dark:text-white">
-              <Settings className="w-5 h-5 mr-2" />
+        {/* Settings Tab */}
+        {activeTab === 'settings' && userData?.role === 'admin' && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center text-gray-900 dark:text-white">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Report System Settings
             </h2>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Basic Settings */}
               <div>
                 <label className="flex items-center">
                   <input
                     type="checkbox"
                     checked={settings.isReportingEnabled}
-                    onChange={(e) => setSettings({...settings, isReportingEnabled: e.target.checked})}
+                    onChange={(e) => updateState({ settings: {...settings, isReportingEnabled: e.target.checked} })}
                     className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                   />
                   <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enable Reporting System</span>
@@ -1101,8 +885,8 @@ const AdminReportDashboard = () => {
                 </label>
                 <select
                   value={settings.reportTimeLimit}
-                  onChange={(e) => setSettings({...settings, reportTimeLimit: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  onChange={(e) => updateState({ settings: {...settings, reportTimeLimit: e.target.value} })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="same_day">Same Day (Hours)</option>
                   <option value="specific_days">Specific Days</option>
@@ -1121,8 +905,8 @@ const AdminReportDashboard = () => {
                     min="1"
                     max="8760"
                     value={settings.reportTimeLimitHours}
-                    onChange={(e) => setSettings({...settings, reportTimeLimitHours: parseInt(e.target.value)})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    onChange={(e) => updateState({ settings: {...settings, reportTimeLimitHours: parseInt(e.target.value)} })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               )}
@@ -1137,14 +921,14 @@ const AdminReportDashboard = () => {
                     min="1"
                     max="365"
                     value={settings.allowedReportDays}
-                    onChange={(e) => setSettings({...settings, allowedReportDays: parseInt(e.target.value)})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    onChange={(e) => updateState({ settings: {...settings, allowedReportDays: parseInt(e.target.value)} })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               )}
 
               {/* User Limits */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Max Reports Per User
@@ -1154,8 +938,8 @@ const AdminReportDashboard = () => {
                     min="1"
                     max="50"
                     value={settings.maxReportsPerUser}
-                    onChange={(e) => setSettings({...settings, maxReportsPerUser: parseInt(e.target.value)})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    onChange={(e) => updateState({ settings: {...settings, maxReportsPerUser: parseInt(e.target.value)} })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 <div>
@@ -1167,8 +951,8 @@ const AdminReportDashboard = () => {
                     min="1"
                     max="10"
                     value={settings.maxReportsPerUserPerDay}
-                    onChange={(e) => setSettings({...settings, maxReportsPerUserPerDay: parseInt(e.target.value)})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    onChange={(e) => updateState({ settings: {...settings, maxReportsPerUserPerDay: parseInt(e.target.value)} })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -1183,8 +967,8 @@ const AdminReportDashboard = () => {
                   min="1"
                   max="30"
                   value={settings.autoResolveAfterDays}
-                  onChange={(e) => setSettings({...settings, autoResolveAfterDays: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  onChange={(e) => updateState({ settings: {...settings, autoResolveAfterDays: parseInt(e.target.value)} })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 />
               </div>
 
@@ -1202,14 +986,14 @@ const AdminReportDashboard = () => {
                         onChange={(e) => {
                           const newReasons = [...settings.allowedReportReasons];
                           newReasons[index] = e.target.value;
-                          setSettings({...settings, allowedReportReasons: newReasons});
+                          updateState({ settings: {...settings, allowedReportReasons: newReasons} });
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                       />
                       <button
                         onClick={() => {
                           const newReasons = settings.allowedReportReasons.filter((_, i) => i !== index);
-                          setSettings({...settings, allowedReportReasons: newReasons});
+                          updateState({ settings: {...settings, allowedReportReasons: newReasons} });
                         }}
                         className="px-3 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                       >
@@ -1219,9 +1003,11 @@ const AdminReportDashboard = () => {
                   ))}
                   <button
                     onClick={() => {
-                      setSettings({
-                        ...settings, 
-                        allowedReportReasons: [...settings.allowedReportReasons, 'New Reason']
+                      updateState({ 
+                        settings: {
+                          ...settings, 
+                          allowedReportReasons: [...settings.allowedReportReasons, 'New Reason']
+                        }
                       });
                     }}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm transition-colors"
@@ -1236,7 +1022,7 @@ const AdminReportDashboard = () => {
                 <button
                   onClick={updateSettings}
                   disabled={loading}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center transition-colors"
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center transition-colors text-sm"
                 >
                   {loading ? (
                     <RefreshCw className="w-4 h-4 animate-spin mr-2" />
@@ -1251,8 +1037,8 @@ const AdminReportDashboard = () => {
         )}
 
         {/* Settings Access Denied for Non-Admins */}
-        {activeTab === 'settings' && userData.role !== 'admin' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center border border-gray-200 dark:border-gray-700">
+        {activeTab === 'settings' && userData?.role !== 'admin' && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sm:p-8 text-center border border-gray-200 dark:border-gray-700">
             <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Admin Access Required</h3>
             <p className="text-gray-600 dark:text-gray-400">Only administrators can access system settings.</p>
@@ -1261,227 +1047,200 @@ const AdminReportDashboard = () => {
       </div>
 
       {/* Report Management Modal */}
-      {selectedReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Manage Report #{selectedReport.reportId}</h3>
+      <Modal 
+        isOpen={!!selectedReport} 
+        onClose={() => updateState({ selectedReport: null })}
+        title={`Manage Report #${selectedReport?.reportId}`}
+        size="max-w-2xl lg:max-w-4xl"
+      >
+        {selectedReport && (
+          <div className="space-y-4">
+            {/* Report Details */}
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3">
+                <h4 className="font-medium text-gray-900 dark:text-white">Report Details</h4>
                 <button
-                  onClick={() => setSelectedReport(null)}
-                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  onClick={() => {
+                    const orderRef = selectedReport.purchaseId?.geonetReference || 'N/A';
+                    const phoneNumber = selectedReport.phoneNumber || 'N/A';
+                    const dataAmount = selectedReport.purchaseId?.capacity ? `${selectedReport.purchaseId.capacity}GB` : 'N/A';
+                    const network = selectedReport.purchaseId?.network || 'N/A';
+                    const orderDate = selectedReport.purchaseId?.createdAt 
+                      ? new Date(selectedReport.purchaseId.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'N/A';
+                    
+                    const textToCopy = `Order: ${orderRef}\nPhone: ${phoneNumber}\nData: ${dataAmount}\nNetwork: ${network}\nOrder Date: ${orderDate}`;
+                    
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                      showMessage('Order details copied to clipboard', 'success');
+                    }).catch(() => {
+                      showMessage('Failed to copy order details', 'error');
+                    });
+                  }}
+                  className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center text-sm transition-colors"
+                  title="Copy order details"
                 >
-                  <XCircle className="w-6 h-6" />
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy Order Info
                 </button>
               </div>
-
-              {/* Report Details */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 border border-gray-200 dark:border-gray-600">
-                <div className="flex justify-between items-start mb-3">
-                  <h4 className="font-medium text-gray-900 dark:text-white">Report Details</h4>
-                  <button
-                    onClick={() => {
-                      const orderRef = selectedReport.purchaseId?.geonetReference || 'N/A';
-                      const phoneNumber = selectedReport.phoneNumber || 'N/A';
-                      const dataAmount = selectedReport.purchaseId?.capacity ? `${selectedReport.purchaseId.capacity}GB` : 'N/A';
-                      const orderDate = selectedReport.createdAt ? new Date(selectedReport.createdAt).toLocaleDateString() : 'N/A';
-                      
-                      const textToCopy = `Order: ${orderRef}\nPhone: ${phoneNumber}\nData: ${dataAmount}\nDate: ${orderDate}`;
-                      
-                      navigator.clipboard.writeText(textToCopy).then(() => {
-                        showMessage('Order details copied to clipboard', 'success');
-                      }).catch(() => {
-                        showMessage('Failed to copy order details', 'error');
-                      });
-                    }}
-                    className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center text-sm transition-colors"
-                    title="Copy order details"
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy Order Info
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><strong className="text-gray-900 dark:text-white">User:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.userId?.name}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Email:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.userId?.email}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Phone:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.phoneNumber}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Order Reference:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.purchaseId?.geonetReference || 'N/A'}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Network:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.purchaseId?.network}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Capacity:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.purchaseId?.capacity}GB</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Price:</strong> <span className="text-gray-600 dark:text-gray-300">GHS {selectedReport.purchaseId?.price}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Reason:</strong> <span className="text-gray-600 dark:text-gray-300">{selectedReport.reportReason}</span></div>
-                  <div><strong className="text-gray-900 dark:text-white">Created:</strong> <span className="text-gray-600 dark:text-gray-300">{formatDate(selectedReport.createdAt)}</span></div>
-                </div>
-                {selectedReport.description && (
-                  <div className="mt-3">
-                    <strong className="text-gray-900 dark:text-white">Description:</strong>
-                    <p className="text-gray-700 dark:text-gray-300 mt-1">{selectedReport.description}</p>
-                  </div>
-                )}
-                {selectedReport.customReason && (
-                  <div className="mt-3">
-                    <strong className="text-gray-900 dark:text-white">Custom Reason:</strong>
-                    <p className="text-gray-700 dark:text-gray-300 mt-1">{selectedReport.customReason}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Admin Notes History */}
-              {selectedReport.adminNotes && selectedReport.adminNotes.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">Admin Notes History</h4>
-                  <div className="space-y-2">
-                    {selectedReport.adminNotes.map((note, index) => (
-                      <div key={index} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <p className="text-sm text-gray-800 dark:text-gray-200">{note.note}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          By {note.addedBy?.name} on {formatDate(note.addedAt)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Update Form */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={reportUpdate.status}
-                      onChange={(e) => setReportUpdate({...reportUpdate, status: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Keep current</option>
-                      <option value="pending">Pending</option>
-                      <option value="under_review">Under Review</option>
-                      <option value="investigating">Investigating</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Priority
-                    </label>
-                    <select
-                      value={reportUpdate.priority}
-                      onChange={(e) => setReportUpdate({...reportUpdate, priority: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Keep current</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Admin Note
-                  </label>
-                  <textarea
-                    value={reportUpdate.adminNote}
-                    onChange={(e) => setReportUpdate({...reportUpdate, adminNote: e.target.value})}
-                    placeholder="Add a note about this report..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  />
-                </div>
-
-                {/* Resolution Section */}
-                <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">Resolution (Optional)</h4>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Resolution Type
-                      </label>
-                      <select
-                        value={reportUpdate.resolutionType}
-                        onChange={(e) => setReportUpdate({...reportUpdate, resolutionType: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        <option value="">Select type</option>
-                        <option value="refund">Refund</option>
-                        <option value="resend">Resend Data</option>
-                        <option value="compensation">Compensation</option>
-                        <option value="no_action">No Action</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Amount (GHS)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={reportUpdate.amount}
-                        onChange={(e) => setReportUpdate({...reportUpdate, amount: e.target.value})}
-                        placeholder="0.00"
-                        disabled={reportUpdate.resolutionType !== 'refund' && reportUpdate.resolutionType !== 'compensation'}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Resolution Description
-                    </label>
-                    <textarea
-                      value={reportUpdate.description}
-                      onChange={(e) => setReportUpdate({...reportUpdate, description: e.target.value})}
-                      placeholder="Describe the resolution..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    />
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    onClick={updateReportStatus}
-                    disabled={loading || (!reportUpdate.status && !reportUpdate.priority && !reportUpdate.adminNote)}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center transition-colors"
-                  >
-                    {loading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    Update Report
-                  </button>
-                  
-                  {reportUpdate.resolutionType && (
-                    <button
-                      onClick={resolveReport}
-                      disabled={loading}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center transition-colors"
-                    >
-                      {loading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                      )}
-                      Resolve Report
-                    </button>
-                  )}
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div><strong>User:</strong> {selectedReport.userId?.name}</div>
+                <div><strong>Phone:</strong> {selectedReport.phoneNumber}</div>
+                <div><strong>Order:</strong> {selectedReport.purchaseId?.geonetReference || 'N/A'}</div>
+                <div><strong>Order Date:</strong> {selectedReport.purchaseId?.createdAt ? new Date(selectedReport.purchaseId.createdAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : 'N/A'}</div>
+                <div><strong>Report Created:</strong> {formatDate(selectedReport.createdAt)}</div>
+                <div><strong>Network:</strong> {selectedReport.purchaseId?.network}</div>
+                <div><strong>Capacity:</strong> {selectedReport.purchaseId?.capacity}GB</div>
+                <div><strong>Price:</strong> GHS {selectedReport.purchaseId?.price}</div>
               </div>
             </div>
+
+            {/* Update Form */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <select
+                value={reportUpdate.status}
+                onChange={(e) => updateState({ reportUpdate: {...reportUpdate, status: e.target.value} })}
+                className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-sm"
+              >
+                <option value="">Keep current status</option>
+                {STATUS_OPTIONS.map(status => (
+                  <option key={status} value={status}>{status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                ))}
+              </select>
+
+              <select
+                value={reportUpdate.priority}
+                onChange={(e) => updateState({ reportUpdate: {...reportUpdate, priority: e.target.value} })}
+                className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-sm"
+              >
+                <option value="">Keep current priority</option>
+                {PRIORITY_OPTIONS.map(priority => (
+                  <option key={priority} value={priority}>{priority.charAt(0).toUpperCase() + priority.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+
+            <textarea
+              value={reportUpdate.adminNote}
+              onChange={(e) => updateState({ reportUpdate: {...reportUpdate, adminNote: e.target.value} })}
+              placeholder="Add admin note..."
+              rows={3}
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-sm"
+            />
+
+            <button
+              onClick={updateReportStatus}
+              disabled={loading}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+            >
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin mx-auto" /> : 'Update Report'}
+            </button>
+          </div>
+        )}
+      </Modal>
+
+     {/* Bulk Status Update Modal */}
+      <Modal
+        isOpen={showBulkStatusModal}
+        onClose={() => updateState({ 
+          showBulkStatusModal: false,
+          bulkStatus: '',
+          bulkPriority: '',
+          bulkAdminNote: ''
+        })}
+        title="Bulk Update Status"
+        size="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Update status for {selectedReports.size} selected report(s)
+          </p>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Status
+            </label>
+            <select
+              value={bulkStatus}
+              onChange={(e) => updateState({ bulkStatus: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">Keep current</option>
+              {STATUS_OPTIONS.map(status => (
+                <option key={status} value={status}>{status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Priority
+            </label>
+            <select
+              value={bulkPriority}
+              onChange={(e) => updateState({ bulkPriority: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">Keep current</option>
+              {PRIORITY_OPTIONS.map(priority => (
+                <option key={priority} value={priority}>{priority.charAt(0).toUpperCase() + priority.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Admin Note
+            </label>
+            <textarea
+              value={bulkAdminNote}
+              onChange={(e) => updateState({ bulkAdminNote: e.target.value })}
+              placeholder="Add note for all selected reports..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            />
+          </div>
+          
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={bulkUpdateStatus}
+              disabled={loading || (!bulkStatus && !bulkPriority && !bulkAdminNote)}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm transition-colors"
+            >
+              {loading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>Update {selectedReports.size} Reports</>
+              )}
+            </button>
+            
+            <button
+              onClick={() => updateState({ 
+                showBulkStatusModal: false,
+                bulkStatus: '',
+                bulkPriority: '',
+                bulkAdminNote: ''
+              })}
+              className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 text-sm transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

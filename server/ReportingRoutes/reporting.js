@@ -789,6 +789,8 @@ router.put('/admin/settings', authenticateToken, requireStrictAdmin, async (req,
 });
 
 // Get all reports (Admin/Reporter)
+// In your /admin/reports route, update the query building section:
+
 router.get('/admin/reports', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -797,12 +799,24 @@ router.get('/admin/reports', authenticateToken, requireAdmin, async (req, res) =
     const priority = req.query.priority;
     const assignedTo = req.query.assignedTo;
     const search = req.query.search;
+    const referenceType = req.query.referenceType; // Add this line
     
     const query = {};
     
     if (status) query.status = status;
     if (priority) query.priority = priority;
     if (assignedTo) query.assignedTo = assignedTo;
+    
+    // Handle reference type filter
+    if (referenceType) {
+      // First, we need to get purchase IDs that match the reference type
+      const purchases = await DataPurchase.find({
+        geonetReference: { $regex: `^${referenceType}`, $options: 'i' }
+      }).select('_id');
+      
+      const purchaseIds = purchases.map(p => p._id);
+      query.purchaseId = { $in: purchaseIds };
+    }
     
     if (search) {
       query.$or = [
@@ -814,7 +828,7 @@ router.get('/admin/reports', authenticateToken, requireAdmin, async (req, res) =
     
     const reports = await OrderReport.find(query)
       .populate('userId', 'name email phoneNumber')
-      .populate('purchaseId', 'network capacity price geonetReference status')
+      .populate('purchaseId', 'network capacity price geonetReference status createdAt') // Make sure createdAt is included
       .populate('assignedTo', 'name')
       .populate('resolution.resolvedBy', 'name')
       .sort({ createdAt: -1 })
