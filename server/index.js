@@ -20,6 +20,7 @@ const adminOrder = require('./allOrders/allorders.js')
 const waiting_orders_export = require('./waitingorders/waiting.js')
 const phoneVerification = require('./PhoneVerifyRoutes/Verification.js')
 const FosterApi = require('./Foster_Api/FosterIntegration.js');
+const AdminReportDashboard = require('./ReportingRoutes/reporting.js');
 dotenv.config();
 
 // Initialize Express app
@@ -50,6 +51,7 @@ app.use('/api', adminOrder);
 app.use('/api/orders', waiting_orders_export);
 app.use('/api/verifications', phoneVerification);
 app.use('/api/foster', FosterApi);
+app.use('/api/v1/reports', AdminReportDashboard);
 
 // Default Route
 app.get('/', (req, res) => {

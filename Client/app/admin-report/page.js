@@ -23,6 +23,13 @@ export default function AdminReports() {
   const [adminNotes, setAdminNotes] = useState('');
   const [resolution, setResolution] = useState('');
   
+  // Bulk selection state
+  const [selectedReports, setSelectedReports] = useState(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkResolution, setBulkResolution] = useState('');
+  const [bulkAdminNotes, setBulkAdminNotes] = useState('');
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  
   // Get admin data from localStorage
   useEffect(() => {
     const storedData = localStorage.getItem('userData');
@@ -52,7 +59,7 @@ export default function AdminReports() {
         const params = new URLSearchParams();
         params.append('adminId', userData.id);
         params.append('page', page);
-        params.append('limit', 10);
+        params.append('limit', 100);
         
         if (filter !== 'all') {
           params.append('status', filter);
@@ -71,6 +78,8 @@ export default function AdminReports() {
         if (response.data.status === 'success') {
           setReports(response.data.data.reports);
           setTotalPages(response.data.data.pagination.totalPages);
+          // Clear selections when reports change
+          setSelectedReports(new Set());
         } else {
           throw new Error(response.data.message || 'Failed to fetch reports');
         }
@@ -107,6 +116,7 @@ export default function AdminReports() {
   const handleFilterChange = (newFilter) => {
     setFilter(newFilter);
     setPage(1); // Reset to first page when filter changes
+    setSelectedReports(new Set()); // Clear selections
   };
 
   const handleDateChange = (e) => {
@@ -118,12 +128,112 @@ export default function AdminReports() {
 
   const applyDateFilter = () => {
     setPage(1); // Reset to first page when date filter is applied
+    setSelectedReports(new Set()); // Clear selections
   };
 
   const clearFilters = () => {
     setFilter('all');
     setDateRange({ startDate: '', endDate: '' });
     setPage(1);
+    setSelectedReports(new Set());
+  };
+
+  // Bulk selection handlers
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      // Select all reports on current page that are not resolved
+      const selectableReports = reports.filter(report => report.status !== 'resolved');
+      setSelectedReports(new Set(selectableReports.map(report => report._id)));
+    } else {
+      setSelectedReports(new Set());
+    }
+  };
+
+  const handleSelectReport = (reportId, checked) => {
+    const newSelected = new Set(selectedReports);
+    if (checked) {
+      newSelected.add(reportId);
+    } else {
+      newSelected.delete(reportId);
+    }
+    setSelectedReports(newSelected);
+  };
+
+  const handleBulkResolve = () => {
+    if (selectedReports.size === 0) return;
+    setShowBulkModal(true);
+  };
+
+  const handleBulkUpdate = async () => {
+    if (!userData || userData.role !== 'admin' || selectedReports.size === 0) return;
+    
+    try {
+      setBulkProcessing(true);
+      
+      // Process all selected reports
+      const updatePromises = Array.from(selectedReports).map(reportId => 
+        axios.put(`https://datamartbackened.onrender.com/api/reports/admin/update/${reportId}`, {
+          adminId: userData.id,
+          status: 'resolved',
+          adminNotes: bulkAdminNotes,
+          resolution: bulkResolution || null
+        })
+      );
+      
+      const results = await Promise.allSettled(updatePromises);
+      
+      // Check results and update UI
+      let successCount = 0;
+      let failedCount = 0;
+      
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.data.status === 'success') {
+          successCount++;
+          // Update the report in the list
+          const reportId = Array.from(selectedReports)[index];
+          setReports(prevReports => 
+            prevReports.map(report => 
+              report._id === reportId ? result.value.data.data.report : report
+            )
+          );
+        } else {
+          failedCount++;
+        }
+      });
+      
+      // Show success message
+      if (successCount > 0) {
+        setSuccessMessageMap(prev => ({ 
+          ...prev, 
+          bulk: `Successfully updated ${successCount} report(s) to resolved${failedCount > 0 ? `, ${failedCount} failed` : ''}` 
+        }));
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setSuccessMessageMap(prev => {
+            const newMap = { ...prev };
+            delete newMap.bulk;
+            return newMap;
+          });
+        }, 5000);
+      }
+      
+      if (failedCount > 0 && successCount === 0) {
+        setError(`Failed to update ${failedCount} report(s)`);
+      }
+      
+      // Clear selections and close modal
+      setSelectedReports(new Set());
+      setShowBulkModal(false);
+      setBulkResolution('');
+      setBulkAdminNotes('');
+      
+    } catch (err) {
+      setError(err.message || 'An error occurred while updating reports');
+      console.error('Error updating reports:', err);
+    } finally {
+      setBulkProcessing(false);
+    }
   };
 
   // Start editing a report
@@ -309,6 +419,10 @@ export default function AdminReports() {
     return networkColors[network] || 'bg-gray-100 text-gray-800';
   };
 
+  const selectableReports = reports.filter(report => report.status !== 'resolved');
+  const allSelectableSelected = selectableReports.length > 0 && selectableReports.every(report => selectedReports.has(report._id));
+  const someSelected = selectedReports.size > 0;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
@@ -323,6 +437,22 @@ export default function AdminReports() {
             Manage and respond to customer reports
           </p>
         </div>
+        
+        {/* Bulk Success Message */}
+        {successMessageMap.bulk && (
+          <div className="mb-6 rounded-md bg-green-50 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-green-800">{successMessageMap.bulk}</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Stats Overview */}
         {stats && (
@@ -479,6 +609,37 @@ export default function AdminReports() {
           </div>
         ) : (
           <div className="mt-6">
+            {/* Bulk Actions Header */}
+            {selectableReports.length > 0 && (
+              <div className="bg-white px-4 py-3 border-b border-gray-200 sm:px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={allSelectableSelected}
+                      onChange={handleSelectAll}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-3 text-sm text-gray-700">
+                      {selectedReports.size > 0 
+                        ? `${selectedReports.size} report${selectedReports.size > 1 ? 's' : ''} selected`
+                        : 'Select all non-resolved reports'
+                      }
+                    </span>
+                  </div>
+                  {selectedReports.size > 0 && (
+                    <button
+                      onClick={handleBulkResolve}
+                      disabled={bulkProcessing}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                    >
+                      {bulkProcessing ? 'Processing...' : `Resolve Selected (${selectedReports.size})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {/* Reports List */}
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
@@ -489,6 +650,14 @@ export default function AdminReports() {
                         {/* Report Header */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
+                            {report.status !== 'resolved' && (
+                              <input
+                                type="checkbox"
+                                checked={selectedReports.has(report._id)}
+                                onChange={(e) => handleSelectReport(report._id, e.target.checked)}
+                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mr-3"
+                              />
+                            )}
                             <p className="text-sm font-medium text-indigo-600 truncate">
                               Report #{report._id ? report._id.substring(report._id.length - 6).toUpperCase() : 'Unknown'}
                             </p>
@@ -515,7 +684,7 @@ export default function AdminReports() {
                         </div>
                         
                         {/* Report Metadata */}
-                                                  <div className="mt-2 sm:flex sm:justify-between">
+                        <div className="mt-2 sm:flex sm:justify-between">
                           <div className="sm:flex">
                             <p className="flex items-center text-sm text-gray-500">
                               <span className="truncate">{report.reason ? `${report.reason.slice(0, 50)}${report.reason.length > 50 ? '...' : ''}` : 'No reason provided'}</span>
@@ -793,6 +962,72 @@ export default function AdminReports() {
                       </svg>
                     </button>
                   </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Bulk Resolve Modal */}
+        {showBulkModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={() => setShowBulkModal(false)}>
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-3">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Bulk Resolve Reports
+                </h3>
+                
+                <p className="text-sm text-gray-600 mb-4">
+                  You are about to resolve {selectedReports.size} report{selectedReports.size > 1 ? 's' : ''}. 
+                  Please provide resolution details:
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="bulkResolution" className="block text-sm font-medium text-gray-700">Resolution Type</label>
+                    <select
+                      id="bulkResolution"
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                      value={bulkResolution}
+                      onChange={(e) => setBulkResolution(e.target.value)}
+                    >
+                      <option value="">-- Select Resolution --</option>
+                      <option value="refund">Refund</option>
+                      <option value="resend">Resend Data</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="bulkAdminNotes" className="block text-sm font-medium text-gray-700">Admin Notes</label>
+                    <textarea
+                      id="bulkAdminNotes"
+                      rows={3}
+                      className="mt-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      placeholder="Add notes that will be applied to all selected reports"
+                      value={bulkAdminNotes}
+                      onChange={(e) => setBulkAdminNotes(e.target.value)}
+                    ></textarea>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkModal(false)}
+                    className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Cancel
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={handleBulkUpdate}
+                    disabled={bulkProcessing}
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                  >
+                    {bulkProcessing ? 'Processing...' : `Resolve ${selectedReports.size} Report${selectedReports.size > 1 ? 's' : ''}`}
+                  </button>
                 </div>
               </div>
             </div>

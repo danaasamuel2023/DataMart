@@ -26,28 +26,28 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   phoneNumber: { type: String, required: true, unique: true },
   role: { type: String, enum: ["buyer", "seller", "reporter", "admin", "Dealer"], default: "buyer" },
-  walletBalance: { type: Number, default: 0 }, // User's wallet balance
-  referralCode: { type: String, unique: true }, // User's unique referral code
-  referredBy: { type: String, default: null }, // Who referred this user
+  walletBalance: { type: Number, default: 0 },
+  referralCode: { type: String, unique: true },
+  referredBy: { type: String, default: null },
   
   // Friend registration tracking
-  registeredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // User who registered this user
-  registeredFriends: [RegisteredFriendSchema], // Friends registered by this user
+  registeredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  registeredFriends: [RegisteredFriendSchema],
   
   createdAt: { type: Date, default: Date.now },
   
   // Password reset fields
-  resetPasswordOTP: { type: String, select: false }, // OTP for password reset
-  resetPasswordOTPExpiry: { type: Date, select: false }, // OTP expiration time
-  lastPasswordReset: { type: Date }, // When password was last reset
+  resetPasswordOTP: { type: String, select: false },
+  resetPasswordOTPExpiry: { type: Date, select: false },
+  lastPasswordReset: { type: Date },
   
   // Account status fields
-  isDisabled: { type: Boolean, default: false }, // If account is disabled
-  disableReason: { type: String }, // Why account was disabled
-  disabledAt: { type: Date }, // When account was disabled
+  isDisabled: { type: Boolean, default: false },
+  disableReason: { type: String },
+  disabledAt: { type: Date },
   
   // Device blocking
-  blockedDevices: [BlockedDeviceSchema], // Array of blocked devices
+  blockedDevices: [BlockedDeviceSchema],
   lastLogin: {
     deviceId: { type: String },
     ipAddress: { type: String },
@@ -73,10 +73,8 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-// Add index for approval status to make queries more efficient
 UserSchema.index({ approvalStatus: 1 });
 
-// Other schemas remain the same...
 const DataPurchaseSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   phoneNumber: { type: String, required: true }, 
@@ -87,14 +85,11 @@ const DataPurchaseSchema = new mongoose.Schema({
   price: { type: Number, required: true }, 
   geonetReference: { type: String, required: true }, 
   status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting","accepted"], default: "pending" }, 
-  // Add this processing field to prevent duplicate exports
   processing: { type: Boolean, default: false },
-  // Add these fields for admin notes and update tracking
   adminNotes: { type: String },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   updatedAt: { type: Date },
   createdAt: { type: Date, default: Date.now }
- 
 });
 
 const TransactionSchema = new mongoose.Schema({
@@ -105,7 +100,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['deposit', 'withdrawal', 'transfer', 'refund','purchase', 'wallet-refund'],
+    enum: ['deposit', 'withdrawal', 'transfer', 'refund','purchase', 'wallet-refund', 'admin-deduction'],
     required: true
   },
   amount: {
@@ -114,7 +109,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'cancelled','purchase','accepted', 'wallet-refund'],
+    enum: ['pending', 'completed', 'failed', 'cancelled','purchase','accepted', 'wallet-refund' , 'admin-deduction'],
     default: 'pending'
   },
   reference: {
@@ -124,10 +119,9 @@ const TransactionSchema = new mongoose.Schema({
   },
   gateway: {
     type: String,
-    enum: ['paystack', 'manual', 'system','wallet','admin-deposit','wallet-refund'],
+    enum: ['paystack', 'manual', 'system','wallet','admin-deposit','wallet-refund', 'admin-deduction'],
     default: 'paystack'
   },
-  // Add the new processing field to prevent double processing
   processing: {
     type: Boolean,
     default: false
@@ -142,18 +136,14 @@ const TransactionSchema = new mongoose.Schema({
   }
 });
 
-// Updated ReferralBonus Schema to include friend registration type
 const ReferralBonusSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   referredUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   amount: { type: Number, required: true }, 
   status: { type: String, enum: ["pending", "credited"], default: "pending" },
-  // Added registration type field to track how the user was referred
   registrationType: { type: String, enum: ["referral", "friend-registration"], default: "referral" },
   createdAt: { type: Date, default: Date.now }
 });
-
-// Updated DataInventory Schema - Add this to your schema.js file
 
 const DataInventorySchema = new mongoose.Schema({
   network: { 
@@ -163,7 +153,6 @@ const DataInventorySchema = new mongoose.Schema({
     unique: true 
   },
   
-  // Web User Controls
   webInStock: { 
     type: Boolean, 
     default: true 
@@ -173,7 +162,6 @@ const DataInventorySchema = new mongoose.Schema({
     default: false 
   },
   
-  // API Developer Controls
   apiInStock: { 
     type: Boolean, 
     default: true 
@@ -183,7 +171,6 @@ const DataInventorySchema = new mongoose.Schema({
     default: false 
   },
   
-  // Legacy fields (for backward compatibility during migration)
   inStock: { 
     type: Boolean, 
     default: true 
@@ -198,7 +185,6 @@ const DataInventorySchema = new mongoose.Schema({
     default: Date.now 
   },
   
-  // Track who last updated and when
   webLastUpdatedBy: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: "User" 
@@ -215,7 +201,6 @@ const DataInventorySchema = new mongoose.Schema({
   }
 });
 
-// Add indexes for better query performance
 DataInventorySchema.index({ network: 1 });
 DataInventorySchema.index({ webInStock: 1 });
 DataInventorySchema.index({ apiInStock: 1 });
@@ -258,7 +243,81 @@ const apiKeySchema = new Schema({
 apiKeySchema.index({ key: 1 });
 apiKeySchema.index({ userId: 1 });
 
+// NEW REPORT SYSTEM SCHEMAS
+
+// Report Settings Schema - Admin controls for reporting system
+const ReportSettingsSchema = new mongoose.Schema({
+  isReportingEnabled: {
+    type: Boolean,
+    default: true,
+    required: true
+  },
+  reportTimeLimit: {
+    type: String,
+    enum: ["same_day", "specific_days", "all_time", "no_reporting"],
+    default: "same_day",
+    required: true
+  },
+  reportTimeLimitHours: {
+    type: Number,
+    default: 24,
+    min: 1,
+    max: 8760 // Max 1 year
+  },
+  // For specific days reporting
+  allowedReportDays: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 365 // Max 1 year
+  },
+  maxReportsPerUser: {
+    type: Number,
+    default: 5,
+    min: 1,
+    max: 50
+  },
+  maxReportsPerUserPerDay: {
+    type: Number,
+    default: 3,
+    min: 1,
+    max: 10
+  },
+  allowedReportReasons: [{
+    type: String,
+    default: [
+      "Data not received",
+      "Wrong amount credited",
+      "Network error",
+      "Slow delivery",
+      "Double charging",
+      "Other"
+    ]
+  }],
+  autoResolveAfterDays: {
+    type: Number,
+    default: 7,
+    min: 1,
+    max: 30
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Order Report Schema - Individual reports
 const OrderReportSchema = new mongoose.Schema({
+  reportId: {
+    type: String,
+    unique: true,
+    required: true
+  },
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: "User", 
@@ -269,22 +328,73 @@ const OrderReportSchema = new mongoose.Schema({
     ref: "DataPurchase", 
     required: true 
   },
-  reason: { 
+  phoneNumber: {
+    type: String,
+    required: true
+  },
+  reportReason: { 
     type: String, 
     required: true 
   },
+  customReason: {
+    type: String
+  },
+  description: {
+    type: String,
+    maxlength: 500
+  },
   status: { 
     type: String, 
-    enum: ["pending", "investigating", "resolved", "rejected"], 
+    enum: [
+      "pending", 
+      "under_review", 
+      "investigating", 
+      "resolved", 
+      "rejected", 
+      "auto_resolved"
+    ], 
     default: "pending" 
   },
-  adminNotes: { 
-    type: String 
+  priority: {
+    type: String,
+    enum: ["low", "medium", "high", "urgent"],
+    default: "medium"
   },
-  resolution: { 
-    type: String, 
-    enum: ["refund", "resend", "other", null], 
-    default: null 
+  adminNotes: [{ 
+    note: { type: String },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    addedAt: { type: Date, default: Date.now }
+  }],
+  resolution: {
+    type: { 
+      type: String, 
+      enum: ["refund", "resend", "compensation", "no_action", null], 
+      default: null 
+    },
+    amount: { type: Number },
+    description: { type: String },
+    resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    resolvedAt: { type: Date }
+  },
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+  attachments: [{
+    filename: String,
+    url: String,
+    uploadedAt: { type: Date, default: Date.now }
+  }],
+  isEscalated: {
+    type: Boolean,
+    default: false
+  },
+  escalatedAt: {
+    type: Date
+  },
+  escalatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
   },
   createdAt: { 
     type: Date, 
@@ -293,12 +403,107 @@ const OrderReportSchema = new mongoose.Schema({
   updatedAt: { 
     type: Date, 
     default: Date.now 
+  },
+  lastStatusChange: {
+    type: Date,
+    default: Date.now
   }
+});
+
+// Add pre-save middleware to generate reportId
+OrderReportSchema.pre('save', async function(next) {
+  if (this.isNew && !this.reportId) {
+    const count = await this.constructor.countDocuments();
+    this.reportId = `RPT${String(count + 1).padStart(6, '0')}`;
+  }
+  this.updatedAt = new Date();
+  next();
 });
 
 OrderReportSchema.index({ userId: 1 });
 OrderReportSchema.index({ purchaseId: 1 });
 OrderReportSchema.index({ status: 1 });
+OrderReportSchema.index({ reportId: 1 });
+OrderReportSchema.index({ phoneNumber: 1 });
+OrderReportSchema.index({ createdAt: -1 });
+
+// Report Analytics Schema - For tracking report metrics
+const ReportAnalyticsSchema = new mongoose.Schema({
+  date: {
+    type: Date,
+    required: true,
+    unique: true
+  },
+  totalReports: {
+    type: Number,
+    default: 0
+  },
+  reportsByStatus: {
+    pending: { type: Number, default: 0 },
+    under_review: { type: Number, default: 0 },
+    investigating: { type: Number, default: 0 },
+    resolved: { type: Number, default: 0 },
+    rejected: { type: Number, default: 0 },
+    auto_resolved: { type: Number, default: 0 }
+  },
+  reportsByReason: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  // Hourly breakdown for "Data not received" reports
+  dataNotReceivedByHour: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  // Network-wise breakdown for "Data not received"
+  dataNotReceivedByNetwork: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  // Time-based patterns for all report types
+  reportsByHour: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  averageResolutionTime: {
+    type: Number, // in hours
+    default: 0
+  },
+  resolutionRate: {
+    type: Number, // percentage
+    default: 0
+  },
+  // Peak hours analysis
+  peakReportingHours: [{
+    hour: Number,
+    count: Number,
+    percentage: Number
+  }],
+  // Critical insights
+  insights: {
+    mostProblematicHour: {
+      hour: Number,
+      reportCount: Number,
+      mainReason: String
+    },
+    dataDeliveryIssuesPeak: {
+      startHour: Number,
+      endHour: Number,
+      totalReports: Number
+    },
+    networkWithMostIssues: {
+      network: String,
+      reportCount: Number,
+      percentage: Number
+    }
+  }
+});
+
+ReportAnalyticsSchema.index({ date: -1 });
 
 // Export all models
 const User = mongoose.model("User", UserSchema);
@@ -307,6 +512,18 @@ const Transaction = mongoose.model("Transaction", TransactionSchema);
 const ReferralBonus = mongoose.model("ReferralBonus", ReferralBonusSchema);
 const ApiKey = mongoose.model('ApiKey', apiKeySchema);
 const DataInventory = mongoose.model("DataInventory", DataInventorySchema);
+const ReportSettings = mongoose.model("ReportSettings", ReportSettingsSchema);
 const OrderReport = mongoose.model("OrderReport", OrderReportSchema);
+const ReportAnalytics = mongoose.model("ReportAnalytics", ReportAnalyticsSchema);
 
-module.exports = { User, DataPurchase, Transaction, ReferralBonus, ApiKey, DataInventory, OrderReport };
+module.exports = { 
+  User, 
+  DataPurchase, 
+  Transaction, 
+  ReferralBonus, 
+  ApiKey, 
+  DataInventory, 
+  ReportSettings,
+  OrderReport, 
+  ReportAnalytics 
+};

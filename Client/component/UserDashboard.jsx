@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, Globe } from 'lucide-react';
+import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, Globe, FileText, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AnimatedCounter, CurrencyCounter } from './Animation'; // Adjust the import path as necessary
 import DailySalesChart from '@/app/week/page';
@@ -23,6 +23,8 @@ const DashboardPage = () => {
   const [showSalesChart, setShowSalesChart] = useState(false);
   // Add state for sales chart time period
   const [salesPeriod, setSalesPeriod] = useState('7d');
+  // Add state for report settings
+  const [reportSettings, setReportSettings] = useState(null);
 
   const ViewAll = () => {
     router.push('/orders');
@@ -42,6 +44,10 @@ const DashboardPage = () => {
   
   const navigateToVerificationServices = () => {
     router.push('/verification-services');
+  }
+
+  const navigateToReportIssue = () => {
+    router.push('/report_issue');
   }
 
   const navigateToNetwork = (network) => {
@@ -72,7 +78,22 @@ const DashboardPage = () => {
     const userData = JSON.parse(userDataString);
     setUserName(userData.name || 'User');
     fetchDashboardData(userData.id);
+    fetchReportSettings();
   }, [router]);
+
+  // Fetch report settings to check if reporting is enabled
+  const fetchReportSettings = async () => {
+    try {
+      const response = await fetch('https://datamartbackened.onrender.com/api/v1/reports/settings/public');
+      const data = await response.json();
+      
+      if (data.success) {
+        setReportSettings(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching report settings:', error);
+    }
+  };
 
   // Fetch dashboard data from API
   const fetchDashboardData = async (userId) => {
@@ -244,6 +265,53 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Report System Notification - NEW SECTION */}
+        {reportSettings && reportSettings.isReportingEnabled && (
+          <div className="mb-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg shadow-md overflow-hidden border border-purple-200 dark:border-purple-700 hover:shadow-lg transition-all duration-300">
+            <div className="p-3 sm:p-4 flex items-start">
+              <div className="flex-shrink-0 pt-0.5">
+                <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
+                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-300" />
+                </div>
+              </div>
+              <div className="ml-3 sm:ml-4 w-full">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-sm sm:text-md font-semibold text-purple-900 dark:text-purple-100">Report System Active</h3>
+                    <div className="mt-1 text-xs sm:text-sm text-purple-700 dark:text-purple-300">
+                      <p className="mb-2">
+                        Did you complete a data purchase but didn't receive it? You can now report the issue directly!
+                      </p>
+                      <div className="bg-white dark:bg-gray-800 p-2 rounded-md border border-purple-200 dark:border-purple-600">
+                        <p className="text-xs font-medium text-purple-800 dark:text-purple-200 flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Report within {reportSettings.reportTimeLimitHours} hours of purchase
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={navigateToReportIssue}
+                    className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors duration-300 text-xs sm:text-sm shadow-md"
+                  >
+                    <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" />
+                    Report an Issue
+                  </button>
+                  <button
+                    onClick={navigateToReportIssue}
+                    className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-md font-medium transition-colors duration-300 text-xs sm:text-sm"
+                  >
+                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" />
+                    View My Reports
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sales Performance Dashboard - NEW SECTION */}
         <div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
@@ -650,11 +718,11 @@ const DashboardPage = () => {
                 <span className="text-xs sm:text-sm font-medium">Trans</span>
               </button>
               <button 
-                onClick={navigateToVerificationServices}
+                onClick={navigateToReportIssue}
                 className="rounded-lg p-2 sm:p-4 flex flex-col items-center transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                style={{ backgroundColor: `rgba(124, 58, 237, 0.1)`, color: '#7c3aed' }}>
-                <Globe className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
-                <span className="text-xs sm:text-sm font-medium">Foreign</span>
+                style={{ backgroundColor: `rgba(147, 51, 234, 0.1)`, color: '#9333ea' }}>
+                <FileText className="h-4 w-4 sm:h-6 sm:w-6 mb-1 sm:mb-2" />
+                <span className="text-xs sm:text-sm font-medium">Report</span>
               </button>
             </div>
           </div>
