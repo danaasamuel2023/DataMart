@@ -1,16 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const auth = require('../middlewareUser/middleware');
 
-// 1. WORKER ROUTE - Process MoMo Payment
+// Import the required models
+const { User} = require('../schema/schema'); 
+const Transfer = require('../TransferSchema/Transfer.js');
+
+// 1. WORKER ROUTE - Process MoMo Payment (UPDATED to deduct from worker wallet)
 router.post('/process-momo', auth, async (req, res) => {
   try {
     const { momoReference, customerPhone, customerName, amount } = req.body;
     
-    // Check if worker
-    const worker = await User.findById(req.user.id);
+    // Check if worker - using req.user._id instead of req.user.id
+    const worker = await User.findById(req.user._id);
     if (worker.role !== 'worker' && worker.role !== 'admin') {
       return res.status(403).json({ error: 'Only workers can process transfers' });
+    }
+    
+    // Check if worker has sufficient balance
+    if (worker.walletBalance < amount) {
+      return res.status(400).json({ 
+        error: 'Insufficient wallet balance', 
+        workerBalance: worker.walletBalance,
+        requiredAmount: amount 
+      });
     }
     
     // Check if reference already used
@@ -36,11 +49,13 @@ router.post('/process-momo', auth, async (req, res) => {
       status: 'completed'
     });
     
-    // Credit customer wallet
+    // Deduct from worker wallet and credit customer wallet
+    worker.walletBalance -= amount;
     customer.walletBalance += amount;
     
-    // Save both
+    // Save all changes
     await transfer.save();
+    await worker.save();
     await customer.save();
     
     // Send SMS to customer
@@ -54,13 +69,36 @@ router.post('/process-momo', auth, async (req, res) => {
         reference: momoReference,
         amount,
         customerName: customer.name,
-        newBalance: customer.walletBalance
+        customerNewBalance: customer.walletBalance,
+        workerNewBalance: worker.walletBalance
       }
     });
     
   } catch (error) {
     console.error('Process MoMo Error:', error);
     res.status(500).json({ error: 'Failed to process transfer' });
+  }
+});
+
+// NEW ROUTE - Get Worker Wallet Balance
+router.get('/wallet-balance', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      success: true,
+      walletBalance: user.walletBalance,
+      name: user.name,
+      role: user.role
+    });
+    
+  } catch (error) {
+    console.error('Get Wallet Balance Error:', error);
+    res.status(500).json({ error: 'Failed to fetch wallet balance' });
   }
 });
 
@@ -145,7 +183,7 @@ router.get('/my-transfers', auth, async (req, res) => {
     today.setHours(0, 0, 0, 0);
     
     const transfers = await Transfer.find({
-      workerId: req.user.id,
+      workerId: req.user._id,  // Changed from req.user.id to req.user._id
       createdAt: { $gte: today }
     }).sort({ createdAt: -1 });
     

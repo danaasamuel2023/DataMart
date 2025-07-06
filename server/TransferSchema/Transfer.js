@@ -1,3 +1,4 @@
+// TransferSchema/Transfer.js
 const mongoose = require("mongoose");
 
 // Simple Transfer Schema
@@ -45,3 +46,6 @@ const TransferSchema = new mongoose.Schema({
 });
 
 const Transfer = mongoose.model("Transfer", TransferSchema);
+
+// Export the model
+module.exports = Transfer;
