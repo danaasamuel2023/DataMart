@@ -12,7 +12,6 @@
     "axios": "^1.8.1",
     "date-fns": "^4.1.0",
     "firebase": "^11.10.0",
-    "firebaseui": "^6.1.0",
     "framer-motion": "^12.4.10",
     "lucide-react": "^0.477.0",
     "next": "^15.3.1",
