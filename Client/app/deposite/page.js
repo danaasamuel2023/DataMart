@@ -14,7 +14,7 @@ import {
   Info
 } from 'lucide-react';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://datamartbackened.onrender.com/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const MoolreDeposit = () => {
   // States
@@ -106,7 +106,7 @@ const MoolreDeposit = () => {
     
     try {
       // Update the endpoint to match the backend route
-      const response = await axios.post(`${API_BASE_URL}/depositsmoolre`, {
+      const response = await axios.post(`${API_BASE_URL}/deposite`, {
         userId,
         amount: parseFloat(amount),
         phoneNumber,

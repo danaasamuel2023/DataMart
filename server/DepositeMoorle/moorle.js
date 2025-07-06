@@ -12,7 +12,7 @@ const MOOLRE_ACCOUNT_NUMBER = '10661106047264'; // Your Moolre account number
 const MOOLRE_BASE_URL = 'https://api.moolre.com';
 
 // Initiate Deposit via Moolre (Mobile Money)
-router.post('/depositsmoolre', async (req, res) => {
+router.post('/deposite', async (req, res) => {
   try {
     const { userId, amount, phoneNumber, network, currency = 'GHS' } = req.body;
 

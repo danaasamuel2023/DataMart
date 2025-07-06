@@ -20,15 +20,22 @@ const RegisteredFriendSchema = new mongoose.Schema({
 });
 
 // User Schema with blocked devices, registered friends and admin approval
+// Updated UserSchema section to add in your schema.js file
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { type: String, required: function() { return !this.googleId; } }, // Not required for Google users
   phoneNumber: { type: String, required: true, unique: true },
   role: { type: String, enum: ["buyer", "seller", "reporter", "admin", "Dealer"], default: "buyer" },
   walletBalance: { type: Number, default: 0 },
   referralCode: { type: String, unique: true },
   referredBy: { type: String, default: null },
+  
+  // Google Sign-In fields
+  googleId: { type: String, sparse: true, unique: true },
+  profilePicture: { type: String },
+  authProvider: { type: String, enum: ["email", "google"], default: "email" },
   
   // Friend registration tracking
   registeredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -73,7 +80,10 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
+// Add indexes for Google ID
+UserSchema.index({ googleId: 1 });
 UserSchema.index({ approvalStatus: 1 });
+UserSchema.index({ authProvider: 1 });
 
 const DataPurchaseSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
@@ -504,6 +514,30 @@ const ReportAnalyticsSchema = new mongoose.Schema({
 });
 
 ReportAnalyticsSchema.index({ date: -1 });
+const SMSHistorySchema = new mongoose.Schema({
+  campaignId: { type: String, unique: true },
+  sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  recipients: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    phoneNumber: { type: String, required: true },
+    name: { type: String },
+    status: { type: String, enum: ['sent', 'delivered', 'failed', 'pending'], default: 'sent' }
+  }],
+  message: { type: String, required: true },
+  senderId: { type: String, required: true },
+  method: { type: String, enum: ['quick', 'group'], required: true },
+  groups: [{ type: String }], // For group SMS
+  totalRecipients: { type: Number, required: true },
+  totalSent: { type: Number, default: 0 },
+  totalFailed: { type: Number, default: 0 },
+  creditsUsed: { type: Number, default: 0 },
+  isScheduled: { type: Boolean, default: false },
+  scheduledDate: { type: Date },
+  status: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' },
+  mnotifyResponse: { type: Object },
+  createdAt: { type: Date, default: Date.now },
+  completedAt: { type: Date }
+});
 
 // Export all models
 const User = mongoose.model("User", UserSchema);
@@ -515,6 +549,8 @@ const DataInventory = mongoose.model("DataInventory", DataInventorySchema);
 const ReportSettings = mongoose.model("ReportSettings", ReportSettingsSchema);
 const OrderReport = mongoose.model("OrderReport", OrderReportSchema);
 const ReportAnalytics = mongoose.model("ReportAnalytics", ReportAnalyticsSchema);
+const SMSHistory = mongoose.model('SMSHistory', SMSHistorySchema);
+
 
 module.exports = { 
   User, 
@@ -525,5 +561,6 @@ module.exports = {
   DataInventory, 
   ReportSettings,
   OrderReport, 
-  ReportAnalytics 
+  ReportAnalytics ,
+  SMSHistory
 };

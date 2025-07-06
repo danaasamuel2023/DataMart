@@ -21,6 +21,7 @@ const waiting_orders_export = require('./waitingorders/waiting.js')
 const phoneVerification = require('./PhoneVerifyRoutes/Verification.js')
 const FosterApi = require('./Foster_Api/FosterIntegration.js');
 const AdminReportDashboard = require('./ReportingRoutes/reporting.js');
+const sms = require('./smsRoutes/smsRoutes.js');
 dotenv.config();
 
 // Initialize Express app
@@ -42,7 +43,7 @@ app.use('/api/v1', HubnetAt);
 app.use('/api',AdminManagement)
 app.use('/api/v1', passreset);
 app.use('/api/reports', Report);
-app.use('/api/v1', DepositeMorle);
+app.use('/api', DepositeMorle);
 app.use('/api', approveuser)
 app.use('/api', registerFriend);
 app.use('/api', bulkUpload);
@@ -52,6 +53,7 @@ app.use('/api/orders', waiting_orders_export);
 app.use('/api/verifications', phoneVerification);
 app.use('/api/foster', FosterApi);
 app.use('/api/v1/reports', AdminReportDashboard);
+app.use('/api', sms);
 
 // Default Route
 app.get('/', (req, res) => {
