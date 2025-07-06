@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, Search, DollarSign, User, Phone, Hash } from 'lucide-react';
 
