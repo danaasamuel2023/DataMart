@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect } from 'react';
 import { Calendar, Search, TrendingUp, Users, DollarSign, AlertTriangle, Download, RefreshCw } from 'lucide-react';
 
