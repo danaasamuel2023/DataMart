@@ -41,7 +41,7 @@ const SMSDashboard = () => {
   };
 
   // API base URL - adjust this to match your backend
-  const API_BASE_URL = 'http://localhost:5000/api';
+  const API_BASE_URL = 'https://datamartbackened.onrender.com/api';
 
   // API call helper with x-auth-token
   const apiCall = async (endpoint, options = {}) => {
