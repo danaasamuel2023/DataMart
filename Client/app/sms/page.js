@@ -112,7 +112,7 @@ const SMSDashboard = () => {
     try {
       const queryParams = new URLSearchParams({
         page: currentPage,
-        limit: 50,
+        limit: 1000, // Adjust limit as needed
         role: filters.role,
         approvalStatus: filters.approvalStatus,
         search: filters.search
