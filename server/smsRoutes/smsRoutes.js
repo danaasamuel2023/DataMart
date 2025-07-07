@@ -132,7 +132,7 @@ const sendBulkSMS = async (phoneNumbers, message, senderId = SMS_CONFIG.SENDER_I
  */
 router.get('/sms/users', auth, adminAuth, async (req, res) => {
   try {
-    const { role, approvalStatus, search, page = 1, limit = 50 } = req.query;
+    const { role, approvalStatus, search, page = 1, limit = 1000 } = req.query;
     
     // Build query
     const query = {};
