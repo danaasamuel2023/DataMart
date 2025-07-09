@@ -128,17 +128,19 @@ const TelecelBundleCards = () => {
   const inventoryAvailable = true; 
   
   const [bundles, setBundles] = useState([
-    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL', inStock: true},
-    // { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
-    // { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '10', mb: '10000', price: '40.50', network: 'TELECEL', inStock: inventoryAvailable },
-    // { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '15', mb: '15000', price: '60.50', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '20', mb: '20000', price: '81.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '25', mb: '25000', price: '99.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '30', mb: '30000', price: '118.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '40', mb: '40000', price: '155.00', network: 'TELECEL', inStock: inventoryAvailable },
-    { capacity: '50', mb: '50000', price: '195.00', network: 'TELECEL', inStock: inventoryAvailable }
+    { capacity: '5', mb: '5000', price: '19.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '8', mb: '8000', price: '34.64', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '10', mb: '10000', price: '36.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '12', mb: '12000', price: '43.70', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '15', mb: '15000', price: '52.85', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '20', mb: '20000', price: '69.80', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '25', mb: '25000', price: '86.75', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '30', mb: '30000', price: '103.70', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '35', mb: '35000', price: '120.65', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '40', mb: '40000', price: '137.60', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '45', mb: '45000', price: '154.55', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '50', mb: '50000', price: '171.50', network: 'TELECEL', inStock: inventoryAvailable },
+    { capacity: '100', mb: '100000', price: '341.00', network: 'TELECEL', inStock: inventoryAvailable }
   ]);
 
   // Get user data from localStorage on component mount 
