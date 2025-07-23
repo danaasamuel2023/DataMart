@@ -13,7 +13,7 @@ const {
     Transaction, 
     ReferralBonus,
     ApiKey,
-    DataInventory // Added DataInventory to schema imports
+    DataInventory
 } = require('../schema/schema');
 
 // Constants
@@ -72,7 +72,6 @@ const DATA_PACKAGES = [
    { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: true },
    { capacity: '5', mb: '5000', price: '22.75', network: 'YELLO', inStock: true },
    { capacity: '6', mb: '6000', price: '26.00', network: 'YELLO', inStock: true },
-//    { capacity: '7', mb: '7000', price: '22.50', network: 'YELLO', inStock: true },
    { capacity: '8', mb: '8000', price: '34.50', network: 'YELLO', inStock: true },
    { capacity: '10', mb: '10000', price: '41.50', network: 'YELLO', inStock: true },
    { capacity: '15', mb: '15000', price: '62.00', network: 'YELLO', inStock: true },
@@ -438,8 +437,7 @@ async function processTelecelOrder(recipient, capacity, reference) {
     }
 }
 
-// Updated purchase endpoint with custom reference support (no schema changes)
-// Updated purchase endpoint using existing 'method' field
+// Updated purchase endpoint with balance tracking
 router.post('/purchase', async (req, res, next) => {
     // Determine if this is an API request
     const isApiRequest = !!req.headers['x-api-key'];
@@ -504,19 +502,34 @@ router.post('/purchase', async (req, res, next) => {
         const dataPackage = findDataPackage(capacity, network);
         const price = dataPackage.price;
 
+        // Re-fetch user within transaction to ensure latest balance
+        const user = await User.findById(req.user._id).session(session);
+        if (!user) {
+            await session.abortTransaction();
+            session.endSession();
+            
+            return res.status(404).json({
+                status: 'error',
+                message: 'User not found'
+            });
+        }
+
+        // Store balance before transaction
+        const balanceBefore = user.walletBalance;
+
         logOperation('DATA_PURCHASE_USER_FOUND', {
-            userId: req.user._id,
-            currentBalance: req.user.walletBalance,
+            userId: user._id,
+            balanceBefore: balanceBefore,
             requestedPurchaseAmount: price
         });
 
         // Check wallet balance
-        if (req.user.walletBalance < price) {
+        if (balanceBefore < price) {
             logOperation('DATA_PURCHASE_INSUFFICIENT_BALANCE', {
-                userId: req.user._id,
-                walletBalance: req.user.walletBalance,
+                userId: user._id,
+                walletBalance: balanceBefore,
                 requiredAmount: price,
-                shortfall: price - req.user.walletBalance
+                shortfall: price - balanceBefore
             });
             
             await session.abortTransaction();
@@ -525,7 +538,7 @@ router.post('/purchase', async (req, res, next) => {
             return res.status(400).json({
                 status: 'error',
                 message: 'Insufficient wallet balance',
-                currentBalance: req.user.walletBalance,
+                currentBalance: balanceBefore,
                 requiredAmount: price
             });
         }
@@ -551,11 +564,7 @@ router.post('/purchase', async (req, res, next) => {
             inventoryFound: !!inventory,
             requestType: isApiRequest ? 'API' : 'WEB',
             inStock: inStock,
-            skipGeonettech: skipGeonettech,
-            webInStock: inventory ? inventory.webInStock : null,
-            webSkipGeonettech: inventory ? inventory.webSkipGeonettech : null,
-            apiInStock: inventory ? inventory.apiInStock : null,
-            apiSkipGeonettech: inventory ? inventory.apiSkipGeonettech : null
+            skipGeonettech: skipGeonettech
         });
         
         // Check if in stock
@@ -609,14 +618,20 @@ router.post('/purchase', async (req, res, next) => {
             logOperation('GENERATED_REFERENCE', { orderReference });
         }
 
-        // Create Transaction
+        // Calculate balance after transaction
+        const balanceAfter = balanceBefore - price;
+
+        // Create Transaction with balance tracking
         const transaction = new Transaction({
-            userId: req.user._id,
+            userId: user._id,
             type: 'purchase',
             amount: price,
+            balanceBefore: balanceBefore,
+            balanceAfter: balanceAfter,
             status: 'completed',
             reference: transactionReference,
-            gateway
+            gateway,
+            description: `Data purchase: ${capacity}GB ${network} for ${phoneNumber}`
         });
 
         // PROCESSING SECTION
@@ -631,51 +646,26 @@ router.post('/purchase', async (req, res, next) => {
             network,
             skipGeonettech: skipGeonettech,
             shouldSkipApi,
-            requestType: isApiRequest ? 'API' : 'WEB',
-            reason: shouldSkipApi 
-                ? 'API disabled for this network' 
-                : 'Normal API processing'
+            requestType: isApiRequest ? 'API' : 'WEB'
         });
 
-        // If network is AT_PREMIUM, route to Hubnet instead of Geonettech
+        // Process based on network
         if (network === 'at') {
+            // Process AT network through Hubnet
             if (shouldSkipApi) {
-                // Skip Hubnet API - store as pending
-                logOperation('SKIPPING_HUBNET_API', {
-                    network,
-                    phoneNumber,
-                    capacity,
-                    orderReference,
-                    requestType: isApiRequest ? 'API' : 'WEB',
-                    reason: 'API disabled for this network'
-                });
-                
                 orderStatus = 'pending';
                 apiOrderId = orderReference;
                 orderResponse = {
                     status: 'pending',
                     message: 'Order stored as pending - Hubnet API disabled',
-                    reference: orderReference,
-                    skipReason: 'API disabled for network'
+                    reference: orderReference
                 };
             } else {
-                // Convert data amount from GB to MB for Hubnet API
+                // Process through Hubnet API
                 const volumeInMB = parseFloat(capacity) * 1000;
-
-                // Get network code for Hubnet - for AT_PREMIUM, it should be 'at'
                 const networkCode = 'at';
 
-                logOperation('HUBNET_ORDER_REQUEST_PREPARED', {
-                    networkCode,
-                    phoneNumber,
-                    volumeInMB,
-                    reference: orderReference,
-                    referrer: referrerNumber || phoneNumber,
-                    timestamp: new Date()
-                });
-
                 try {
-                    // Make request to Hubnet API
                     const hubnetResponse = await fetch(`https://console.hubnet.app/live/api/context/business/transaction/${networkCode}-new-transaction`, {
                         method: 'POST',
                         headers: {
@@ -693,19 +683,7 @@ router.post('/purchase', async (req, res, next) => {
 
                     const hubnetData = await hubnetResponse.json();
 
-                    logOperation('HUBNET_ORDER_RESPONSE', {
-                        status: hubnetResponse.status,
-                        ok: hubnetResponse.ok,
-                        data: hubnetData,
-                        timestamp: new Date()
-                    });
-
                     if (!hubnetResponse.ok) {
-                        logOperation('HUBNET_ORDER_FAILED', {
-                            error: hubnetData.message || 'Unknown error',
-                            status: hubnetResponse.status
-                        });
-                        
                         await session.abortTransaction();
                         session.endSession();
                         
@@ -715,18 +693,11 @@ router.post('/purchase', async (req, res, next) => {
                         });
                     }
 
-                    // Update status if successful
                     orderStatus = 'completed';
                     orderResponse = hubnetData;
                     apiOrderId = orderReference;
                     
                 } catch (hubnetError) {
-                    logOperation('HUBNET_API_EXCEPTION', {
-                        error: hubnetError.message,
-                        stack: hubnetError.stack,
-                        orderReference
-                    });
-                    
                     await session.abortTransaction();
                     session.endSession();
                     
@@ -737,301 +708,40 @@ router.post('/purchase', async (req, res, next) => {
                 }
             }
 
-            // Create Data Purchase with Hubnet reference
-            const dataPurchase = new DataPurchase({
-                userId: req.user._id,
-                phoneNumber,
-                network,
-                capacity,
-                mb: dataPackage.mb,
-                gateway,
-                method: isApiRequest ? 'api' : 'web', // Use existing enum field
-                price,
-                status: orderStatus,
-                hubnetReference: orderReference,
-                referrerNumber: referrerNumber || null,
-                geonetReference: orderReference,
-                apiResponse: orderResponse,
-                skipGeonettech: shouldSkipApi
-            });
-
-            // Deduct wallet balance
-            const previousBalance = req.user.walletBalance;
-            req.user.walletBalance -= price;
-
-            logOperation('USER_WALLET_UPDATE', {
-                userId: req.user._id,
-                previousBalance,
-                newBalance: req.user.walletBalance,
-                deduction: price
-            });
-
-            // Save entities to database
-            await dataPurchase.save({ session });
-            await transaction.save({ session });
-            await req.user.save({ session });
-
-            // Commit transaction
-            await session.commitTransaction();
-            session.endSession();
-
-            // Prepare response message based on order status
-            let responseMessage = 'Data bundle purchased successfully';
-            if (orderStatus === 'pending') {
-                responseMessage = 'Order placed successfully and is pending processing';
-            }
-
-            logOperation('DATA_PURCHASE_SUCCESS', {
-                userId: req.user._id,
-                orderStatus,
-                orderReference,
-                skipApi: shouldSkipApi,
-                requestType: isApiRequest ? 'API' : 'WEB',
-                newWalletBalance: req.user.walletBalance
-            });
-
-            res.status(201).json({
-                status: 'success',
-                message: responseMessage,
-                data: {
-                    purchaseId: dataPurchase._id,
-                    transactionReference: transaction.reference,
-                    orderReference: orderReference,
-                    network,
-                    capacity,
-                    mb: dataPackage.mb,
-                    price,
-                    remainingBalance: req.user.walletBalance,
-                    orderStatus: orderStatus,
-                    skipApi: shouldSkipApi,
-                    hubnetResponse: orderResponse
-                }
-            });
-
         } else if (network === 'TELECEL') {
-            // Always use Telecel API for Telecel network (never skip)
-            logOperation('USING_TELECEL_API', {
-                network,
-                phoneNumber,
-                capacity,
-                orderReference,
-                requestType: isApiRequest ? 'API' : 'WEB'
-            });
-            
-            // Try to process the Telecel order
+            // Always use Telecel API for Telecel network
             const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
             
-            // If the API call failed, abort the transaction and return error
             if (!telecelResponse.success) {
-                logOperation('TELECEL_API_ERROR', {
-                    error: telecelResponse.error,
-                    orderReference
-                });
-                
                 await session.abortTransaction();
                 session.endSession();
                 
-                // Extract the exact error message from Telecel if available
-                let errorMessage = 'Could not complete your purchase. Please try again later.';
-                
-                if (telecelResponse.error && telecelResponse.error.message) {
-                    errorMessage = telecelResponse.error.message;
-                }
-                
-                if (telecelResponse.error && telecelResponse.error.details && 
-                    typeof telecelResponse.error.details === 'object' && 
-                    telecelResponse.error.details.message) {
-                    errorMessage = telecelResponse.error.details.message;
-                }
-                
                 return res.status(400).json({
                     status: 'error',
-                    message: errorMessage
+                    message: telecelResponse.error.message || 'Could not complete your purchase. Please try again later.'
                 });
             }
             
-            // If we got here, the API call succeeded
             orderResponse = telecelResponse.data;
             orderStatus = 'completed';
-            
-            // Extract order ID if available
-            if (telecelResponse.data && 
-                telecelResponse.data.data && 
-                telecelResponse.data.data.order && 
-                telecelResponse.data.data.order.orderReference) {
-                apiOrderId = telecelResponse.data.data.order.orderReference;
-            } else {
-                apiOrderId = telecelResponse.orderId || orderReference;
-            }
-            
-            logOperation('TELECEL_ORDER_SUCCESS', {
-                orderId: apiOrderId,
-                orderReference
-            });
-
-            // Create Data Purchase with reference
-            const dataPurchase = new DataPurchase({
-                userId: req.user._id,
-                phoneNumber,
-                network,
-                capacity,
-                mb: dataPackage.mb,
-                gateway,
-                method: isApiRequest ? 'api' : 'web', // Use existing enum field
-                price,
-                status: orderStatus,
-                geonetReference: orderReference,
-                apiOrderId: apiOrderId,
-                apiResponse: orderResponse,
-                skipGeonettech: false // Never skip for TELECEL
-            });
-
-            // Deduct wallet balance
-            const previousBalance = req.user.walletBalance;
-            req.user.walletBalance -= price;
-
-            logOperation('USER_WALLET_UPDATE', {
-                userId: req.user._id,
-                previousBalance,
-                newBalance: req.user.walletBalance,
-                deduction: price
-            });
-
-            // Save entities to database
-            await dataPurchase.save({ session });
-            await transaction.save({ session });
-            await req.user.save({ session });
-
-            // Commit transaction
-            await session.commitTransaction();
-            session.endSession();
-
-            logOperation('DATA_PURCHASE_SUCCESS', {
-                userId: req.user._id,
-                orderStatus,
-                orderReference,
-                requestType: isApiRequest ? 'API' : 'WEB',
-                newWalletBalance: req.user.walletBalance
-            });
-
-            res.status(201).json({
-                status: 'success',
-                message: 'Data bundle purchased successfully',
-                data: {
-                    purchaseId: dataPurchase._id,
-                    transactionReference: transaction.reference,
-                    orderReference: orderReference,
-                    network,
-                    capacity,
-                    mb: dataPackage.mb,
-                    price,
-                    remainingBalance: req.user.walletBalance,
-                    orderStatus: orderStatus,
-                    telecelResponse: orderResponse
-                }
-            });
+            apiOrderId = telecelResponse.orderId || orderReference;
 
         } else if (shouldSkipApi) {
             // Skip Geonettech API - store as pending
-            logOperation('SKIPPING_GEONETTECH_API', {
-                network,
-                phoneNumber,
-                capacity,
-                orderReference,
-                requestType: isApiRequest ? 'API' : 'WEB',
-                reason: 'Geonettech API disabled for this network'
-            });
-            
             orderStatus = 'pending';
             apiOrderId = orderReference;
             orderResponse = {
                 status: 'pending',
-                message: 'Order stored as pending - Geonettech API disabled',
-                reference: orderReference,
-                skipReason: 'API disabled for network'
+                message: 'Order stored as pending - API disabled',
+                reference: orderReference
             };
 
-            // Create Data Purchase with reference
-            const dataPurchase = new DataPurchase({
-                userId: req.user._id,
-                phoneNumber,
-                network,
-                capacity,
-                mb: dataPackage.mb,
-                gateway,
-                method: isApiRequest ? 'api' : 'web', // Use existing enum field
-                price,
-                status: orderStatus,
-                geonetReference: orderReference,
-                apiOrderId: apiOrderId,
-                apiResponse: orderResponse,
-                skipGeonettech: true
-            });
-
-            // Deduct wallet balance
-            const previousBalance = req.user.walletBalance;
-            req.user.walletBalance -= price;
-
-            logOperation('USER_WALLET_UPDATE', {
-                userId: req.user._id,
-                previousBalance,
-                newBalance: req.user.walletBalance,
-                deduction: price
-            });
-
-            // Save entities to database
-            await dataPurchase.save({ session });
-            await transaction.save({ session });
-            await req.user.save({ session });
-
-            // Commit transaction
-            await session.commitTransaction();
-            session.endSession();
-
-            logOperation('DATA_PURCHASE_SUCCESS', {
-                userId: req.user._id,
-                orderStatus,
-                orderReference,
-                skipGeonettech: true,
-                requestType: isApiRequest ? 'API' : 'WEB',
-                newWalletBalance: req.user.walletBalance
-            });
-
-            res.status(201).json({
-                status: 'success',
-                message: 'Order placed successfully and is pending processing',
-                data: {
-                    purchaseId: dataPurchase._id,
-                    transactionReference: transaction.reference,
-                    orderReference: orderReference,
-                    network,
-                    capacity,
-                    mb: dataPackage.mb,
-                    price,
-                    remainingBalance: req.user.walletBalance,
-                    orderStatus: orderStatus,
-                    skipGeonettech: true
-                }
-            });
-
         } else {
-            // For YELLO network, use Geonettech API
+            // Use Geonettech API for YELLO network
             try {
-                // Check agent wallet balance (only needed for Geonettech)
                 const agentBalance = await checkAgentBalance();
                 
-                logOperation('AGENT_BALANCE_RESULT', {
-                    balance: agentBalance,
-                    requiredAmount: price,
-                    sufficient: agentBalance >= price
-                });
-                
                 if (agentBalance < price) {
-                    logOperation('AGENT_INSUFFICIENT_BALANCE', {
-                        agentBalance,
-                        requiredAmount: price
-                    });
-                    
                     await session.abortTransaction();
                     session.endSession();
                     
@@ -1041,7 +751,6 @@ router.post('/purchase', async (req, res, next) => {
                     });
                 }
 
-                // Use SAME format as web interface - single object, not array
                 const geonetOrderPayload = {
                     network_key: network,
                     ref: orderReference,
@@ -1049,144 +758,107 @@ router.post('/purchase', async (req, res, next) => {
                     capacity: capacity
                 };
                 
-                logOperation('GEONETTECH_ORDER_REQUEST', geonetOrderPayload);
-                
-                // Use same endpoint as web interface
                 const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
                 
-                logOperation('GEONETTECH_ORDER_RESPONSE', {
-                    status: geonetResponse.status,
-                    data: geonetResponse.data
-                });
-
-                // Check if the response indicates success
                 if (!geonetResponse.data || !geonetResponse.data.status || geonetResponse.data.status !== 'success') {
-                    logOperation('GEONETTECH_API_UNSUCCESSFUL_RESPONSE', {
-                        response: geonetResponse.data,
-                        orderReference
-                    });
-                    
                     await session.abortTransaction();
                     session.endSession();
                     
-                    // Extract the message but don't expose API details
-                    let errorMessage = 'Could not complete your purchase. Please try again later.';
-                    
-                    if (geonetResponse.data && geonetResponse.data.message) {
-                        const msg = geonetResponse.data.message.toLowerCase();
-                        
-                        if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
-                            errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
-                        } else if (msg.includes('invalid') || msg.includes('phone')) {
-                            errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
-                        } else {
-                            errorMessage = geonetResponse.data.message;
-                        }
-                    }
-                    
                     return res.status(400).json({
                         status: 'error',
-                        message: errorMessage
+                        message: geonetResponse.data?.message || 'Could not complete your purchase. Please try again later.'
                     });
                 }
 
-                // Update status if successful
                 orderStatus = 'completed';
                 orderResponse = geonetResponse.data;
-                apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+                apiOrderId = orderResponse.data?.orderId || orderReference;
                 
-                logOperation('GEONETTECH_ORDER_SUCCESS', {
-                    orderId: apiOrderId,
-                    responseData: orderResponse
-                });
-
             } catch (apiError) {
-                // Log the error and abort transaction
-                logOperation('GEONETTECH_API_ERROR', {
-                    error: apiError.message,
-                    response: apiError.response ? apiError.response.data : null,
-                    orderReference
-                });
-                
                 await session.abortTransaction();
                 session.endSession();
                 
-                // Just pass through the exact error message from the API without any modification
-                let errorMessage = 'Could not complete your purchase. Please try again later.';
-                
-                // If there's a specific message from the API, use it directly
-                if (apiError.response && apiError.response.data && apiError.response.data.message) {
-                    errorMessage = apiError.response.data.message;
-                }
-                
                 return res.status(400).json({
                     status: 'error',
-                    message: errorMessage
+                    message: apiError.response?.data?.message || 'Could not complete your purchase. Please try again later.'
                 });
             }
+        }
 
-            // Create Data Purchase with reference
-            const dataPurchase = new DataPurchase({
-                userId: req.user._id,
-                phoneNumber,
+        // Create Data Purchase with reference
+        const dataPurchase = new DataPurchase({
+            userId: user._id,
+            phoneNumber,
+            network,
+            capacity,
+            mb: dataPackage.mb,
+            gateway,
+            method: isApiRequest ? 'api' : 'web',
+            price,
+            status: orderStatus,
+            geonetReference: orderReference,
+            apiOrderId: apiOrderId,
+            apiResponse: orderResponse,
+            skipGeonettech: shouldSkipApi,
+            hubnetReference: network === 'at' ? orderReference : null,
+            referrerNumber: referrerNumber || null
+        });
+
+        // Link transaction to purchase
+        transaction.relatedPurchaseId = dataPurchase._id;
+
+        // Update user wallet balance
+        user.walletBalance = balanceAfter;
+
+        logOperation('USER_WALLET_UPDATE', {
+            userId: user._id,
+            balanceBefore,
+            balanceAfter,
+            deduction: price
+        });
+
+        // Save entities to database
+        await dataPurchase.save({ session });
+        await transaction.save({ session });
+        await user.save({ session });
+
+        // Commit transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        // Prepare response message based on order status
+        let responseMessage = 'Data bundle purchased successfully';
+        if (orderStatus === 'pending') {
+            responseMessage = 'Order placed successfully and is pending processing';
+        }
+
+        logOperation('DATA_PURCHASE_SUCCESS', {
+            userId: user._id,
+            orderStatus,
+            orderReference,
+            balanceBefore,
+            balanceAfter,
+            requestType: isApiRequest ? 'API' : 'WEB'
+        });
+
+        res.status(201).json({
+            status: 'success',
+            message: responseMessage,
+            data: {
+                purchaseId: dataPurchase._id,
+                transactionReference: transaction.reference,
+                orderReference: orderReference,
                 network,
                 capacity,
                 mb: dataPackage.mb,
-                gateway,
-                method: isApiRequest ? 'api' : 'web', // Use existing enum field
                 price,
-                status: orderStatus,
-                geonetReference: orderReference,
-                apiOrderId: apiOrderId,
-                apiResponse: orderResponse,
-                skipGeonettech: false
-            });
-
-            // Deduct wallet balance
-            const previousBalance = req.user.walletBalance;
-            req.user.walletBalance -= price;
-
-            logOperation('USER_WALLET_UPDATE', {
-                userId: req.user._id,
-                previousBalance,
-                newBalance: req.user.walletBalance,
-                deduction: price
-            });
-
-            // Save entities to database
-            await dataPurchase.save({ session });
-            await transaction.save({ session });
-            await req.user.save({ session });
-
-            // Commit transaction
-            await session.commitTransaction();
-            session.endSession();
-
-            logOperation('DATA_PURCHASE_SUCCESS', {
-                userId: req.user._id,
-                orderStatus,
-                orderReference,
-                requestType: isApiRequest ? 'API' : 'WEB',
-                newWalletBalance: req.user.walletBalance
-            });
-
-            res.status(201).json({
-                status: 'success',
-                message: 'Data bundle purchased successfully',
-                data: {
-                    purchaseId: dataPurchase._id,
-                    transactionReference: transaction.reference,
-                    orderReference: orderReference,
-                    network,
-                    capacity,
-                    mb: dataPackage.mb,
-                    price,
-                    remainingBalance: req.user.walletBalance,
-                    orderStatus: orderStatus,
-                    geonetechResponse: orderResponse
-                }
-            });
-        }
+                balanceBefore,
+                balanceAfter,
+                remainingBalance: balanceAfter,
+                orderStatus: orderStatus,
+                apiResponse: orderResponse
+            }
+        });
 
     } catch (error) {
         // Rollback transaction
@@ -1195,17 +867,7 @@ router.post('/purchase', async (req, res, next) => {
         
         logOperation('DATA_PURCHASE_ERROR', {
             message: error.message,
-            stack: error.stack,
-            response: error.response ? {
-                status: error.response.status,
-                statusText: error.response.statusText,
-                data: error.response.data
-            } : null,
-            request: error.request ? {
-                method: error.request.method,
-                path: error.request.path,
-                headers: error.request.headers
-            } : null
+            stack: error.stack
         });
 
         res.status(500).json({
@@ -1214,7 +876,8 @@ router.post('/purchase', async (req, res, next) => {
         });
     }
 });
-// NEW ENDPOINT: Check order status by reference
+
+// Check order status by reference
 router.get('/order-status/:reference', async (req, res, next) => {
     // Support both authentication methods
     const apiKey = req.headers['x-api-key'];
@@ -1233,7 +896,7 @@ router.get('/order-status/:reference', async (req, res, next) => {
             });
         }
 
-        // Find order by geonetReference (which now stores both custom and generated references)
+        // Find order by geonetReference
         const order = await DataPurchase.findOne({
             userId: req.user._id,
             $or: [
@@ -1249,7 +912,13 @@ router.get('/order-status/:reference', async (req, res, next) => {
             });
         }
 
-        // Return order details
+        // Get related transaction for balance info
+        const transaction = await Transaction.findOne({
+            userId: req.user._id,
+            relatedPurchaseId: order._id
+        });
+
+        // Return order details with balance info
         res.json({
             status: 'success',
             data: {
@@ -1263,7 +932,12 @@ router.get('/order-status/:reference', async (req, res, next) => {
                 orderStatus: order.status,
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
-                apiResponse: order.apiResponse // Include if they need to see API response
+                balanceInfo: transaction ? {
+                    balanceBefore: transaction.balanceBefore,
+                    balanceAfter: transaction.balanceAfter,
+                    balanceChange: transaction.balanceAfter - transaction.balanceBefore
+                } : null,
+                apiResponse: order.apiResponse
             }
         });
 
@@ -1279,7 +953,8 @@ router.get('/order-status/:reference', async (req, res, next) => {
         });
     }
 });
-// Get Purchase History (support both authentication methods)
+
+// Get Purchase History with balance tracking
 router.get('/purchase-history/:userId', async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     if (apiKey) {
@@ -1304,12 +979,37 @@ router.get('/purchase-history/:userId', async (req, res, next) => {
             .skip((page - 1) * limit)
             .limit(Number(limit));
 
+        // Get related transactions for balance info
+        const purchaseIds = purchases.map(p => p._id);
+        const transactions = await Transaction.find({
+            relatedPurchaseId: { $in: purchaseIds }
+        });
+
+        // Create a map of purchase ID to transaction
+        const transactionMap = {};
+        transactions.forEach(tx => {
+            transactionMap[tx.relatedPurchaseId.toString()] = tx;
+        });
+
+        // Enhance purchases with balance info
+        const enhancedPurchases = purchases.map(purchase => {
+            const transaction = transactionMap[purchase._id.toString()];
+            return {
+                ...purchase.toObject(),
+                balanceInfo: transaction ? {
+                    balanceBefore: transaction.balanceBefore,
+                    balanceAfter: transaction.balanceAfter,
+                    balanceChange: transaction.balanceAfter - transaction.balanceBefore
+                } : null
+            };
+        });
+
         const total = await DataPurchase.countDocuments({ userId });
 
         res.json({
             status: 'success',
             data: {
-                purchases,
+                purchases: enhancedPurchases,
                 pagination: {
                     currentPage: Number(page),
                     totalPages: Math.ceil(total / limit),
@@ -1325,7 +1025,7 @@ router.get('/purchase-history/:userId', async (req, res, next) => {
     }
 });
 
-// Get Transaction History (support both authentication methods)
+// Get Transaction History with balance tracking
 router.get('/transactions', async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     if (apiKey) {
@@ -1334,19 +1034,43 @@ router.get('/transactions', async (req, res, next) => {
     return authenticateUser(req, res, next);
 }, async (req, res) => {
     try {
-        const { page = 1, limit = 20 } = req.query;
+        const { page = 1, limit = 20, type } = req.query;
 
-        const transactions = await Transaction.find({ userId: req.user._id })
+        const filter = { userId: req.user._id };
+        if (type) {
+            filter.type = type;
+        }
+
+        const transactions = await Transaction.find(filter)
+            .populate('relatedPurchaseId', 'phoneNumber network capacity')
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(Number(limit));
 
-        const total = await Transaction.countDocuments({ userId: req.user._id });
+        const total = await Transaction.countDocuments(filter);
+
+        // Format transactions with balance info
+        const formattedTransactions = transactions.map(tx => ({
+            _id: tx._id,
+            type: tx.type,
+            amount: tx.amount,
+            balanceBefore: tx.balanceBefore,
+            balanceAfter: tx.balanceAfter,
+            balanceChange: tx.balanceAfter - tx.balanceBefore,
+            isCredit: tx.balanceAfter > tx.balanceBefore,
+            status: tx.status,
+            reference: tx.reference,
+            gateway: tx.gateway,
+            description: tx.description,
+            relatedPurchase: tx.relatedPurchaseId,
+            createdAt: tx.createdAt
+        }));
 
         res.json({
             status: 'success',
             data: {
-                transactions,
+                transactions: formattedTransactions,
+                currentBalance: req.user.walletBalance,
                 pagination: {
                     currentPage: Number(page),
                     totalPages: Math.ceil(total / limit),
@@ -1362,7 +1086,7 @@ router.get('/transactions', async (req, res, next) => {
     }
 });
 
-// Referral Bonus Claiming (support both authentication methods)
+// Referral Bonus Claiming with balance tracking
 router.post('/claim-referral-bonus', async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     if (apiKey) {
@@ -1371,45 +1095,98 @@ router.post('/claim-referral-bonus', async (req, res, next) => {
     return authenticateUser(req, res, next);
 }, async (req, res) => {
     const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-        await session.withTransaction(async () => {
-            // Find pending referral bonuses for the user
-            const pendingBonuses = await ReferralBonus.find({ 
-                userId: req.user._id, 
-                status: 'pending' 
+        // Re-fetch user within transaction
+        const user = await User.findById(req.user._id).session(session);
+        if (!user) {
+            await session.abortTransaction();
+            session.endSession();
+            
+            return res.status(404).json({
+                status: 'error',
+                message: 'User not found'
             });
+        }
 
-            let totalBonus = 0;
-            const processedBonuses = [];
+        // Find pending referral bonuses for the user
+        const pendingBonuses = await ReferralBonus.find({ 
+            userId: user._id, 
+            status: 'pending' 
+        }).session(session);
 
-            for (let bonus of pendingBonuses) {
-                totalBonus += bonus.amount;
-                bonus.status = 'credited';
-                await bonus.save({ session });
-                processedBonuses.push(bonus._id);
-            }
-
-            // Update user wallet
-            req.user.walletBalance += totalBonus;
-            await req.user.save({ session });
-
-            res.json({
+        if (pendingBonuses.length === 0) {
+            await session.abortTransaction();
+            session.endSession();
+            
+            return res.json({
                 status: 'success',
+                message: 'No pending bonuses to claim',
                 data: {
-                    bonusClaimed: totalBonus,
-                    processedBonuses,
-                    newWalletBalance: req.user.walletBalance
+                    bonusClaimed: 0,
+                    processedBonuses: [],
+                    currentBalance: user.walletBalance
                 }
             });
+        }
+
+        const balanceBefore = user.walletBalance;
+        let totalBonus = 0;
+        const processedBonuses = [];
+
+        for (let bonus of pendingBonuses) {
+            totalBonus += bonus.amount;
+            bonus.status = 'credited';
+            await bonus.save({ session });
+            processedBonuses.push(bonus._id);
+        }
+
+        const balanceAfter = balanceBefore + totalBonus;
+
+        // Create transaction record for bonus claim with balance tracking
+        const transaction = new Transaction({
+            userId: user._id,
+            type: 'deposit',
+            amount: totalBonus,
+            balanceBefore: balanceBefore,
+            balanceAfter: balanceAfter,
+            status: 'completed',
+            reference: `BONUS-${uuidv4()}`,
+            gateway: 'system',
+            description: `Referral bonus claim: ${processedBonuses.length} bonus(es)`
         });
+
+        // Update user wallet
+        user.walletBalance = balanceAfter;
+        
+        await transaction.save({ session });
+        await user.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.json({
+            status: 'success',
+            message: 'Referral bonus claimed successfully',
+            data: {
+                bonusClaimed: totalBonus,
+                processedBonuses,
+                balanceBefore,
+                balanceAfter,
+                newWalletBalance: balanceAfter,
+                transactionId: transaction._id
+            }
+        });
+
     } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        
         res.status(500).json({
             status: 'error',
             message: error.message
         });
-    } finally {
-        await session.endSession();
     }
 });
 
