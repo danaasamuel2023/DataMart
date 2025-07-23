@@ -111,7 +111,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['deposit', 'withdrawal', 'transfer', 'refund', 'purchase', 'wallet-refund', 'admin-deduction'],
+    enum: ['deposit', 'withdrawal', 'transfer', 'refund', 'purchase', 'wallet-refund', 'admin-deduction','momo'],
     required: true
   },
   amount: {
@@ -141,7 +141,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   gateway: {
     type: String,
-    enum: ['paystack', 'manual', 'system', 'wallet', 'admin-deposit', 'wallet-refund', 'admin-deduction'],
+    enum: ['paystack', 'manual', 'system', 'wallet', 'admin-deposit', 'wallet-refund', 'admin-deduction','momo'],
     default: 'paystack'
   },
   processing: {

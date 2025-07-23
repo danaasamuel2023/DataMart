@@ -34,7 +34,7 @@ const TransferSchema = new mongoose.Schema({
   // Status
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed'],
+    enum: ['pending', 'completed', 'failed','momo'],
     default: 'completed'
   },
   
