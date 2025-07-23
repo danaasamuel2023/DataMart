@@ -256,14 +256,21 @@ router.post('/deposit', async (req, res) => {
     // Generate a unique transaction reference
     const reference = `DEP-${crypto.randomBytes(10).toString('hex')}-${Date.now()}`;
 
-    // Create a pending transaction - store the original amount
+    // Get current balance for tracking
+    const balanceBefore = user.walletBalance;
+    const balanceAfter = balanceBefore + parseFloat(amount); // Will be the balance after successful deposit
+
+    // Create a pending transaction with balance tracking
     const transaction = new Transaction({
       userId,
       type: 'deposit',
-      amount, // This is the BASE amount WITHOUT fee that will be added to wallet
+      amount: parseFloat(amount), // This is the BASE amount WITHOUT fee that will be added to wallet
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter, // This will be the expected balance after completion
       status: 'pending',
       reference,
-      gateway: 'paystack'
+      gateway: 'paystack',
+      description: `Wallet deposit via Paystack`
     });
 
     await transaction.save();
@@ -309,7 +316,7 @@ router.post('/deposit', async (req, res) => {
 });
 
 // FIXED: Added transaction locking mechanism using processing field
-// Process a successful payment and update user wallet
+// Process a successful payment and update user wallet with balance tracking
 async function processSuccessfulPayment(reference) {
   // Use findOneAndUpdate with proper conditions to prevent race conditions
   const transaction = await Transaction.findOneAndUpdate(
@@ -332,30 +339,46 @@ async function processSuccessfulPayment(reference) {
   }
 
   try {
-    // Now safely update the transaction status
-    transaction.status = 'completed';
-    await transaction.save();
-    console.log(`Transaction ${reference} marked as completed`);
-
-    // Update user's wallet balance with the original amount (without fee)
+    // Update user's wallet balance
     const user = await User.findById(transaction.userId);
-    if (user) {
-      const previousBalance = user.walletBalance;
-      user.walletBalance += transaction.amount; 
-      await user.save();
-      console.log(`User ${user._id} wallet updated, new balance: ${user.walletBalance}`);
-      
-      // Send SMS notification for successful deposit
-      await sendDepositSMS(user, transaction.amount, user.walletBalance);
-      
-      return { success: true, message: 'Deposit successful' };
-    } else {
+    if (!user) {
       console.error(`User not found for transaction ${reference}`);
+      // Release the processing lock
+      transaction.processing = false;
+      await transaction.save();
       return { success: false, message: 'User not found' };
     }
+
+    // Verify the balanceBefore matches current user balance (for integrity check)
+    if (Math.abs(user.walletBalance - transaction.balanceBefore) > 0.01) {
+      console.warn(`Balance mismatch for user ${user._id}. Expected: ${transaction.balanceBefore}, Actual: ${user.walletBalance}`);
+      // Update transaction with correct balances
+      transaction.balanceBefore = user.walletBalance;
+      transaction.balanceAfter = user.walletBalance + transaction.amount;
+    }
+
+    // Update user balance
+    const previousBalance = user.walletBalance;
+    user.walletBalance += transaction.amount;
+    await user.save();
+
+    // Update transaction with final status and correct balances
+    transaction.status = 'completed';
+    transaction.balanceBefore = previousBalance;
+    transaction.balanceAfter = user.walletBalance;
+    transaction.processing = false;
+    await transaction.save();
+
+    console.log(`Transaction ${reference} completed. User ${user._id} balance: ${previousBalance} -> ${user.walletBalance}`);
+    
+    // Send SMS notification for successful deposit
+    await sendDepositSMS(user, transaction.amount, user.walletBalance);
+    
+    return { success: true, message: 'Deposit successful', newBalance: user.walletBalance };
   } catch (error) {
     // If there's an error, release the processing lock
     transaction.processing = false;
+    transaction.status = 'failed';
     await transaction.save();
     throw error;
   }
@@ -433,7 +456,10 @@ router.get('/verify-payment', async (req, res) => {
         data: {
           reference,
           amount: transaction.amount,
-          status: transaction.status
+          status: transaction.status,
+          balanceBefore: transaction.balanceBefore,
+          balanceAfter: transaction.balanceAfter,
+          balanceChange: transaction.balanceAfter - transaction.balanceBefore
         }
       });
     }
@@ -460,13 +486,20 @@ router.get('/verify-payment', async (req, res) => {
           const result = await processSuccessfulPayment(reference);
           
           if (result.success) {
+            // Get updated transaction for accurate balance info
+            const updatedTransaction = await Transaction.findOne({ reference });
+            
             return res.json({
               success: true,
               message: 'Payment verified successfully',
               data: {
                 reference,
-                amount: transaction.amount,
-                status: 'completed'
+                amount: updatedTransaction.amount,
+                status: 'completed',
+                balanceBefore: updatedTransaction.balanceBefore,
+                balanceAfter: updatedTransaction.balanceAfter,
+                balanceChange: updatedTransaction.balanceAfter - updatedTransaction.balanceBefore,
+                newBalance: result.newBalance
               }
             });
           } else {
@@ -519,189 +552,12 @@ router.get('/verify-payment', async (req, res) => {
   }
 });
 
-// Get all transactions for a user
-router.get('/user-transactions/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { status, page = 1, limit = 10 } = req.query;
-    
-    // Validate userId
-    if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'User ID is required' 
-      });
-    }
-    
-    // Build query filter
-    const filter = { userId };
-    
-    // Add status filter if provided
-    if (status) {
-      filter.status = status;
-    }
-    
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Find transactions
-    const transactions = await Transaction.find(filter)
-      .sort({ createdAt: -1 }) // Most recent first
-      .skip(skip)
-      .limit(parseInt(limit));
-      
-    // Get total count for pagination
-    const totalCount = await Transaction.countDocuments(filter);
-    
-    return res.json({
-      success: true,
-      data: {
-        transactions,
-        pagination: {
-          total: totalCount,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(totalCount / parseInt(limit))
-        }
-      }
-    });
-    
-  } catch (error) {
-    console.error('Get Transactions Error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
-  }
-});
-
-// Verify pending transaction by ID
-router.post('/verify-pending-transaction/:transactionId', async (req, res) => {
-  try {
-    const { transactionId } = req.params;
-    
-    // Find the transaction
-    const transaction = await Transaction.findById(transactionId);
-    
-    if (!transaction) {
-      return res.status(404).json({
-        success: false,
-        error: 'Transaction not found'
-      });
-    }
-    
-    // Check if transaction is pending
-    if (transaction.status !== 'pending') {
-      return res.json({
-        success: false,
-        message: `Transaction is already ${transaction.status}`,
-        data: {
-          transactionId,
-          reference: transaction.reference,
-          amount: transaction.amount,
-          status: transaction.status
-        }
-      });
-    }
-    
-    // Verify with Paystack
-    try {
-      const paystackResponse = await axios.get(
-        `${PAYSTACK_BASE_URL}/transaction/verify/${transaction.reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      const { data } = paystackResponse.data;
-      
-      // If payment is successful
-      if (data.status === 'success') {
-        // Process the payment using our common function
-        const result = await processSuccessfulPayment(transaction.reference);
-        
-        if (result.success) {
-          return res.json({
-            success: true,
-            message: 'Transaction verified and completed successfully',
-            data: {
-              transactionId,
-              reference: transaction.reference,
-              amount: transaction.amount,
-              status: 'completed'
-            }
-          });
-        } else {
-          return res.json({
-            success: false,
-            message: result.message,
-            data: {
-              transactionId,
-              reference: transaction.reference,
-              amount: transaction.amount,
-              status: transaction.status
-            }
-          });
-        }
-      } else if (data.status === 'failed') {
-        // Mark transaction as failed
-        transaction.status = 'failed';
-        await transaction.save();
-        
-        return res.json({
-          success: false,
-          message: 'Payment failed',
-          data: {
-            transactionId,
-            reference: transaction.reference,
-            amount: transaction.amount,
-            status: 'failed'
-          }
-        });
-      } else {
-        // Still pending on Paystack side
-        return res.json({
-          success: false,
-          message: `Payment status on gateway: ${data.status}`,
-          data: {
-            transactionId,
-            reference: transaction.reference,
-            amount: transaction.amount,
-            status: transaction.status
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Paystack verification error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to verify payment with Paystack'
-      });
-    }
-    
-  } catch (error) {
-    console.error('Verify Pending Transaction Error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
-  }
-});
-
-/**
- * @route   POST /api/payment/transfer
- * @desc    Transfer money from user wallet to another user
- * @access  Private (requires authentication)
- */
 // Add this at the top of your file with other requires
 const { v4: uuidv4 } = require('uuid'); // You'll need to install this: npm install uuid
 
 /**
  * @route   POST /api/payment/transfer
- * @desc    Transfer money from user wallet to another user
+ * @desc    Transfer money from user wallet to another user with balance tracking
  * @access  Private (requires authentication)
  */
 router.post('/transfer', auth, async (req, res) => {
@@ -754,13 +610,16 @@ router.post('/transfer', auth, async (req, res) => {
       });
     }
     
-    // Check sender's balance (updated to use walletBalance)
-    if (sender.walletBalance < transferAmount) {
+    // Store sender's balance before transaction
+    const senderBalanceBefore = sender.walletBalance;
+    
+    // Check sender's balance
+    if (senderBalanceBefore < transferAmount) {
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
         error: 'Insufficient balance',
-        currentBalance: sender.walletBalance,
+        currentBalance: senderBalanceBefore,
         requiredAmount: transferAmount
       });
     }
@@ -814,14 +673,17 @@ router.post('/transfer', auth, async (req, res) => {
       });
     }
     
-    // Generate unique reference using UUID
-    // This guarantees uniqueness without database checks
+    // Store recipient's balance before transaction
+    const recipientBalanceBefore = recipientUser.walletBalance;
+    
+    // Generate unique reference
     const reference = `TRF-${uuidv4()}`;
     
-    // Alternative: If you don't want to use uuid package, use this approach:
-    // const reference = `TRF-${new mongoose.Types.ObjectId().toHexString()}`;
+    // Calculate balances after transaction
+    const senderBalanceAfter = senderBalanceBefore - transferAmount;
+    const recipientBalanceAfter = recipientBalanceBefore + transferAmount;
     
-    // Create both transactions with shared metadata
+    // Create both transactions with proper balance tracking
     const transactionMetadata = {
       senderId: sender._id,
       senderName: sender.name,
@@ -832,41 +694,45 @@ router.post('/transfer', auth, async (req, res) => {
       description: description || `Transfer to ${recipientUser.name || recipientUser.email}`
     };
     
-    // Create sender transaction record (debit)
+    // Create sender transaction record (debit) with balance tracking
     const senderTransaction = new Transaction({
       userId: senderId,
       type: 'transfer',
-      amount: -transferAmount, // Negative for debit
+      amount: transferAmount, // Positive amount for consistency
+      balanceBefore: senderBalanceBefore,
+      balanceAfter: senderBalanceAfter,
       status: 'completed',
-      reference: `${reference}-DEBIT`, // Add suffix to ensure uniqueness
+      reference: `${reference}-DEBIT`,
       gateway: 'wallet',
+      description: `Transfer to ${recipientUser.name || recipientUser.email}`,
       metadata: {
         ...transactionMetadata,
-        transferType: 'sent'
+        transferType: 'sent',
+        transferDirection: 'debit'
       }
     });
     
-    // Create recipient transaction record (credit)
+    // Create recipient transaction record (credit) with balance tracking
     const recipientTransaction = new Transaction({
       userId: recipientUser._id,
       type: 'transfer',
-      amount: transferAmount, // Positive for credit
+      amount: transferAmount,
+      balanceBefore: recipientBalanceBefore,
+      balanceAfter: recipientBalanceAfter,
       status: 'completed',
-      reference: `${reference}-CREDIT`, // Add suffix to ensure uniqueness
+      reference: `${reference}-CREDIT`,
       gateway: 'wallet',
+      description: `Transfer from ${sender.name || sender.email}`,
       metadata: {
         ...transactionMetadata,
-        transferType: 'received'
+        transferType: 'received',
+        transferDirection: 'credit'
       }
     });
     
     // Update balances
-    sender.walletBalance -= transferAmount;
-    recipientUser.walletBalance += transferAmount;
-    
-    // Store balance after transaction
-    senderTransaction.balanceAfter = sender.walletBalance;
-    recipientTransaction.balanceAfter = recipientUser.walletBalance;
+    sender.walletBalance = senderBalanceAfter;
+    recipientUser.walletBalance = recipientBalanceAfter;
     
     // Save everything within the transaction
     await sender.save({ session });
@@ -889,12 +755,12 @@ router.post('/transfer', auth, async (req, res) => {
     // Log successful transfer
     console.log(`Transfer successful: ${sender.email} -> ${recipientUser.email}, Amount: ${transferAmount}, Reference: ${reference}`);
     
-    // Return success response
+    // Return success response with balance information
     res.json({
       success: true,
       message: 'Transfer completed successfully',
       data: {
-        reference: reference, // Return base reference without suffix
+        reference: reference,
         amount: transferAmount,
         recipient: {
           id: recipientUser._id,
@@ -906,7 +772,13 @@ router.post('/transfer', auth, async (req, res) => {
           id: sender._id,
           username: sender.name,
           email: sender.email,
-          newBalance: sender.walletBalance
+          balanceBefore: senderBalanceBefore,
+          balanceAfter: senderBalanceAfter,
+          newBalance: senderBalanceAfter
+        },
+        balanceChange: {
+          sender: senderBalanceAfter - senderBalanceBefore,
+          recipient: recipientBalanceAfter - recipientBalanceBefore
         },
         description: description || `Transfer to ${recipientUser.name || recipientUser.email}`,
         timestamp: new Date()
@@ -921,7 +793,6 @@ router.post('/transfer', auth, async (req, res) => {
     
     // Handle specific MongoDB errors
     if (error.code === 11000) {
-      // This should rarely happen with UUID, but just in case
       return res.status(500).json({
         success: false,
         error: 'Transfer processing conflict',
@@ -947,6 +818,7 @@ router.post('/transfer', auth, async (req, res) => {
     session.endSession();
   }
 });
+
 /**
  * @route   GET /api/payment/validate-recipient
  * @desc    Validate recipient before transfer
@@ -1021,7 +893,7 @@ router.get('/validate-recipient', auth, async (req, res) => {
 
 /**
  * @route   GET /api/payment/transfer-history
- * @desc    Get user's transfer history
+ * @desc    Get user's transfer history with balance tracking
  * @access  Private (requires authentication)
  */
 router.get('/transfer-history', auth, async (req, res) => {
@@ -1037,9 +909,9 @@ router.get('/transfer-history', auth, async (req, res) => {
     
     // Filter by transfer type (sent/received)
     if (type === 'sent') {
-      filter.amount = { $lt: 0 }; // Negative amounts are debits (sent)
+      filter['metadata.transferDirection'] = 'debit';
     } else if (type === 'received') {
-      filter.amount = { $gt: 0 }; // Positive amounts are credits (received)
+      filter['metadata.transferDirection'] = 'credit';
     }
     
     // Calculate pagination
@@ -1055,17 +927,28 @@ router.get('/transfer-history', auth, async (req, res) => {
     // Get total count
     const totalCount = await Transaction.countDocuments(filter);
     
-    // Format transfers with additional info
+    // Format transfers with balance information
     const formattedTransfers = transfers.map(transfer => ({
       id: transfer._id,
-      type: transfer.amount < 0 ? 'sent' : 'received',
-      amount: Math.abs(transfer.amount),
+      type: transfer.metadata?.transferDirection === 'debit' ? 'sent' : 'received',
+      amount: transfer.amount,
+      balanceBefore: transfer.balanceBefore,
+      balanceAfter: transfer.balanceAfter,
+      balanceChange: transfer.balanceAfter - transfer.balanceBefore,
       description: transfer.description,
       reference: transfer.reference,
       status: transfer.status,
       createdAt: transfer.createdAt,
       metadata: transfer.metadata,
-      balanceAfter: transfer.balanceAfter
+      otherParty: transfer.metadata?.transferDirection === 'debit' 
+        ? {
+            name: transfer.metadata?.recipientName,
+            email: transfer.metadata?.recipientEmail
+          }
+        : {
+            name: transfer.metadata?.senderName,
+            email: transfer.metadata?.senderEmail
+          }
     }));
     
     res.json({
@@ -1086,6 +969,216 @@ router.get('/transfer-history', auth, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch transfer history'
+    });
+  }
+});
+
+// Get all transactions for a user with balance tracking
+router.get('/user-transactions/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status, type, page = 1, limit = 10 } = req.query;
+    
+    // Validate userId
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid user ID' 
+      });
+    }
+    
+    // Build query filter
+    const filter = { userId };
+    
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    
+    // Add type filter if provided
+    if (type && type !== 'all') {
+      filter.type = type;
+    }
+    
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Find transactions
+    const transactions = await Transaction.find(filter)
+      .populate('relatedPurchaseId', 'phoneNumber network capacity')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+      
+    // Get total count for pagination
+    const totalCount = await Transaction.countDocuments(filter);
+    
+    // Format transactions with balance information
+    const formattedTransactions = transactions.map(tx => ({
+      _id: tx._id,
+      type: tx.type,
+      amount: tx.amount,
+      balanceBefore: tx.balanceBefore,
+      balanceAfter: tx.balanceAfter,
+      balanceChange: tx.balanceAfter - tx.balanceBefore,
+      isCredit: (tx.balanceAfter - tx.balanceBefore) > 0,
+      status: tx.status,
+      reference: tx.reference,
+      gateway: tx.gateway,
+      description: tx.description,
+      relatedPurchase: tx.relatedPurchaseId,
+      metadata: tx.metadata,
+      createdAt: tx.createdAt,
+      processing: tx.processing
+    }));
+    
+    return res.json({
+      success: true,
+      data: {
+        transactions: formattedTransactions,
+        pagination: {
+          total: totalCount,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(totalCount / parseInt(limit))
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get Transactions Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Verify pending transaction by ID with balance information
+router.post('/verify-pending-transaction/:transactionId', async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    
+    // Find the transaction
+    const transaction = await Transaction.findById(transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        error: 'Transaction not found'
+      });
+    }
+    
+    // Check if transaction is pending
+    if (transaction.status !== 'pending') {
+      return res.json({
+        success: false,
+        message: `Transaction is already ${transaction.status}`,
+        data: {
+          transactionId,
+          reference: transaction.reference,
+          amount: transaction.amount,
+          status: transaction.status,
+          balanceBefore: transaction.balanceBefore,
+          balanceAfter: transaction.balanceAfter,
+          balanceChange: transaction.status === 'completed' ? transaction.balanceAfter - transaction.balanceBefore : 0
+        }
+      });
+    }
+    
+    // Verify with Paystack
+    try {
+      const paystackResponse = await axios.get(
+        `${PAYSTACK_BASE_URL}/transaction/verify/${transaction.reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const { data } = paystackResponse.data;
+      
+      // If payment is successful
+      if (data.status === 'success') {
+        // Process the payment using our common function
+        const result = await processSuccessfulPayment(transaction.reference);
+        
+        if (result.success) {
+          // Get updated transaction
+          const updatedTransaction = await Transaction.findById(transactionId);
+          
+          return res.json({
+            success: true,
+            message: 'Transaction verified and completed successfully',
+            data: {
+              transactionId,
+              reference: updatedTransaction.reference,
+              amount: updatedTransaction.amount,
+              status: 'completed',
+              balanceBefore: updatedTransaction.balanceBefore,
+              balanceAfter: updatedTransaction.balanceAfter,
+              balanceChange: updatedTransaction.balanceAfter - updatedTransaction.balanceBefore,
+              newBalance: result.newBalance
+            }
+          });
+        } else {
+          return res.json({
+            success: false,
+            message: result.message,
+            data: {
+              transactionId,
+              reference: transaction.reference,
+              amount: transaction.amount,
+              status: transaction.status
+            }
+          });
+        }
+      } else if (data.status === 'failed') {
+        // Mark transaction as failed
+        transaction.status = 'failed';
+        await transaction.save();
+        
+        return res.json({
+          success: false,
+          message: 'Payment failed',
+          data: {
+            transactionId,
+            reference: transaction.reference,
+            amount: transaction.amount,
+            status: 'failed',
+            balanceBefore: transaction.balanceBefore,
+            balanceAfter: transaction.balanceBefore, // No change for failed transaction
+            balanceChange: 0
+          }
+        });
+      } else {
+        // Still pending on Paystack side
+        return res.json({
+          success: false,
+          message: `Payment status on gateway: ${data.status}`,
+          data: {
+            transactionId,
+            reference: transaction.reference,
+            amount: transaction.amount,
+            status: transaction.status
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Paystack verification error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to verify payment with Paystack'
+      });
+    }
+    
+  } catch (error) {
+    console.error('Verify Pending Transaction Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
     });
   }
 });

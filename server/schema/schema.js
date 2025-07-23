@@ -102,6 +102,7 @@ const DataPurchaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Updated Transaction Schema with balance tracking
 const TransactionSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -110,16 +111,27 @@ const TransactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['deposit', 'withdrawal', 'transfer', 'refund','purchase', 'wallet-refund', 'admin-deduction'],
+    enum: ['deposit', 'withdrawal', 'transfer', 'refund', 'purchase', 'wallet-refund', 'admin-deduction'],
     required: true
   },
   amount: {
     type: Number,
     required: true
   },
+  // NEW FIELDS FOR BALANCE TRACKING
+  balanceBefore: {
+    type: Number,
+    required: true,
+    default: 0
+  },
+  balanceAfter: {
+    type: Number,
+    required: true,
+    default: 0
+  },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'cancelled','purchase','accepted', 'wallet-refund' , 'admin-deduction'],
+    enum: ['pending', 'completed', 'failed', 'cancelled', 'purchase', 'accepted', 'wallet-refund', 'admin-deduction'],
     default: 'pending'
   },
   reference: {
@@ -129,12 +141,23 @@ const TransactionSchema = new mongoose.Schema({
   },
   gateway: {
     type: String,
-    enum: ['paystack', 'manual', 'system','wallet','admin-deposit','wallet-refund', 'admin-deduction'],
+    enum: ['paystack', 'manual', 'system', 'wallet', 'admin-deposit', 'wallet-refund', 'admin-deduction'],
     default: 'paystack'
   },
   processing: {
     type: Boolean,
     default: false
+  },
+  // Optional: Add description for better transaction tracking
+  description: {
+    type: String,
+    default: null
+  },
+  // Optional: Add related purchase ID for purchase transactions
+  relatedPurchaseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DataPurchase',
+    default: null
   },
   createdAt: {
     type: Date,
@@ -146,6 +169,9 @@ const TransactionSchema = new mongoose.Schema({
   }
 });
 
+// Add index for faster queries
+TransactionSchema.index({ userId: 1, createdAt: -1 });
+TransactionSchema.index({ reference: 1 });
 const ReferralBonusSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   referredUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 

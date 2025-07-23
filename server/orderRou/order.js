@@ -407,6 +407,7 @@ router.get('/agent-balance', async (req, res) => {
 });
 
 // ===== MAIN PURCHASE DATA ROUTE WITH COMPLETE VALIDATION =====
+// ===== MAIN PURCHASE DATA ROUTE WITH COMPLETE VALIDATION AND BALANCE TRACKING =====
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -496,14 +497,17 @@ router.post('/purchase-data', async (req, res) => {
       });
     }
 
-    // Check user wallet balance using validated price
+    // Store balance before transaction
+    const balanceBefore = user.walletBalance;
     const validatedPrice = priceValidation.validatedPrice;
-    if (user.walletBalance < validatedPrice) {
+
+    // Check user wallet balance
+    if (balanceBefore < validatedPrice) {
       logOperation('DATA_PURCHASE_INSUFFICIENT_BALANCE', {
         userId,
-        walletBalance: user.walletBalance,
+        walletBalance: balanceBefore,
         requiredAmount: validatedPrice,
-        shortfall: validatedPrice - user.walletBalance
+        shortfall: validatedPrice - balanceBefore
       });
       
       await session.abortTransaction();
@@ -512,7 +516,7 @@ router.post('/purchase-data', async (req, res) => {
       return res.status(400).json({
         status: 'error',
         message: 'Insufficient wallet balance',
-        currentBalance: user.walletBalance,
+        currentBalance: balanceBefore,
         requiredAmount: validatedPrice
       });
     }
@@ -788,17 +792,23 @@ router.post('/purchase-data', async (req, res) => {
       }
     }
 
-    // Create Transaction using validated price
+    // Calculate balance after transaction
+    const balanceAfter = balanceBefore - validatedPrice;
+
+    // Create Transaction with balance tracking
     const transaction = new Transaction({
       userId,
       type: 'purchase',
       amount: validatedPrice,
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter,
       status: 'completed',
       reference: transactionReference,
-      gateway: 'wallet'
+      gateway: 'wallet',
+      description: `Data purchase: ${capacity}GB ${network} for ${phoneNumber}`
     });
 
-    // Create Data Purchase using validated price
+    // Create Data Purchase
     const dataPurchase = new DataPurchase({
       userId,
       phoneNumber,
@@ -817,9 +827,11 @@ router.post('/purchase-data', async (req, res) => {
       originalReference: network === 'TELECEL' ? originalInternalReference : null
     });
 
-    // Update user wallet using validated price
-    const previousBalance = user.walletBalance;
-    user.walletBalance -= validatedPrice;
+    // Update user wallet
+    user.walletBalance = balanceAfter;
+
+    // Link transaction to purchase
+    transaction.relatedPurchaseId = dataPurchase._id;
 
     // Save all documents
     await transaction.save({ session });
@@ -842,7 +854,9 @@ router.post('/purchase-data', async (req, res) => {
       orderReference,
       processingMethod,
       skipGeonettech: shouldSkipGeonet,
-      newWalletBalance: user.walletBalance,
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter,
+      amountDeducted: validatedPrice,
       validatedPrice: validatedPrice,
       telecelReference: network === 'TELECEL' ? orderReference : null,
       originalInternalReference: network === 'TELECEL' ? originalInternalReference : null,
@@ -853,9 +867,16 @@ router.post('/purchase-data', async (req, res) => {
       status: 'success',
       message: responseMessage,
       data: {
-        transaction,
+        transaction: {
+          ...transaction.toObject(),
+          balanceChange: balanceAfter - balanceBefore
+        },
         dataPurchase,
-        newWalletBalance: user.walletBalance,
+        walletBalance: {
+          before: balanceBefore,
+          after: balanceAfter,
+          deducted: validatedPrice
+        },
         orderStatus: orderStatus,
         orderReference: orderReference,
         processingMethod: processingMethod,
@@ -886,6 +907,7 @@ router.post('/purchase-data', async (req, res) => {
 });
 
 // ===== HUBNET/AIRTELTIGO SPECIFIC PURCHASE ROUTE =====
+// ===== HUBNET/AIRTELTIGO SPECIFIC PURCHASE ROUTE WITH BALANCE TRACKING =====
 router.post('/purchase-hubnet-data', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -965,14 +987,17 @@ router.post('/purchase-hubnet-data', async (req, res) => {
       });
     }
 
-    // Check user wallet balance using validated price
+    // Store balance before transaction
+    const balanceBefore = user.walletBalance;
     const validatedPrice = priceValidation.validatedPrice;
-    if (user.walletBalance < validatedPrice) {
+
+    // Check user wallet balance
+    if (balanceBefore < validatedPrice) {
       logOperation('HUBNET_INSUFFICIENT_BALANCE', {
         userId,
-        walletBalance: user.walletBalance,
+        walletBalance: balanceBefore,
         requiredAmount: validatedPrice,
-        shortfall: validatedPrice - user.walletBalance
+        shortfall: validatedPrice - balanceBefore
       });
       
       await session.abortTransaction();
@@ -981,26 +1006,32 @@ router.post('/purchase-hubnet-data', async (req, res) => {
       return res.status(400).json({
         status: 'error',
         message: 'Insufficient wallet balance',
-        currentBalance: user.walletBalance,
+        currentBalance: balanceBefore,
         requiredAmount: validatedPrice
       });
     }
+
+    // Calculate balance after transaction
+    const balanceAfter = balanceBefore - validatedPrice;
 
     // Generate transaction reference
     const transactionReference = `HUBNET-${uuidv4()}`;
     const orderReference = generateMixedReference('HN-');
 
-    // Create Transaction using validated price
+    // Create Transaction with balance tracking
     const transaction = new Transaction({
       userId,
       type: 'purchase',
       amount: validatedPrice,
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter,
       status: 'completed',
       reference: transactionReference,
-      gateway: 'wallet'
+      gateway: 'wallet',
+      description: `HubNet data purchase: ${dataAmountGB}GB ${network} for ${phoneNumber}`
     });
 
-    // Create Data Purchase using validated price
+    // Create Data Purchase
     const dataPurchase = new DataPurchase({
       userId,
       phoneNumber,
@@ -1018,8 +1049,11 @@ router.post('/purchase-hubnet-data', async (req, res) => {
       orderReferencePrefix: 'HN-'
     });
 
-    // Update user wallet using validated price
-    user.walletBalance -= validatedPrice;
+    // Update user wallet
+    user.walletBalance = balanceAfter;
+
+    // Link transaction to purchase
+    transaction.relatedPurchaseId = dataPurchase._id;
 
     // Save all documents
     await transaction.save({ session });
@@ -1033,7 +1067,9 @@ router.post('/purchase-hubnet-data', async (req, res) => {
     logOperation('HUBNET_PURCHASE_SUCCESS', {
       userId,
       orderReference,
-      newWalletBalance: user.walletBalance,
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter,
+      amountDeducted: validatedPrice,
       validatedPrice: validatedPrice,
       network,
       capacity: dataAmountGB
@@ -1043,9 +1079,16 @@ router.post('/purchase-hubnet-data', async (req, res) => {
       status: 'success',
       message: 'HubNet data bundle purchased successfully',
       data: {
-        transaction,
+        transaction: {
+          ...transaction.toObject(),
+          balanceChange: balanceAfter - balanceBefore
+        },
         dataPurchase,
-        newWalletBalance: user.walletBalance,
+        walletBalance: {
+          before: balanceBefore,
+          after: balanceAfter,
+          deducted: validatedPrice
+        },
         orderStatus: 'completed',
         orderReference: orderReference,
         processingMethod: 'hubnet_api',
@@ -1068,7 +1111,6 @@ router.post('/purchase-hubnet-data', async (req, res) => {
     });
   }
 });
-
 // Check Order Status
 router.get('/order-status/:orderId', async (req, res) => {
   try {
@@ -1276,9 +1318,19 @@ router.get('/purchase-history/:userId', async (req, res) => {
 });
 
 // Get User Transaction History for All Transactions Page
+// Get User Transaction History with Balance Tracking
 router.get('/user-transactions/:userId', async (req, res) => {
   try {
-    const { page = 1, limit = 10, startDate, endDate, network, phoneNumber } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      startDate, 
+      endDate, 
+      type, 
+      status,
+      minAmount,
+      maxAmount 
+    } = req.query;
     const userId = req.params.userId;
 
     logOperation('USER_TRANSACTIONS_REQUEST', {
@@ -1287,8 +1339,10 @@ router.get('/user-transactions/:userId', async (req, res) => {
       limit,
       startDate,
       endDate,
-      network,
-      phoneNumber
+      type,
+      status,
+      minAmount,
+      maxAmount
     });
 
     // Validate userId
@@ -1300,7 +1354,16 @@ router.get('/user-transactions/:userId', async (req, res) => {
       });
     }
 
-    // Prepare filter object
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    // Prepare filter object for transactions
     const filter = { userId };
     
     // Add date range filter if provided
@@ -1317,39 +1380,146 @@ router.get('/user-transactions/:userId', async (req, res) => {
       }
     }
     
-    // Add network filter if provided
-    if (network && network !== 'All') {
-      filter.network = network;
+    // Add type filter if provided
+    if (type && type !== 'all') {
+      filter.type = type;
     }
     
-    // Add phone number search if provided
-    if (phoneNumber) {
-      filter.phoneNumber = { $regex: phoneNumber, $options: 'i' };
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    
+    // Add amount range filter if provided
+    if (minAmount || maxAmount) {
+      filter.amount = {};
+      if (minAmount) {
+        filter.amount.$gte = parseFloat(minAmount);
+      }
+      if (maxAmount) {
+        filter.amount.$lte = parseFloat(maxAmount);
+      }
     }
 
     logOperation('USER_TRANSACTIONS_FILTER', filter);
 
-    const transactions = await DataPurchase.find(filter)
+    // Fetch transactions with related purchase data
+    const transactions = await Transaction.find(filter)
+      .populate({
+        path: 'relatedPurchaseId',
+        select: 'phoneNumber network capacity status geonetReference'
+      })
       .sort({ createdAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit));
 
-    const totalCount = await DataPurchase.countDocuments(filter);
+    const totalCount = await Transaction.countDocuments(filter);
+
+    // Calculate summary statistics for the current page
+    let pageCredits = 0;
+    let pageDebits = 0;
+    
+    // Format transactions with additional calculated fields
+    const formattedTransactions = transactions.map(transaction => {
+      const balanceChange = transaction.balanceAfter - transaction.balanceBefore;
+      const isCredit = balanceChange > 0;
+      
+      // Update page statistics
+      if (isCredit) {
+        pageCredits += Math.abs(balanceChange);
+      } else {
+        pageDebits += Math.abs(balanceChange);
+      }
+      
+      return {
+        _id: transaction._id,
+        type: transaction.type,
+        amount: transaction.amount,
+        balanceBefore: transaction.balanceBefore,
+        balanceAfter: transaction.balanceAfter,
+        balanceChange: balanceChange,
+        isCredit: isCredit,
+        status: transaction.status,
+        reference: transaction.reference,
+        gateway: transaction.gateway,
+        description: transaction.description,
+        relatedPurchase: transaction.relatedPurchaseId,
+        createdAt: transaction.createdAt,
+        formattedDate: new Date(transaction.createdAt).toLocaleString(),
+        // Add icon/color suggestions for UI
+        displayType: getTransactionDisplayType(transaction.type),
+        displayColor: isCredit ? 'green' : 'red'
+      };
+    });
+
+    // Get overall statistics (not just current page)
+    const overallStats = await Transaction.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalTransactions: { $sum: 1 },
+          totalAmount: { $sum: '$amount' },
+          totalCredits: {
+            $sum: {
+              $cond: [
+                { $gt: [{ $subtract: ['$balanceAfter', '$balanceBefore'] }, 0] },
+                { $subtract: ['$balanceAfter', '$balanceBefore'] },
+                0
+              ]
+            }
+          },
+          totalDebits: {
+            $sum: {
+              $cond: [
+                { $lt: [{ $subtract: ['$balanceAfter', '$balanceBefore'] }, 0] },
+                { $abs: { $subtract: ['$balanceAfter', '$balanceBefore'] } },
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const stats = overallStats[0] || {
+      totalTransactions: 0,
+      totalAmount: 0,
+      totalCredits: 0,
+      totalDebits: 0
+    };
 
     logOperation('USER_TRANSACTIONS_RESULTS', {
       totalFound: totalCount,
       returnedCount: transactions.length,
       currentPage: Number(page),
-      totalPages: Math.ceil(totalCount / Number(limit))
+      totalPages: Math.ceil(totalCount / Number(limit)),
+      overallStats: stats
     });
 
     res.json({
       status: 'success',
       data: {
-        transactions,
-        totalCount,
-        currentPage: Number(page),
-        totalPages: Math.ceil(totalCount / Number(limit))
+        transactions: formattedTransactions,
+        pagination: {
+          currentPage: Number(page),
+          totalPages: Math.ceil(totalCount / Number(limit)),
+          totalCount: totalCount,
+          hasNext: Number(page) < Math.ceil(totalCount / Number(limit)),
+          hasPrev: Number(page) > 1
+        },
+        currentPageStats: {
+          credits: parseFloat(pageCredits.toFixed(2)),
+          debits: parseFloat(pageDebits.toFixed(2)),
+          net: parseFloat((pageCredits - pageDebits).toFixed(2))
+        },
+        overallStats: {
+          totalTransactions: stats.totalTransactions,
+          totalCredits: parseFloat(stats.totalCredits.toFixed(2)),
+          totalDebits: parseFloat(stats.totalDebits.toFixed(2)),
+          netBalance: parseFloat((stats.totalCredits - stats.totalDebits).toFixed(2))
+        },
+        currentBalance: user.walletBalance
       }
     });
 
@@ -1367,6 +1537,143 @@ router.get('/user-transactions/:userId', async (req, res) => {
   }
 });
 
+// Helper function to get display type for transactions
+function getTransactionDisplayType(type) {
+  const displayTypes = {
+    'deposit': { icon: 'arrow-down', label: 'Deposit', color: 'success' },
+    'withdrawal': { icon: 'arrow-up', label: 'Withdrawal', color: 'danger' },
+    'purchase': { icon: 'shopping-cart', label: 'Purchase', color: 'primary' },
+    'refund': { icon: 'refresh', label: 'Refund', color: 'success' },
+    'wallet-refund': { icon: 'wallet', label: 'Wallet Refund', color: 'success' },
+    'admin-deduction': { icon: 'minus-circle', label: 'Admin Deduction', color: 'warning' },
+    'transfer': { icon: 'exchange', label: 'Transfer', color: 'info' }
+  };
+  
+  return displayTypes[type] || { icon: 'circle', label: type, color: 'secondary' };
+}
+
+// Additional route to get user's purchase history (if you still need it separately)
+router.get('/user-purchases/:userId', async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      startDate, 
+      endDate, 
+      network, 
+      phoneNumber,
+      status 
+    } = req.query;
+    const userId = req.params.userId;
+
+    logOperation('USER_PURCHASES_REQUEST', {
+      userId,
+      page,
+      limit,
+      startDate,
+      endDate,
+      network,
+      phoneNumber,
+      status
+    });
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid user ID'
+      });
+    }
+
+    // Prepare filter object
+    const filter = { userId };
+    
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateObj = new Date(endDate);
+        endDateObj.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDateObj;
+      }
+    }
+    
+    // Add network filter if provided
+    if (network && network !== 'All') {
+      filter.network = network;
+    }
+    
+    // Add phone number search if provided
+    if (phoneNumber) {
+      filter.phoneNumber = { $regex: phoneNumber, $options: 'i' };
+    }
+    
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+
+    const purchases = await DataPurchase.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
+    const totalCount = await DataPurchase.countDocuments(filter);
+
+    // Get the related transaction for each purchase
+    const purchaseIds = purchases.map(p => p._id);
+    const relatedTransactions = await Transaction.find({
+      relatedPurchaseId: { $in: purchaseIds }
+    });
+
+    // Create a map of purchase ID to transaction
+    const transactionMap = {};
+    relatedTransactions.forEach(tx => {
+      transactionMap[tx.relatedPurchaseId.toString()] = tx;
+    });
+
+    // Format purchases with transaction data
+    const formattedPurchases = purchases.map(purchase => {
+      const transaction = transactionMap[purchase._id.toString()];
+      return {
+        ...purchase.toObject(),
+        transaction: transaction ? {
+          reference: transaction.reference,
+          balanceBefore: transaction.balanceBefore,
+          balanceAfter: transaction.balanceAfter,
+          balanceChange: transaction.balanceAfter - transaction.balanceBefore
+        } : null
+      };
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        purchases: formattedPurchases,
+        pagination: {
+          currentPage: Number(page),
+          totalPages: Math.ceil(totalCount / Number(limit)),
+          totalCount: totalCount
+        }
+      }
+    });
+
+  } catch (error) {
+    logOperation('USER_PURCHASES_ERROR', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch user purchases',
+      details: error.message
+    });
+  }
+});
 router.get('/user-dashboard/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
