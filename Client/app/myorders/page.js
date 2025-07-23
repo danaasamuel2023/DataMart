@@ -157,7 +157,7 @@ const TransactionsPage = () => {
     try {
       const userId = userData.id;
       const dateRange = getDateRange();
-      let url = `https://datamartbackened.onrender.com/api/v1/user-transactions/${userId}?page=${pagination.page}&limit=${pagination.limit}`;
+      let url = `https://datamartbackened.onrender.com/api/v1/data/user-transactions/${userId}?page=${pagination.page}&limit=${pagination.limit}`;
       
       if (filters.status) {
         url += `&status=${filters.status}`;
