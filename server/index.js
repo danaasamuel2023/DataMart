@@ -23,6 +23,8 @@ const FosterApi = require('./Foster_Api/FosterIntegration.js');
 const AdminReportDashboard = require('./ReportingRoutes/reporting.js');
 const sms = require('./smsRoutes/smsRoutes.js');
 const TransferMonitoringRoutes = require('./TransferRoutes/transferMonitoringRoutes.js');
+const SmmRoutes = require('./smmroutes/smmroutes.js');
+const Checkers = require('./WaecRoutes/Waec.js');
 dotenv.config();
 
 // Initialize Express app
@@ -56,6 +58,9 @@ app.use('/api/foster', FosterApi);
 app.use('/api/v1/reports', AdminReportDashboard);
 app.use('/api', sms);
 app.use('/api/transfers', TransferMonitoringRoutes);
+app.use('/api/smm', SmmRoutes);
+app.use('/api/result-checkers', Checkers);
+ 
 
 // Default Route
 app.get('/', (req, res) => {

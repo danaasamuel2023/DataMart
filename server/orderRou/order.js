@@ -63,20 +63,36 @@ const OFFICIAL_PRICING = {
     '40': 151.00,
     '50': 190.00
   },
+  'AT_PREMIUM': { // AirtelTigo Premium pricing structure (same as regular AT)
+    '1': 3.95,
+    '2': 8.35,
+    '3': 13.25,
+    '4': 16.50,
+    '5': 19.50,
+    '6': 23.50,
+    '8': 30.50,
+    '10': 38.50,
+    '12': 45.50,
+    '15': 57.50,
+    '25': 95.00,
+    '30': 115.00,
+    '40': 151.00,
+    '50': 190.00
+  },
   'TELECEL': { // Telecel pricing structure
     '5': 19.50,
-'8': 34.64,
-'10': 36.50,
-'12': 43.70,
-'15': 52.85,
-'20': 69.80,
-'25': 86.75,
-'30': 103.70,
-'35': 120.65,
-'40': 137.60,
-'45': 154.55,
-'50': 171.50,
-'100': 341.00
+    '8': 34.64,
+    '10': 36.50,
+    '12': 43.70,
+    '15': 52.85,
+    '20': 69.80,
+    '25': 86.75,
+    '30': 103.70,
+    '35': 120.65,
+    '40': 137.60,
+    '45': 154.55,
+    '50': 171.50,
+    '100': 341.00
   }
 };
 
@@ -194,6 +210,7 @@ const validatePhoneNumber = (network, phoneNumber) => {
       }
       
     case 'at': // AirtelTigo validation
+    case 'AT_PREMIUM': // AirtelTigo Premium uses same prefixes
       const airtelTigoPrefixes = ['026', '056', '027', '057', '023', '053'];
       if (cleanNumber.length === 10) {
         const prefix = cleanNumber.substring(0, 3);
@@ -406,7 +423,6 @@ router.get('/agent-balance', async (req, res) => {
   }
 });
 
-// ===== MAIN PURCHASE DATA ROUTE WITH COMPLETE VALIDATION =====
 // ===== MAIN PURCHASE DATA ROUTE WITH COMPLETE VALIDATION AND BALANCE TRACKING =====
 router.post('/purchase-data', async (req, res) => {
   const session = await mongoose.startSession();
@@ -567,7 +583,9 @@ router.post('/purchase-data', async (req, res) => {
     let orderReferencePrefix = '';
     if (network === 'TELECEL') {
       orderReferencePrefix = 'TC-';
-    } else if (skipGeonettech) {
+    } else if (network === 'AT_PREMIUM') {
+      orderReferencePrefix = 'ATP-'; // Special prefix for AT_PREMIUM
+    } else if (skipGeonettech && network !== 'AT_PREMIUM') {
       orderReferencePrefix = 'MN-';
     } else {
       orderReferencePrefix = 'GN-';
@@ -582,7 +600,8 @@ router.post('/purchase-data', async (req, res) => {
     let orderStatus = 'completed';
     let processingMethod = 'api';
     
-    const shouldSkipGeonet = skipGeonettech && (network !== 'TELECEL');
+    // AT_PREMIUM always uses Geonettech API, never skip
+    const shouldSkipGeonet = skipGeonettech && (network !== 'TELECEL') && (network !== 'AT_PREMIUM');
     
     logOperation('API_PROCESSING_DECISION', {
       network,
@@ -590,7 +609,8 @@ router.post('/purchase-data', async (req, res) => {
       shouldSkipGeonet,
       orderReference,
       prefix: orderReferencePrefix,
-      requestType: 'WEB'
+      requestType: 'WEB',
+      isATPremium: network === 'AT_PREMIUM'
     });
     
     if (network === 'TELECEL') {
@@ -675,6 +695,85 @@ router.post('/purchase-data', async (req, res) => {
           message: 'Unable to process your order. Please try again later.'
         });
       }
+    } else if (network === 'AT_PREMIUM') {
+      // AT_PREMIUM always uses Geonettech API
+      processingMethod = 'geonettech_api';
+      try {
+        const geonetOrderPayload = {
+          network_key: 'AT_PREMIUM', // Use AT_PREMIUM as the network key
+          ref: orderReference,
+          recipient: phoneNumber,
+          capacity: capacity
+        };
+        
+        logOperation('GEONETTECH_AT_PREMIUM_ORDER_REQUEST', {
+          ...geonetOrderPayload,
+          processingMethod,
+          requestType: 'WEB'
+        });
+        
+        const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+        orderResponse = geonetResponse.data;
+        
+        if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+          logOperation('GEONETTECH_AT_PREMIUM_API_UNSUCCESSFUL_RESPONSE', {
+            response: orderResponse,
+            orderReference
+          });
+          
+          await session.abortTransaction();
+          session.endSession();
+          
+          let errorMessage = 'Could not complete your purchase. Please try again later.';
+          
+          if (orderResponse && orderResponse.message) {
+            const msg = orderResponse.message.toLowerCase();
+            
+            if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+              errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+            } else if (msg.includes('invalid') || msg.includes('phone')) {
+              errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+            } else {
+              errorMessage = orderResponse.message;
+            }
+          }
+          
+          return res.status(400).json({
+            status: 'error',
+            message: errorMessage
+          });
+        }
+        
+        apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+        orderStatus = 'completed';
+        
+        logOperation('GEONETTECH_AT_PREMIUM_ORDER_SUCCESS', {
+          orderId: apiOrderId,
+          orderReference,
+          processingMethod,
+          responseData: orderResponse
+        });
+      } catch (apiError) {
+        logOperation('GEONETTECH_AT_PREMIUM_API_ERROR', {
+          error: apiError.message,
+          response: apiError.response ? apiError.response.data : null,
+          orderReference
+        });
+        
+        await session.abortTransaction();
+        session.endSession();
+        
+        let errorMessage = 'Could not complete your purchase. Please try again later.';
+        
+        if (apiError.response && apiError.response.data && apiError.response.data.message) {
+          errorMessage = apiError.response.data.message;
+        }
+        
+        return res.status(400).json({
+          status: 'error',
+          message: errorMessage
+        });
+      }
     } else if (shouldSkipGeonet) {
       // Skip Geonettech API - store as pending
       processingMethod = 'manual';
@@ -697,7 +796,7 @@ router.post('/purchase-data', async (req, res) => {
         skipReason: 'API disabled for network (Web)'
       };
     } else {
-      // Use Geonettech API
+      // Use Geonettech API for other networks (YELLO, at)
       processingMethod = 'geonettech_api';
       try {
         const geonetOrderPayload = {
@@ -860,6 +959,7 @@ router.post('/purchase-data', async (req, res) => {
       validatedPrice: validatedPrice,
       telecelReference: network === 'TELECEL' ? orderReference : null,
       originalInternalReference: network === 'TELECEL' ? originalInternalReference : null,
+      isATPremium: network === 'AT_PREMIUM',
       requestType: 'WEB'
     });
 
@@ -906,7 +1006,6 @@ router.post('/purchase-data', async (req, res) => {
   }
 });
 
-// ===== HUBNET/AIRTELTIGO SPECIFIC PURCHASE ROUTE =====
 // ===== HUBNET/AIRTELTIGO SPECIFIC PURCHASE ROUTE WITH BALANCE TRACKING =====
 router.post('/purchase-hubnet-data', async (req, res) => {
   const session = await mongoose.startSession();
@@ -1111,6 +1210,7 @@ router.post('/purchase-hubnet-data', async (req, res) => {
     });
   }
 });
+
 // Check Order Status
 router.get('/order-status/:orderId', async (req, res) => {
   try {
@@ -1317,7 +1417,6 @@ router.get('/purchase-history/:userId', async (req, res) => {
   }
 });
 
-// Get User Transaction History for All Transactions Page
 // Get User Transaction History with Balance Tracking
 router.get('/user-transactions/:userId', async (req, res) => {
   try {
@@ -1674,6 +1773,7 @@ router.get('/user-purchases/:userId', async (req, res) => {
     });
   }
 });
+
 router.get('/user-dashboard/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;

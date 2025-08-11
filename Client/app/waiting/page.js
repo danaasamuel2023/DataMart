@@ -236,13 +236,13 @@ export default function OrderManagementPage() {
     }
   };
   
-  // Format orders for clipboard (number capacity format with spaces between)
+  // Format orders for clipboard (number capacity format with tab between for Excel)
   const formatOrdersForClipboard = () => {
     const ordersToFormat = selectedOrders.length > 0 
       ? orders.filter(order => selectedOrders.includes(order._id)) 
       : orders;
     
-    return ordersToFormat.map(order => `${order.phoneNumber} ${order.capacity}`).join('\n');
+    return ordersToFormat.map(order => `${order.phoneNumber}\t${order.capacity}`).join('\n');
   };
 
   // Copy orders to clipboard

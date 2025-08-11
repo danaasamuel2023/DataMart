@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 
-const HubnetBundleCards = () => {
+const AirtelTigoPremiumBundleCards = () => {
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -20,37 +20,44 @@ const HubnetBundleCards = () => {
     }
   }, []);
 
-  // Only include AirtelTigo bundles
+  // AirtelTigo Premium bundles with AT_PREMIUM network key
   const bundles = [
-    { capacity: '1', mb: '1000', price: '3.95', network: 'at' },
-    { capacity: '2', mb: '2000', price: '8.35', network: 'at' },
-    { capacity: '3', mb: '3000', price: '13.25', network: 'at' },
-    { capacity: '4', mb: '4000', price: '16.50', network: 'at' },
-    { capacity: '5', mb: '5000', price: '19.50', network: 'at' },
-    { capacity: '6', mb: '6000', price: '23.50', network: 'at' },
-    { capacity: '8', mb: '8000', price: '30.50', network: 'at' },
-    { capacity: '10', mb: '10000', price: '38.50', network: 'at' },
-    { capacity: '12', mb: '12000', price: '45.50', network: 'at' },
-    { capacity: '15', mb: '15000', price: '57.50', network: 'at' },
-    { capacity: '25', mb: '25000', price: '95.00', network: 'at' },
-    { capacity: '30', mb: '30000', price: '115.00', network: 'at' },
-    { capacity: '40', mb: '40000', price: '151.00', network: 'at' },
-    { capacity: '50', mb: '50000', price: '190.00', network: 'at' }
+    { capacity: '1', mb: '1000', price: '3.95', network: 'AT_PREMIUM' },
+    { capacity: '2', mb: '2000', price: '8.35', network: 'AT_PREMIUM' },
+    { capacity: '3', mb: '3000', price: '13.25', network: 'AT_PREMIUM' },
+    { capacity: '4', mb: '4000', price: '16.50', network: 'AT_PREMIUM' },
+    { capacity: '5', mb: '5000', price: '19.50', network: 'AT_PREMIUM' },
+    { capacity: '6', mb: '6000', price: '23.50', network: 'AT_PREMIUM' },
+    { capacity: '8', mb: '8000', price: '30.50', network: 'AT_PREMIUM' },
+    { capacity: '10', mb: '10000', price: '38.50', network: 'AT_PREMIUM' },
+    { capacity: '12', mb: '12000', price: '45.50', network: 'AT_PREMIUM' },
+    { capacity: '15', mb: '15000', price: '57.50', network: 'AT_PREMIUM' },
+    { capacity: '25', mb: '25000', price: '95.00', network: 'AT_PREMIUM' },
+    { capacity: '30', mb: '30000', price: '115.00', network: 'AT_PREMIUM' },
+    { capacity: '40', mb: '40000', price: '151.00', network: 'AT_PREMIUM' },
+    { capacity: '50', mb: '50000', price: '190.00', network: 'AT_PREMIUM' }
   ];
 
-  // Network Logo Component for AirtelTigo
+  // Network Logo Component for AirtelTigo Premium
   const NetworkLogo = () => {
     return (
       <svg width="80" height="80" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="100" r="85" fill="#ffffff" stroke="#1e40af" strokeWidth="2"/>
-        <text x="100" y="115" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="65" fill="#1e40af">AT</text>
-        <path d="M70 130 L130 130" stroke="#1e40af" strokeWidth="5" strokeLinecap="round"/>
+        <defs>
+          <linearGradient id="premiumGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style={{ stopColor: '#FFD700', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#FFA500', stopOpacity: 1 }} />
+          </linearGradient>
+        </defs>
+        <circle cx="100" cy="100" r="85" fill="url(#premiumGradient)" stroke="#1e40af" strokeWidth="3"/>
+        <text x="100" y="110" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="55" fill="#1e40af">AT</text>
+        <text x="100" y="140" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="20" fill="#1e40af">PREMIUM</text>
+        <path d="M60 150 L140 150" stroke="#1e40af" strokeWidth="3" strokeLinecap="round"/>
       </svg>
     );
   };
 
   const getNetworkColor = () => {
-    return 'bg-blue-700'; // AirtelTigo color
+    return 'bg-gradient-to-r from-blue-700 to-purple-700'; // Premium gradient for AirtelTigo Premium
   };
 
   const handleSelectBundle = (index) => {
@@ -142,11 +149,12 @@ const HubnetBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/purchase-hubnet-data', {
+      // Using the main purchase-data endpoint with AT_PREMIUM network key
+      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
-        network: bundle.network,
-        dataAmountGB: bundle.capacity,
+        network: bundle.network, // This will be 'AT_PREMIUM'
+        capacity: parseInt(bundle.capacity), // Convert to number
         price: parseFloat(bundle.price)
       }, {
         headers: {
@@ -156,7 +164,7 @@ const HubnetBundleCards = () => {
 
       if (response.data.status === 'success') {
         setGlobalMessage({ 
-          text: `${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}`, 
+          text: `Premium ${bundle.capacity}GB data bundle purchased successfully for ${phoneNumber}`, 
           type: 'success' 
         });
         setSelectedBundleIndex(null);
@@ -171,7 +179,7 @@ const HubnetBundleCards = () => {
       setBundleMessages(prev => ({ 
         ...prev, 
         [index]: { 
-          text: error.response?.data?.message || 'Failed to purchase data bundle', 
+          text: error.response?.data?.message || 'Failed to purchase premium data bundle', 
           type: 'error' 
         } 
       }));
@@ -182,8 +190,33 @@ const HubnetBundleCards = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-4 text-center">AirtelTigo Data Bundles</h1>
+      <h1 className="text-3xl font-bold mb-2 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        AirtelTigo Premium Data Bundles
+      </h1>
+      <p className="text-center text-gray-600 mb-6">Premium processing with priority delivery</p>
       
+      {/* Premium Service Notice Box */}
+      <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-purple-500 rounded-lg shadow">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <svg className="h-6 w-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm md:text-base font-medium text-purple-800">PREMIUM SERVICE FEATURES</h3>
+            <div className="mt-2 text-sm text-purple-700">
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Priority Processing:</strong> Your orders are processed through our premium gateway.</li>
+                <li><strong>Enhanced Reliability:</strong> Premium routing ensures better success rates.</li>
+                <li><strong>Faster Delivery:</strong> Typically faster than standard processing.</li>
+                <li><strong>AirtelTigo Numbers Only:</strong> Works with prefixes 026, 056, 027, 057, 023, 053.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Important Notice Box */}
       <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg shadow">
         <div className="flex items-start">
@@ -194,9 +227,9 @@ const HubnetBundleCards = () => {
             <h3 className="text-sm md:text-base font-medium text-yellow-800">IMPORTANT: Please Read Before Purchase</h3>
             <div className="mt-2 text-sm text-yellow-700">
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Instant Delivery:</strong> All data purchases are processed instantly upon payment.</li>
+                <li><strong>Premium Delivery:</strong> All data purchases are processed through our premium gateway.</li>
                 <li><strong>No Refunds:</strong> We do not offer refunds for wrong phone number entries.</li>
-                <li><strong>AirtelTigo Numbers Only:</strong> This bundle works only with valid AirtelTigo numbers (026, 056, 027, 057, 023, 053).</li>
+                <li><strong>AirtelTigo Numbers Only:</strong> This bundle works only with valid AirtelTigo numbers.</li>
                 <li><strong>Double-Check:</strong> Please verify the recipient's number before confirming your purchase.</li>
               </ul>
             </div>
@@ -221,9 +254,9 @@ const HubnetBundleCards = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {bundles.map((bundle, index) => (
-          <div key={`airteltigo-${index}`} className="flex flex-col">
+          <div key={`at-premium-${index}`} className="flex flex-col">
             <div 
-              className={`flex ${getNetworkColor()} text-white w-full rounded-t-lg flex-col justify-between cursor-pointer transition-transform duration-300 hover:translate-y-[-5px] ${selectedBundleIndex === index ? 'rounded-b-none' : 'rounded-b-lg'}`}
+              className={`flex ${getNetworkColor()} text-white w-full rounded-t-lg flex-col justify-between cursor-pointer transition-transform duration-300 hover:translate-y-[-5px] hover:shadow-xl ${selectedBundleIndex === index ? 'rounded-b-none' : 'rounded-b-lg'}`}
               onClick={() => handleSelectBundle(index)}
             >
               <div className="flex flex-col items-center justify-center w-full p-3 space-y-3">
@@ -233,6 +266,9 @@ const HubnetBundleCards = () => {
                 <h3 className="text-xl font-bold">
                   {bundle.capacity} GB
                 </h3>
+                <span className="text-xs bg-yellow-400 text-black px-2 py-1 rounded-full font-semibold">
+                  PREMIUM
+                </span>
               </div>
               <div className="grid grid-cols-2 text-white bg-black" 
                    style={{ borderRadius: selectedBundleIndex === index ? '0' : '0 0 0.5rem 0.5rem' }}>
@@ -267,7 +303,7 @@ const HubnetBundleCards = () => {
                   <div className="flex space-x-2">
                     <input
                       type="tel"
-                      className="w-full px-4 py-2 rounded bg-opacity-90 bg-white text-gray-800 placeholder-gray-500 border focus:outline-none focus:border-blue-300"
+                      className="w-full px-4 py-2 rounded bg-opacity-90 bg-white text-gray-800 placeholder-gray-500 border focus:outline-none focus:border-purple-300"
                       placeholder="e.g., 0270000000"
                       value={phoneNumber}
                       onChange={(e) => {
@@ -289,7 +325,7 @@ const HubnetBundleCards = () => {
                   {numberConfirmed && (
                     <div className="mt-2 p-2 bg-green-100 text-green-800 rounded-md flex items-center">
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      <span className="text-xs">Number confirmed! Please proceed with purchase.</span>
+                      <span className="text-xs">Number confirmed! Please proceed with premium purchase.</span>
                     </div>
                   )}
                   <p className="text-xs text-white mt-1">Enter AirtelTigo number only (026, 056, 027, 057, 023, 053)</p>
@@ -299,11 +335,14 @@ const HubnetBundleCards = () => {
                   <p className="text-xs text-white font-semibold">
                     ⚠️ WARNING: This purchase is INSTANT and FINAL. No refunds for wrong numbers.
                   </p>
+                  <p className="text-xs text-yellow-300 mt-1">
+                    ⭐ PREMIUM: This order will be processed with priority handling.
+                  </p>
                 </div>
                 
                 <button
                   onClick={() => handlePurchase(bundle, index)}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-400 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:from-green-400 disabled:to-green-400 disabled:cursor-not-allowed shadow-lg"
                   disabled={isLoading || !numberConfirmed}
                 >
                   {isLoading ? (
@@ -312,9 +351,9 @@ const HubnetBundleCards = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Processing...
+                      Processing Premium Order...
                     </span>
-                  ) : 'Purchase'}
+                  ) : 'Purchase Premium Bundle'}
                 </button>
               </div>
             )}
@@ -325,4 +364,4 @@ const HubnetBundleCards = () => {
   );
 };
 
-export default HubnetBundleCards;
+export default AirtelTigoPremiumBundleCards;
