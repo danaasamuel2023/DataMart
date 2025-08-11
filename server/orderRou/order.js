@@ -582,13 +582,18 @@ router.post('/purchase-data', async (req, res) => {
     // Determine order reference prefix based on processing method
     let orderReferencePrefix = '';
     if (network === 'TELECEL') {
-      orderReferencePrefix = 'TC-';
+      // For Telecel, check if we're using Geonettech or Telecel API
+      if (!skipGeonettech) {
+        orderReferencePrefix = 'GN-TC-'; // Geonettech Telecel prefix
+      } else {
+        orderReferencePrefix = 'TC-'; // Direct Telecel API prefix
+      }
     } else if (network === 'AT_PREMIUM') {
       orderReferencePrefix = 'ATP-'; // Special prefix for AT_PREMIUM
     } else if (skipGeonettech && network !== 'AT_PREMIUM') {
-      orderReferencePrefix = 'MN-';
+      orderReferencePrefix = 'MN-'; // Manual processing prefix
     } else {
-      orderReferencePrefix = 'GN-';
+      orderReferencePrefix = 'GN-'; // General Geonettech prefix
     }
     
     let orderReference = generateMixedReference(orderReferencePrefix);
@@ -600,8 +605,10 @@ router.post('/purchase-data', async (req, res) => {
     let orderStatus = 'completed';
     let processingMethod = 'api';
     
-    // AT_PREMIUM always uses Geonettech API, never skip
-    const shouldSkipGeonet = skipGeonettech && (network !== 'TELECEL') && (network !== 'AT_PREMIUM');
+    // Determine if we should skip Geonettech
+    // Note: AT_PREMIUM always uses Geonettech, never skip
+    // For other networks including TELECEL, respect the skipGeonettech setting
+    const shouldSkipGeonet = skipGeonettech && (network !== 'AT_PREMIUM');
     
     logOperation('API_PROCESSING_DECISION', {
       network,
@@ -610,26 +617,74 @@ router.post('/purchase-data', async (req, res) => {
       orderReference,
       prefix: orderReferencePrefix,
       requestType: 'WEB',
-      isATPremium: network === 'AT_PREMIUM'
+      isATPremium: network === 'AT_PREMIUM',
+      isTelecel: network === 'TELECEL'
     });
     
     if (network === 'TELECEL') {
-      // Telecel API processing
-      processingMethod = 'telecel_api';
-      logOperation('USING_TELECEL_API', {
-        network,
-        phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
-        capacity,
-        orderReference,
-        requestType: 'WEB'
-      });
-      
-      try {
-        const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
-        
-        if (!telecelResponse.success) {
-          logOperation('TELECEL_API_ERROR', {
-            error: telecelResponse.error,
+      // Check if we should use Geonettech or Telecel API
+      if (!skipGeonettech) {
+        // Use Geonettech API for Telecel when not skipped
+        processingMethod = 'geonettech_api';
+        try {
+          const geonetOrderPayload = {
+            network_key: 'TELECEL', // Use TELECEL as the network key for Geonettech
+            ref: orderReference,
+            recipient: phoneNumber,
+            capacity: capacity
+          };
+          
+          logOperation('GEONETTECH_TELECEL_ORDER_REQUEST', {
+            ...geonetOrderPayload,
+            processingMethod,
+            requestType: 'WEB'
+          });
+          
+          const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+          orderResponse = geonetResponse.data;
+          
+          if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+            logOperation('GEONETTECH_TELECEL_API_UNSUCCESSFUL_RESPONSE', {
+              response: orderResponse,
+              orderReference
+            });
+            
+            await session.abortTransaction();
+            session.endSession();
+            
+            let errorMessage = 'Could not complete your purchase. Please try again later.';
+            
+            if (orderResponse && orderResponse.message) {
+              const msg = orderResponse.message.toLowerCase();
+              
+              if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+                errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+              } else if (msg.includes('invalid') || msg.includes('phone')) {
+                errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+              } else {
+                errorMessage = orderResponse.message;
+              }
+            }
+            
+            return res.status(400).json({
+              status: 'error',
+              message: errorMessage
+            });
+          }
+          
+          apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+          orderStatus = 'completed';
+          
+          logOperation('GEONETTECH_TELECEL_ORDER_SUCCESS', {
+            orderId: apiOrderId,
+            orderReference,
+            processingMethod,
+            responseData: orderResponse
+          });
+        } catch (apiError) {
+          logOperation('GEONETTECH_TELECEL_API_ERROR', {
+            error: apiError.message,
+            response: apiError.response ? apiError.response.data : null,
             orderReference
           });
           
@@ -638,14 +693,8 @@ router.post('/purchase-data', async (req, res) => {
           
           let errorMessage = 'Could not complete your purchase. Please try again later.';
           
-          if (telecelResponse.error && telecelResponse.error.message) {
-            errorMessage = telecelResponse.error.message;
-          }
-          
-          if (telecelResponse.error && telecelResponse.error.details && 
-              typeof telecelResponse.error.details === 'object' && 
-              telecelResponse.error.details.message) {
-            errorMessage = telecelResponse.error.details.message;
+          if (apiError.response && apiError.response.data && apiError.response.data.message) {
+            errorMessage = apiError.response.data.message;
           }
           
           return res.status(400).json({
@@ -653,47 +702,89 @@ router.post('/purchase-data', async (req, res) => {
             message: errorMessage
           });
         }
+      } else {
+        // When skipGeonettech is true for Telecel, use the Telecel API
+        processingMethod = 'telecel_api';
+        logOperation('USING_TELECEL_API', {
+          network,
+          phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+          capacity,
+          orderReference,
+          requestType: 'WEB',
+          skipGeonettech: true
+        });
         
-        orderResponse = telecelResponse.data;
-        orderStatus = 'completed';
-        
-        if (telecelResponse.telecelReference) {
-          apiOrderId = telecelResponse.telecelReference;
-          orderReference = telecelResponse.telecelReference;
+        try {
+          const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
           
-          logOperation('TELECEL_REFERENCE_UPDATE', {
-            originalReference: originalInternalReference,
+          if (!telecelResponse.success) {
+            logOperation('TELECEL_API_ERROR', {
+              error: telecelResponse.error,
+              orderReference
+            });
+            
+            await session.abortTransaction();
+            session.endSession();
+            
+            let errorMessage = 'Could not complete your purchase. Please try again later.';
+            
+            if (telecelResponse.error && telecelResponse.error.message) {
+              errorMessage = telecelResponse.error.message;
+            }
+            
+            if (telecelResponse.error && telecelResponse.error.details && 
+                typeof telecelResponse.error.details === 'object' && 
+                telecelResponse.error.details.message) {
+              errorMessage = telecelResponse.error.details.message;
+            }
+            
+            return res.status(400).json({
+              status: 'error',
+              message: errorMessage
+            });
+          }
+          
+          orderResponse = telecelResponse.data;
+          orderStatus = 'completed';
+          
+          if (telecelResponse.telecelReference) {
+            apiOrderId = telecelResponse.telecelReference;
+            orderReference = telecelResponse.telecelReference;
+            
+            logOperation('TELECEL_REFERENCE_UPDATE', {
+              originalReference: originalInternalReference,
+              telecelReference: telecelResponse.telecelReference,
+              finalReference: orderReference
+            });
+          } else {
+            apiOrderId = orderReference;
+            logOperation('TELECEL_NO_REFERENCE_RETURNED', {
+              usingOriginalReference: orderReference
+            });
+          }
+          
+          logOperation('TELECEL_ORDER_SUCCESS', {
+            orderId: apiOrderId,
+            orderReference: orderReference,
             telecelReference: telecelResponse.telecelReference,
-            finalReference: orderReference
+            originalInternalReference: originalInternalReference,
+            processingMethod
           });
-        } else {
-          apiOrderId = orderReference;
-          logOperation('TELECEL_NO_REFERENCE_RETURNED', {
-            usingOriginalReference: orderReference
+        } catch (telecelError) {
+          logOperation('TELECEL_API_EXCEPTION', {
+            error: telecelError.message,
+            stack: telecelError.stack,
+            orderReference
+          });
+          
+          await session.abortTransaction();
+          session.endSession();
+          
+          return res.status(400).json({
+            status: 'error',
+            message: 'Unable to process your order. Please try again later.'
           });
         }
-        
-        logOperation('TELECEL_ORDER_SUCCESS', {
-          orderId: apiOrderId,
-          orderReference: orderReference,
-          telecelReference: telecelResponse.telecelReference,
-          originalInternalReference: originalInternalReference,
-          processingMethod
-        });
-      } catch (telecelError) {
-        logOperation('TELECEL_API_EXCEPTION', {
-          error: telecelError.message,
-          stack: telecelError.stack,
-          orderReference
-        });
-        
-        await session.abortTransaction();
-        session.endSession();
-        
-        return res.status(400).json({
-          status: 'error',
-          message: 'Unable to process your order. Please try again later.'
-        });
       }
     } else if (network === 'AT_PREMIUM') {
       // AT_PREMIUM always uses Geonettech API
@@ -812,52 +903,12 @@ router.post('/purchase-data', async (req, res) => {
           requestType: 'WEB'
         });
         
-        try {
-          const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
-          orderResponse = geonetResponse.data;
-          
-          if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
-            logOperation('GEONETTECH_API_UNSUCCESSFUL_RESPONSE', {
-              response: orderResponse,
-              orderReference
-            });
-            
-            await session.abortTransaction();
-            session.endSession();
-            
-            let errorMessage = 'Could not complete your purchase. Please try again later.';
-            
-            if (orderResponse && orderResponse.message) {
-              const msg = orderResponse.message.toLowerCase();
-              
-              if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
-                errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
-              } else if (msg.includes('invalid') || msg.includes('phone')) {
-                errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
-              } else {
-                errorMessage = orderResponse.message;
-              }
-            }
-            
-            return res.status(400).json({
-              status: 'error',
-              message: errorMessage
-            });
-          }
-          
-          apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
-          orderStatus = 'completed';
-          
-          logOperation('GEONETTECH_ORDER_SUCCESS', {
-            orderId: apiOrderId,
-            orderReference,
-            processingMethod,
-            responseData: orderResponse
-          });
-        } catch (apiError) {
-          logOperation('GEONETTECH_API_ERROR', {
-            error: apiError.message,
-            response: apiError.response ? apiError.response.data : null,
+        const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+        orderResponse = geonetResponse.data;
+        
+        if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+          logOperation('GEONETTECH_API_UNSUCCESSFUL_RESPONSE', {
+            response: orderResponse,
             orderReference
           });
           
@@ -866,8 +917,16 @@ router.post('/purchase-data', async (req, res) => {
           
           let errorMessage = 'Could not complete your purchase. Please try again later.';
           
-          if (apiError.response && apiError.response.data && apiError.response.data.message) {
-            errorMessage = apiError.response.data.message;
+          if (orderResponse && orderResponse.message) {
+            const msg = orderResponse.message.toLowerCase();
+            
+            if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+              errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+            } else if (msg.includes('invalid') || msg.includes('phone')) {
+              errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+            } else {
+              errorMessage = orderResponse.message;
+            }
           }
           
           return res.status(400).json({
@@ -875,18 +934,35 @@ router.post('/purchase-data', async (req, res) => {
             message: errorMessage
           });
         }
-      } catch (error) {
-        logOperation('GENERAL_ERROR', {
-          error: error.message,
+        
+        apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+        orderStatus = 'completed';
+        
+        logOperation('GEONETTECH_ORDER_SUCCESS', {
+          orderId: apiOrderId,
+          orderReference,
+          processingMethod,
+          responseData: orderResponse
+        });
+      } catch (apiError) {
+        logOperation('GEONETTECH_API_ERROR', {
+          error: apiError.message,
+          response: apiError.response ? apiError.response.data : null,
           orderReference
         });
         
         await session.abortTransaction();
         session.endSession();
         
-        return res.status(500).json({
+        let errorMessage = 'Could not complete your purchase. Please try again later.';
+        
+        if (apiError.response && apiError.response.data && apiError.response.data.message) {
+          errorMessage = apiError.response.data.message;
+        }
+        
+        return res.status(400).json({
           status: 'error',
-          message: 'An unexpected error occurred. Please try again later.'
+          message: errorMessage
         });
       }
     }
@@ -923,7 +999,7 @@ router.post('/purchase-data', async (req, res) => {
       skipGeonettech: shouldSkipGeonet,
       processingMethod: processingMethod,
       orderReferencePrefix: orderReferencePrefix,
-      originalReference: network === 'TELECEL' ? originalInternalReference : null
+      originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null
     });
 
     // Update user wallet
@@ -957,9 +1033,11 @@ router.post('/purchase-data', async (req, res) => {
       balanceAfter: balanceAfter,
       amountDeducted: validatedPrice,
       validatedPrice: validatedPrice,
-      telecelReference: network === 'TELECEL' ? orderReference : null,
-      originalInternalReference: network === 'TELECEL' ? originalInternalReference : null,
+      telecelReference: (network === 'TELECEL' && skipGeonettech) ? orderReference : null,
+      originalInternalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null,
       isATPremium: network === 'AT_PREMIUM',
+      isTelecel: network === 'TELECEL',
+      usedGeonettech: processingMethod === 'geonettech_api',
       requestType: 'WEB'
     });
 
@@ -981,7 +1059,9 @@ router.post('/purchase-data', async (req, res) => {
         orderReference: orderReference,
         processingMethod: processingMethod,
         orderPrefix: orderReferencePrefix,
-        validatedPrice: validatedPrice
+        validatedPrice: validatedPrice,
+        usedGeonettech: processingMethod === 'geonettech_api',
+        usedTelecelAPI: processingMethod === 'telecel_api'
       }
     });
 
@@ -1241,8 +1321,8 @@ router.get('/order-status/:orderId', async (req, res) => {
     });
 
     // Check status based on network
-    if (localOrder.network === 'TELECEL') {
-      // Check status with Telecel API
+    if (localOrder.network === 'TELECEL' && localOrder.processingMethod === 'telecel_api') {
+      // Check status with Telecel API only if it was processed through Telecel API
       logOperation('TELECEL_STATUS_CHECK_REQUEST', {
         geonetReference: localOrder.geonetReference
       });
@@ -1285,7 +1365,7 @@ router.get('/order-status/:orderId', async (req, res) => {
         });
       }
     } else {
-      // Check status with Geonettech
+      // Check status with Geonettech for all other cases
       logOperation('GEONETTECH_STATUS_CHECK_REQUEST', {
         geonetReference: localOrder.geonetReference
       });
