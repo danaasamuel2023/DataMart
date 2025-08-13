@@ -23,24 +23,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'DatAmArt';
 const GEONETTECH_BASE_URL = 'https://testhub.geonettech.site/api/v1';
 const GEONETTECH_API_KEY = '42|tjhxBxaWWe4mPUpxXN1uIk0KTxypvlSqOIOQWz6K162aa0d6';
 
-// Add Telcel API constants
-const TELCEL_API_URL = 'https://iget.onrender.com/api/developer/orders';
-const TELCEL_API_KEY = '76013fa9c8bf774ac7fb35db5e586fb7852a618cbf57b9ddb072fc2c465e5fe8';
+// Add Telecel API constants
+const TELECEL_API_URL = 'https://iget.onrender.com/api/developer/orders/place';
+const TELECEL_API_KEY = '76013fa9c8bf774ac7fb35db5e586fb7852a618cbf57b9ddb072fc2c465e5fe8';
 
 // FIXED: Create Geonettech client with same config as web interface
 const geonetClient = axios.create({
   baseURL: GEONETTECH_BASE_URL,
   headers: {
     'Authorization': `Bearer ${GEONETTECH_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
-});
-
-// Create Telcel client
-const telcelClient = axios.create({
-  baseURL: TELCEL_API_URL,
-  headers: {
-    'X-API-Key': TELCEL_API_KEY,
     'Content-Type': 'application/json'
   }
 });
@@ -53,49 +44,52 @@ const logOperation = (operation, data) => {
 // Data Package Pricing for all networks
 const DATA_PACKAGES = [
     // TELECEL Packages
-    { capacity: '5', mb: '5000', price: '23.00', network: 'TELECEL' },
-    { capacity: '6', mb: '6000', price: '28.00', network: 'TELECEL' },
-    { capacity: '8', mb: '8000', price: '28.00', network: 'TELECEL' },
-    { capacity: '10', mb: '10000', price: '40.50', network: 'TELECEL' },
-    { capacity: '12', mb: '12000', price: '42.50', network: 'TELECEL' },
-    { capacity: '15', mb: '15000', price: '60.50', network: 'TELECEL' },
-    { capacity: '20', mb: '20000', price: '81.00', network: 'TELECEL' },
-    { capacity: '25', mb: '25000', price: '99.00', network: 'TELECEL' },
-    { capacity: '30', mb: '30000', price: '118.00', network: 'TELECEL' },
-    { capacity: '40', mb: '40000', price: '155.00', network: 'TELECEL' },
-    { capacity: '50', mb: '50000', price: '195.00', network: 'TELECEL' },
+    { capacity: '5', mb: '5000', price: '19.50', network: 'TELECEL' },
+    { capacity: '8', mb: '8000', price: '34.64', network: 'TELECEL' },
+    { capacity: '10', mb: '10000', price: '36.50', network: 'TELECEL' },
+    { capacity: '12', mb: '12000', price: '43.70', network: 'TELECEL' },
+    { capacity: '15', mb: '15000', price: '52.85', network: 'TELECEL' },
+    { capacity: '20', mb: '20000', price: '69.80', network: 'TELECEL' },
+    { capacity: '25', mb: '25000', price: '86.75', network: 'TELECEL' },
+    { capacity: '30', mb: '30000', price: '103.70', network: 'TELECEL' },
+    { capacity: '35', mb: '35000', price: '120.65', network: 'TELECEL' },
+    { capacity: '40', mb: '40000', price: '137.60', network: 'TELECEL' },
+    { capacity: '45', mb: '45000', price: '154.55', network: 'TELECEL' },
+    { capacity: '50', mb: '50000', price: '171.50', network: 'TELECEL' },
+    { capacity: '100', mb: '100000', price: '341.00', network: 'TELECEL' },
     
     // MTN Packages
-   { capacity: '1', mb: '1000', price: '4.50', network: 'YELLO', inStock: true },
-   { capacity: '2', mb: '2000', price: '8.90', network: 'YELLO', inStock: true },
-   { capacity: '3', mb: '3000', price: '12.99', network: 'YELLO', inStock: true },
-   { capacity: '4', mb: '4000', price: '18.00', network: 'YELLO', inStock: true },
-   { capacity: '5', mb: '5000', price: '22.75', network: 'YELLO', inStock: true },
-   { capacity: '6', mb: '6000', price: '26.00', network: 'YELLO', inStock: true },
-   { capacity: '8', mb: '8000', price: '34.50', network: 'YELLO', inStock: true },
-   { capacity: '10', mb: '10000', price: '41.50', network: 'YELLO', inStock: true },
-   { capacity: '15', mb: '15000', price: '62.00', network: 'YELLO', inStock: true },
-   { capacity: '20', mb: '20000', price: '80.00', network: 'YELLO', inStock: true },
-   { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: true },
-   { capacity: '30', mb: '30000', price: '120.00', network: 'YELLO', inStock: true },
-   { capacity: '40', mb: '40000', price: '165.00', network: 'YELLO', inStock: true },
-   { capacity: '50', mb: '50000', price: '198.00', network: 'YELLO', inStock: true },
-   { capacity: '100', mb: '100000', price: '406.00', network: 'YELLO', inStock: true },
+    { capacity: '1', mb: '1000', price: '4.50', network: 'YELLO', inStock: true },
+    { capacity: '2', mb: '2000', price: '9.20', network: 'YELLO', inStock: true },
+    { capacity: '3', mb: '3000', price: '13.50', network: 'YELLO', inStock: true },
+    { capacity: '4', mb: '4000', price: '18.50', network: 'YELLO', inStock: true },
+    { capacity: '5', mb: '5000', price: '23.50', network: 'YELLO', inStock: true },
+    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: true },
+    { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: true },
+    { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: true },
+    { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: true },
+    { capacity: '20', mb: '20000', price: '83.00', network: 'YELLO', inStock: true },
+    { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: true },
+    { capacity: '30', mb: '30000', price: '129.00', network: 'YELLO', inStock: true },
+    { capacity: '40', mb: '40000', price: '166.00', network: 'YELLO', inStock: true },
+    { capacity: '50', mb: '50000', price: '207.00', network: 'YELLO', inStock: true },
+    { capacity: '100', mb: '100000', price: '407.00', network: 'YELLO', inStock: true },
+    
     // AirtelTigo Packages
-    { capacity: '1', mb: '1000', price: '3.9', network: 'at' },
-    { capacity: '2', mb: '2000', price: '8.30', network: 'at' },
-    { capacity: '3', mb: '3000', price: '13.20', network: 'at' },
-    { capacity: '4', mb: '4000', price: '16.00', network: 'at' },
-    { capacity: '5', mb: '5000', price: '19.00', network: 'at' },
-    { capacity: '6', mb: '6000', price: '23.00', network: 'at' },
-    { capacity: '8', mb: '8000', price: '30.00', network: 'at' },
-    { capacity: '10', mb: '10000', price: '37.50', network: 'at' },
-    { capacity: '12', mb: '12000', price: '42.50', network: 'at' },
-    { capacity: '15', mb: '15000', price: '54.50', network: 'at' },
-    { capacity: '25', mb: '25000', price: '87.00', network: 'at' },
-    { capacity: '30', mb: '30000', price: '110.00', network: 'at' },
-    { capacity: '40', mb: '40000', price: '145.00', network: 'at' },
-    { capacity: '50', mb: '50000', price: '180.00', network: 'at' }
+    { capacity: '1', mb: '1000', price: '3.95', network: 'at' },
+    { capacity: '2', mb: '2000', price: '8.35', network: 'at' },
+    { capacity: '3', mb: '3000', price: '13.25', network: 'at' },
+    { capacity: '4', mb: '4000', price: '16.50', network: 'at' },
+    { capacity: '5', mb: '5000', price: '19.50', network: 'at' },
+    { capacity: '6', mb: '6000', price: '23.50', network: 'at' },
+    { capacity: '8', mb: '8000', price: '30.50', network: 'at' },
+    { capacity: '10', mb: '10000', price: '38.50', network: 'at' },
+    { capacity: '12', mb: '12000', price: '45.50', network: 'at' },
+    { capacity: '15', mb: '15000', price: '57.50', network: 'at' },
+    { capacity: '25', mb: '25000', price: '95.00', network: 'at' },
+    { capacity: '30', mb: '30000', price: '115.00', network: 'at' },
+    { capacity: '40', mb: '40000', price: '151.00', network: 'at' },
+    { capacity: '50', mb: '50000', price: '190.00', network: 'at' }
 ];
 
 // FIXED: Use same balance check as web interface
@@ -240,6 +234,117 @@ const findDataPackage = (capacity, network) => {
     };
 };
 
+// Helper function to generate mixed reference
+function generateMixedReference(prefix = '') {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
+    
+    let reference = prefix;
+    
+    // Add 2 random letters
+    for (let i = 0; i < 2; i++) {
+        reference += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    
+    // Add 4 random numbers
+    for (let i = 0; i < 4; i++) {
+        reference += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    }
+    
+    // Add 2 more random letters
+    for (let i = 0; i < 2; i++) {
+        reference += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    
+    return reference;
+}
+
+// FIXED: Helper function for Telecel API integration - same as web interface
+async function processTelecelOrder(recipient, capacity, reference) {
+    try {
+        const capacityInMB = capacity >= 1 && capacity < 1000 ? capacity * 1000 : capacity;
+        
+        logOperation('TELECEL_ORDER_REQUEST_PREPARED', {
+            recipient,
+            capacityGB: capacity,
+            capacityMB: capacityInMB,
+            reference
+        });
+        
+        const telecelPayload = {
+            recipientNumber: recipient,
+            capacity: capacity,
+            bundleType: "Telecel-5959",
+            reference: reference,
+        };
+        
+        logOperation('TELECEL_ORDER_REQUEST', telecelPayload);
+        
+        const response = await axios.post(
+            TELECEL_API_URL,
+            telecelPayload,
+            { 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-API-Key': TELECEL_API_KEY
+                } 
+            }
+        );
+        
+        logOperation('TELECEL_ORDER_RESPONSE', {
+            status: response.status,
+            data: response.data,
+            fullResponse: JSON.stringify(response.data, null, 2)
+        });
+        
+        // Extract the Telecel order reference from the response
+        let telecelOrderReference = null;
+        
+        if (response.data?.data?.order?.orderReference) {
+            telecelOrderReference = response.data.data.order.orderReference;
+        } else if (response.data?.data?.orderReference) {
+            telecelOrderReference = response.data.data.orderReference;
+        } else if (response.data?.orderReference) {
+            telecelOrderReference = response.data.orderReference;
+        } else if (response.data?.data?.reference) {
+            telecelOrderReference = response.data.data.reference;
+        } else if (response.data?.reference) {
+            telecelOrderReference = response.data.reference;
+        } else if (response.data?.data?.order?.id) {
+            telecelOrderReference = response.data.data.order.id;
+        } else if (response.data?.data?.id) {
+            telecelOrderReference = response.data.data.id;
+        }
+        
+        logOperation('TELECEL_ORDER_REFERENCE_EXTRACTED', {
+            telecelOrderReference,
+            originalReference: reference
+        });
+        
+        return {
+            success: true,
+            data: response.data,
+            orderId: telecelOrderReference || reference,
+            telecelReference: telecelOrderReference
+        };
+    } catch (error) {
+        logOperation('TELECEL_ORDER_ERROR', {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+        });
+        
+        return {
+            success: false,
+            error: {
+                message: error.message,
+                details: error.response?.data || 'No response details available'
+            }
+        };
+    }
+}
+
 // Create new API key
 router.post('/generate-api-key', authenticateUser, async (req, res) => {
     try {
@@ -377,67 +482,7 @@ router.get('/data-packages', async (req, res) => {
     }
 });
 
-// FIXED: Helper function for Telecel API integration - same as web interface
-async function processTelecelOrder(recipient, capacity, reference) {
-    try {
-        // Convert GB to MB if needed (assuming capacity might be in GB)
-        const capacityInMB = capacity >= 1 && capacity < 1000 ? capacity * 1000 : capacity;
-        
-        logOperation('TELECEL_ORDER_REQUEST_PREPARED', {
-            recipient,
-            capacityGB: capacity,
-            capacityMB: capacityInMB,
-            reference
-        });
-        
-        // Format payload for Telecel API 
-        const telecelPayload = {
-            recipientNumber: recipient,
-            capacity: capacity, // Use GB for Telecel API
-            bundleType: "Telecel-5959", // Specific bundle type required for Telecel
-            reference: reference,
-        };
-        
-        logOperation('TELECEL_ORDER_REQUEST', telecelPayload);
-        
-        // Call Telecel API to process the order
-        const response = await axios.post(
-            'https://iget.onrender.com/api/developer/orders/place',
-            telecelPayload,
-            { 
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-API-Key': TELCEL_API_KEY
-                } 
-            }
-        );
-        
-        logOperation('TELECEL_ORDER_RESPONSE', response.data);
-        
-        return {
-            success: true,
-            data: response.data,
-            orderId: response.data.orderReference || response.data.transactionId || response.data.id || reference
-        };
-    } catch (error) {
-        logOperation('TELECEL_ORDER_ERROR', {
-            message: error.message,
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data
-        });
-        
-        return {
-            success: false,
-            error: {
-                message: error.message,
-                details: error.response?.data || 'No response details available'
-            }
-        };
-    }
-}
-
-// Updated purchase endpoint with balance tracking
+// Updated purchase endpoint with correct processing logic
 router.post('/purchase', async (req, res, next) => {
     // Determine if this is an API request
     const isApiRequest = !!req.headers['x-api-key'];
@@ -459,7 +504,6 @@ router.post('/purchase', async (req, res, next) => {
             network, 
             capacity, 
             gateway,
-            referrerNumber, // For Hubnet referrer functionality
             ref // Custom reference from developer (optional)
         } = req.body;
 
@@ -468,11 +512,10 @@ router.post('/purchase', async (req, res, next) => {
 
         logOperation('DATA_PURCHASE_REQUEST', {
             userId: req.user._id,
-            phoneNumber,
+            phoneNumber: phoneNumber?.substring(0, 3) + 'XXXXXXX',
             network,
             capacity,
             gateway,
-            referrerNumber,
             customReference: ref,
             requestType: isApiRequest ? 'API' : 'WEB',
             timestamp: new Date()
@@ -587,6 +630,20 @@ router.post('/purchase', async (req, res, next) => {
         // Generate unique references
         const transactionReference = `TRX-${uuidv4()}`;
         
+        // Determine order reference prefix based on processing method
+        let orderReferencePrefix = '';
+        if (network === 'TELECEL') {
+            if (!skipGeonettech) {
+                orderReferencePrefix = 'GN-TC-'; // Geonettech Telecel prefix
+            } else {
+                orderReferencePrefix = 'TC-'; // Direct Telecel API prefix
+            }
+        } else if (skipGeonettech) {
+            orderReferencePrefix = 'MN-'; // Manual processing prefix
+        } else {
+            orderReferencePrefix = 'GN-'; // General Geonettech prefix
+        }
+        
         // Use custom reference if provided, otherwise generate one
         let orderReference;
         if (ref) {
@@ -613,13 +670,316 @@ router.post('/purchase', async (req, res, next) => {
             orderReference = ref;
             logOperation('USING_CUSTOM_REFERENCE', { orderReference });
         } else {
-            // Generate a random reference if not provided
-            orderReference = Math.floor(1000 + Math.random() * 900000).toString();
+            // Generate a mixed reference if not provided
+            orderReference = generateMixedReference(orderReferencePrefix);
             logOperation('GENERATED_REFERENCE', { orderReference });
         }
 
+        const originalInternalReference = orderReference;
+
         // Calculate balance after transaction
         const balanceAfter = balanceBefore - price;
+
+        // PROCESSING SECTION
+        let orderResponse = null;
+        let apiOrderId = null;
+        let orderStatus = 'completed';
+        let processingMethod = 'api';
+        
+        logOperation('API_PROCESSING_DECISION', {
+            network,
+            skipGeonettech: skipGeonettech,
+            orderReference,
+            prefix: orderReferencePrefix,
+            requestType: isApiRequest ? 'API' : 'WEB'
+        });
+
+        // FIXED: Process based on network - matching web route logic
+        if (network === 'TELECEL') {
+            // Check if we should use Geonettech or Telecel API
+            if (!skipGeonettech) {
+                // Use Geonettech API for Telecel when not skipped
+                processingMethod = 'geonettech_api';
+                try {
+                    const geonetOrderPayload = {
+                        network_key: 'TELECEL', // Use TELECEL as the network key for Geonettech
+                        ref: orderReference,
+                        recipient: phoneNumber,
+                        capacity: capacity
+                    };
+                    
+                    logOperation('GEONETTECH_TELECEL_ORDER_REQUEST', {
+                        ...geonetOrderPayload,
+                        processingMethod,
+                        requestType: isApiRequest ? 'API' : 'WEB'
+                    });
+                    
+                    const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+                    orderResponse = geonetResponse.data;
+                    
+                    if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+                        logOperation('GEONETTECH_TELECEL_API_UNSUCCESSFUL_RESPONSE', {
+                            response: orderResponse,
+                            orderReference
+                        });
+                        
+                        await session.abortTransaction();
+                        session.endSession();
+                        
+                        let errorMessage = 'Could not complete your purchase. Please try again later.';
+                        
+                        if (orderResponse && orderResponse.message) {
+                            const msg = orderResponse.message.toLowerCase();
+                            
+                            if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+                                errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+                            } else if (msg.includes('invalid') || msg.includes('phone')) {
+                                errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+                            } else {
+                                errorMessage = orderResponse.message;
+                            }
+                        }
+                        
+                        return res.status(400).json({
+                            status: 'error',
+                            message: errorMessage
+                        });
+                    }
+                    
+                    apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+                    orderStatus = 'completed';
+                    
+                    logOperation('GEONETTECH_TELECEL_ORDER_SUCCESS', {
+                        orderId: apiOrderId,
+                        orderReference,
+                        processingMethod,
+                        responseData: orderResponse
+                    });
+                } catch (apiError) {
+                    logOperation('GEONETTECH_TELECEL_API_ERROR', {
+                        error: apiError.message,
+                        response: apiError.response ? apiError.response.data : null,
+                        orderReference
+                    });
+                    
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    let errorMessage = 'Could not complete your purchase. Please try again later.';
+                    
+                    if (apiError.response && apiError.response.data && apiError.response.data.message) {
+                        errorMessage = apiError.response.data.message;
+                    }
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: errorMessage
+                    });
+                }
+            } else {
+                // When skipGeonettech is true for Telecel, use the Telecel API
+                processingMethod = 'telecel_api';
+                logOperation('USING_TELECEL_API', {
+                    network,
+                    phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+                    capacity,
+                    orderReference,
+                    requestType: isApiRequest ? 'API' : 'WEB',
+                    skipGeonettech: true
+                });
+                
+                try {
+                    const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
+                    
+                    if (!telecelResponse.success) {
+                        logOperation('TELECEL_API_ERROR', {
+                            error: telecelResponse.error,
+                            orderReference
+                        });
+                        
+                        await session.abortTransaction();
+                        session.endSession();
+                        
+                        let errorMessage = 'Could not complete your purchase. Please try again later.';
+                        
+                        if (telecelResponse.error && telecelResponse.error.message) {
+                            errorMessage = telecelResponse.error.message;
+                        }
+                        
+                        if (telecelResponse.error && telecelResponse.error.details && 
+                            typeof telecelResponse.error.details === 'object' && 
+                            telecelResponse.error.details.message) {
+                            errorMessage = telecelResponse.error.details.message;
+                        }
+                        
+                        return res.status(400).json({
+                            status: 'error',
+                            message: errorMessage
+                        });
+                    }
+                    
+                    orderResponse = telecelResponse.data;
+                    orderStatus = 'completed';
+                    
+                    if (telecelResponse.telecelReference) {
+                        apiOrderId = telecelResponse.telecelReference;
+                        orderReference = telecelResponse.telecelReference;
+                        
+                        logOperation('TELECEL_REFERENCE_UPDATE', {
+                            originalReference: originalInternalReference,
+                            telecelReference: telecelResponse.telecelReference,
+                            finalReference: orderReference
+                        });
+                    } else {
+                        apiOrderId = orderReference;
+                        logOperation('TELECEL_NO_REFERENCE_RETURNED', {
+                            usingOriginalReference: orderReference
+                        });
+                    }
+                    
+                    logOperation('TELECEL_ORDER_SUCCESS', {
+                        orderId: apiOrderId,
+                        orderReference: orderReference,
+                        telecelReference: telecelResponse.telecelReference,
+                        originalInternalReference: originalInternalReference,
+                        processingMethod
+                    });
+                } catch (telecelError) {
+                    logOperation('TELECEL_API_EXCEPTION', {
+                        error: telecelError.message,
+                        stack: telecelError.stack,
+                        orderReference
+                    });
+                    
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'Unable to process your order. Please try again later.'
+                    });
+                }
+            }
+        } else if (skipGeonettech) {
+            // Skip Geonettech API - store as pending for all networks when skipGeonettech is true
+            processingMethod = 'manual';
+            logOperation('SKIPPING_GEONETTECH_API', {
+                network,
+                phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+                capacity,
+                orderReference,
+                processingMethod,
+                requestType: isApiRequest ? 'API' : 'WEB'
+            });
+            
+            orderStatus = 'pending';
+            apiOrderId = orderReference;
+            orderResponse = {
+                status: 'pending',
+                message: 'Order stored for manual processing',
+                reference: orderReference,
+                processingMethod: 'manual',
+                skipReason: 'API disabled for network'
+            };
+        } else {
+            // Use Geonettech API for other networks (YELLO, at) when skipGeonettech is false
+            processingMethod = 'geonettech_api';
+            try {
+                // Check agent balance before processing
+                const agentBalance = await checkAgentBalance();
+                
+                if (agentBalance < price) {
+                    logOperation('AGENT_INSUFFICIENT_BALANCE', {
+                        agentBalance,
+                        requiredAmount: price,
+                        network
+                    });
+                    
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'Service provider temporarily out of stock. Please try again later.'
+                    });
+                }
+
+                const geonetOrderPayload = {
+                    network_key: network, // Use the network directly (YELLO or at)
+                    ref: orderReference,
+                    recipient: phoneNumber,
+                    capacity: capacity
+                };
+                
+                logOperation('GEONETTECH_ORDER_REQUEST', {
+                    ...geonetOrderPayload,
+                    processingMethod,
+                    requestType: isApiRequest ? 'API' : 'WEB'
+                });
+                
+                const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+                orderResponse = geonetResponse.data;
+                
+                if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+                    logOperation('GEONETTECH_API_UNSUCCESSFUL_RESPONSE', {
+                        response: orderResponse,
+                        orderReference
+                    });
+                    
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    let errorMessage = 'Could not complete your purchase. Please try again later.';
+                    
+                    if (orderResponse && orderResponse.message) {
+                        const msg = orderResponse.message.toLowerCase();
+                        
+                        if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+                            errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+                        } else if (msg.includes('invalid') || msg.includes('phone')) {
+                            errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+                        } else {
+                            errorMessage = orderResponse.message;
+                        }
+                    }
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: errorMessage
+                    });
+                }
+                
+                apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+                orderStatus = 'completed';
+                
+                logOperation('GEONETTECH_ORDER_SUCCESS', {
+                    orderId: apiOrderId,
+                    orderReference,
+                    processingMethod,
+                    responseData: orderResponse
+                });
+            } catch (apiError) {
+                logOperation('GEONETTECH_API_ERROR', {
+                    error: apiError.message,
+                    response: apiError.response ? apiError.response.data : null,
+                    orderReference
+                });
+                
+                await session.abortTransaction();
+                session.endSession();
+                
+                let errorMessage = 'Could not complete your purchase. Please try again later.';
+                
+                if (apiError.response && apiError.response.data && apiError.response.data.message) {
+                    errorMessage = apiError.response.data.message;
+                }
+                
+                return res.status(400).json({
+                    status: 'error',
+                    message: errorMessage
+                });
+            }
+        }
 
         // Create Transaction with balance tracking
         const transaction = new Transaction({
@@ -634,157 +994,6 @@ router.post('/purchase', async (req, res, next) => {
             description: `Data purchase: ${capacity}GB ${network} for ${phoneNumber}`
         });
 
-        // PROCESSING SECTION
-        let orderResponse = null;
-        let apiOrderId = null;
-        let orderStatus = 'completed';
-        
-        // Check if we should skip API calls based on request type
-        const shouldSkipApi = skipGeonettech && (network !== 'TELECEL');
-        
-        logOperation('API_PROCESSING_DECISION', {
-            network,
-            skipGeonettech: skipGeonettech,
-            shouldSkipApi,
-            requestType: isApiRequest ? 'API' : 'WEB'
-        });
-
-        // Process based on network
-        if (network === 'at') {
-            // Process AT network through Hubnet
-            if (shouldSkipApi) {
-                orderStatus = 'pending';
-                apiOrderId = orderReference;
-                orderResponse = {
-                    status: 'pending',
-                    message: 'Order stored as pending - Hubnet API disabled',
-                    reference: orderReference
-                };
-            } else {
-                // Process through Hubnet API
-                const volumeInMB = parseFloat(capacity) * 1000;
-                const networkCode = 'at';
-
-                try {
-                    const hubnetResponse = await fetch(`https://console.hubnet.app/live/api/context/business/transaction/${networkCode}-new-transaction`, {
-                        method: 'POST',
-                        headers: {
-                            'token': 'Bearer KN5CxVxXYWCrKDyHBOwvNj1gbMSiWTw5FL5',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            phone: phoneNumber,
-                            volume: volumeInMB,
-                            reference: orderReference,
-                            referrer: referrerNumber || phoneNumber,
-                            webhook: ''
-                        })
-                    });
-
-                    const hubnetData = await hubnetResponse.json();
-
-                    if (!hubnetResponse.ok) {
-                        await session.abortTransaction();
-                        session.endSession();
-                        
-                        return res.status(400).json({
-                            status: 'error',
-                            message: hubnetData.message || 'Could not complete your purchase. Please try again later.'
-                        });
-                    }
-
-                    orderStatus = 'completed';
-                    orderResponse = hubnetData;
-                    apiOrderId = orderReference;
-                    
-                } catch (hubnetError) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    
-                    return res.status(400).json({
-                        status: 'error',
-                        message: 'Unable to process your order. Please try again later.'
-                    });
-                }
-            }
-
-        } else if (network === 'TELECEL') {
-            // Always use Telecel API for Telecel network
-            const telecelResponse = await processTelecelOrder(phoneNumber, capacity, orderReference);
-            
-            if (!telecelResponse.success) {
-                await session.abortTransaction();
-                session.endSession();
-                
-                return res.status(400).json({
-                    status: 'error',
-                    message: telecelResponse.error.message || 'Could not complete your purchase. Please try again later.'
-                });
-            }
-            
-            orderResponse = telecelResponse.data;
-            orderStatus = 'completed';
-            apiOrderId = telecelResponse.orderId || orderReference;
-
-        } else if (shouldSkipApi) {
-            // Skip Geonettech API - store as pending
-            orderStatus = 'pending';
-            apiOrderId = orderReference;
-            orderResponse = {
-                status: 'pending',
-                message: 'Order stored as pending - API disabled',
-                reference: orderReference
-            };
-
-        } else {
-            // Use Geonettech API for YELLO network
-            try {
-                const agentBalance = await checkAgentBalance();
-                
-                if (agentBalance < price) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    
-                    return res.status(400).json({
-                        status: 'error',
-                        message: 'Service provider out of stock'
-                    });
-                }
-
-                const geonetOrderPayload = {
-                    network_key: network,
-                    ref: orderReference,
-                    recipient: phoneNumber,
-                    capacity: capacity
-                };
-                
-                const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
-                
-                if (!geonetResponse.data || !geonetResponse.data.status || geonetResponse.data.status !== 'success') {
-                    await session.abortTransaction();
-                    session.endSession();
-                    
-                    return res.status(400).json({
-                        status: 'error',
-                        message: geonetResponse.data?.message || 'Could not complete your purchase. Please try again later.'
-                    });
-                }
-
-                orderStatus = 'completed';
-                orderResponse = geonetResponse.data;
-                apiOrderId = orderResponse.data?.orderId || orderReference;
-                
-            } catch (apiError) {
-                await session.abortTransaction();
-                session.endSession();
-                
-                return res.status(400).json({
-                    status: 'error',
-                    message: apiError.response?.data?.message || 'Could not complete your purchase. Please try again later.'
-                });
-            }
-        }
-
         // Create Data Purchase with reference
         const dataPurchase = new DataPurchase({
             userId: user._id,
@@ -792,16 +1001,17 @@ router.post('/purchase', async (req, res, next) => {
             network,
             capacity,
             mb: dataPackage.mb,
-            gateway,
+            gateway: 'wallet',
             method: isApiRequest ? 'api' : 'web',
             price,
             status: orderStatus,
             geonetReference: orderReference,
             apiOrderId: apiOrderId,
             apiResponse: orderResponse,
-            skipGeonettech: shouldSkipApi,
-            hubnetReference: network === 'at' ? orderReference : null,
-            referrerNumber: referrerNumber || null
+            skipGeonettech: skipGeonettech,
+            processingMethod: processingMethod,
+            orderReferencePrefix: orderReferencePrefix,
+            originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null
         });
 
         // Link transaction to purchase
@@ -828,17 +1038,21 @@ router.post('/purchase', async (req, res, next) => {
 
         // Prepare response message based on order status
         let responseMessage = 'Data bundle purchased successfully';
-        if (orderStatus === 'pending') {
-            responseMessage = 'Order placed successfully and is pending processing';
+        if (orderStatus === 'pending' && processingMethod === 'manual') {
+            responseMessage = 'Order placed successfully. Your order will be processed manually.';
         }
 
         logOperation('DATA_PURCHASE_SUCCESS', {
             userId: user._id,
             orderStatus,
             orderReference,
+            processingMethod,
+            skipGeonettech,
             balanceBefore,
             balanceAfter,
-            requestType: isApiRequest ? 'API' : 'WEB'
+            requestType: isApiRequest ? 'API' : 'WEB',
+            usedGeonettech: processingMethod === 'geonettech_api',
+            usedTelecelAPI: processingMethod === 'telecel_api'
         });
 
         res.status(201).json({
@@ -856,6 +1070,10 @@ router.post('/purchase', async (req, res, next) => {
                 balanceAfter,
                 remainingBalance: balanceAfter,
                 orderStatus: orderStatus,
+                processingMethod: processingMethod,
+                orderPrefix: orderReferencePrefix,
+                usedGeonettech: processingMethod === 'geonettech_api',
+                usedTelecelAPI: processingMethod === 'telecel_api',
                 apiResponse: orderResponse
             }
         });
@@ -899,10 +1117,7 @@ router.get('/order-status/:reference', async (req, res, next) => {
         // Find order by geonetReference
         const order = await DataPurchase.findOne({
             userId: req.user._id,
-            $or: [
-                { geonetReference: reference },
-                { hubnetReference: reference }
-            ]
+            geonetReference: reference
         });
 
         if (!order) {
@@ -930,6 +1145,7 @@ router.get('/order-status/:reference', async (req, res, next) => {
                 mb: order.mb,
                 price: order.price,
                 orderStatus: order.status,
+                processingMethod: order.processingMethod,
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
                 balanceInfo: transaction ? {
