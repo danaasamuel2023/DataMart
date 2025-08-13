@@ -1406,4 +1406,56 @@ router.post('/claim-referral-bonus', async (req, res, next) => {
     }
 });
 
+// Get User Balance Endpoint
+router.get('/balance', async (req, res, next) => {
+    // Support both authentication methods
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey) {
+        return authenticateApiKey(req, res, next);
+    }
+    return authenticateUser(req, res, next);
+}, async (req, res) => {
+    try {
+        // Re-fetch user to ensure we have the latest balance
+        const user = await User.findById(req.user._id).select('walletBalance name email phoneNumber');
+        
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'User not found'
+            });
+        }
+
+        logOperation('BALANCE_CHECK', {
+            userId: user._id,
+            timestamp: new Date()
+        });
+
+        res.json({
+            status: 'success',
+            data: {
+                balance: user.walletBalance,
+                currency: 'GHS', // Assuming Ghana Cedis based on your code
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    phoneNumber: user.phoneNumber
+                },
+                timestamp: new Date()
+            }
+        });
+    } catch (error) {
+        logOperation('BALANCE_CHECK_ERROR', {
+            userId: req.user?._id,
+            error: error.message
+        });
+
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to retrieve balance'
+        });
+    }
+});
+
 module.exports = router;
