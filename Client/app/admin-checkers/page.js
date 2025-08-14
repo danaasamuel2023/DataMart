@@ -106,7 +106,7 @@ const AdminResultCheckers = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        'http://localhost:5000/api/result-checkers/products',
+        'https://datamartbackened.onrender.com/api/result-checkers/products',
         getAuthHeaders()
       );
       setProducts(response.data.data);
@@ -136,7 +136,7 @@ const AdminResultCheckers = () => {
       });
       
       const response = await axios.get(
-        ` http://localhost:5000/api/result-checkers/inventory?${params}`,
+        `https://datamartbackened.onrender.com/api/result-checkers/inventory?${params}`,
         getAuthHeaders()
       );
       setInventory(response.data.data.inventory);
@@ -152,7 +152,7 @@ const AdminResultCheckers = () => {
   const fetchInventoryStats = async () => {
     try {
       const response = await axios.get(
-        ' http://localhost:5000/api/result-checkers/inventory/stats',
+        ' https://datamartbackened.onrender.com/api/result-checkers/inventory/stats',
         getAuthHeaders()
       );
       setInventoryStats(response.data.data);
@@ -172,7 +172,7 @@ const AdminResultCheckers = () => {
       });
       
       const response = await axios.get(
-        `http://localhost:5000/api/result-checkers/sales?${params}`,
+        `https://datamartbackened.onrender.com/api/result-checkers/sales?${params}`,
         getAuthHeaders()
       );
       setSales(response.data.data.sales);
@@ -191,14 +191,14 @@ const AdminResultCheckers = () => {
     try {
       if (editingProduct) {
         await axios.put(
-          `http://localhost:5000/api/result-checkers/products/${editingProduct._id}`,
+          `https://datamartbackened.onrender.com/api/result-checkers/products/${editingProduct._id}`,
           productForm,
           getAuthHeaders()
         );
         toast.success('Product updated successfully');
       } else {
         await axios.post(
-          'http://localhost:5000/api/result-checkers/products',
+          'https://datamartbackened.onrender.com/api/result-checkers/products',
           productForm,
           getAuthHeaders()
         );
@@ -217,7 +217,7 @@ const AdminResultCheckers = () => {
     e.preventDefault();
     try {
       await axios.post(
-        'http://localhost:5000/api/result-checkers/inventory/add-single',
+        'https://datamartbackened.onrender.com/api/result-checkers/inventory/add-single',
         inventoryForm,
         getAuthHeaders()
       );
@@ -243,7 +243,7 @@ const AdminResultCheckers = () => {
       });
 
       const response = await axios.post(
-        'http://localhost:5000/api/result-checkers/inventory/bulk-upload',
+        'https://datamartbackened.onrender.com/api/result-checkers/inventory/bulk-upload',
         {
           checkerType: inventoryForm.checkerType,
           checkers

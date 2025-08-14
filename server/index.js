@@ -25,6 +25,7 @@ const sms = require('./smsRoutes/smsRoutes.js');
 const TransferMonitoringRoutes = require('./TransferRoutes/transferMonitoringRoutes.js');
 const SmmRoutes = require('./smmroutes/smmroutes.js');
 const Checkers = require('./WaecRoutes/Waec.js');
+const CheckersApi = require('./Checkersdevelopers/checkersapi.js');
 dotenv.config();
 
 // Initialize Express app
@@ -60,6 +61,7 @@ app.use('/api', sms);
 app.use('/api/transfers', TransferMonitoringRoutes);
 app.use('/api/smm', SmmRoutes);
 app.use('/api/result-checkers', Checkers);
+app.use('/api/checkers', CheckersApi);
  
 
 // Default Route

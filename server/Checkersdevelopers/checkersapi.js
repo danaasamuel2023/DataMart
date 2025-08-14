@@ -9,7 +9,7 @@ const axios = require('axios');
 // mNotify SMS configuration
 const SMS_CONFIG = {
   API_KEY: process.env.MNOTIFY_API_KEY || 'w3rGWhv4e235nDwYvD5gVDyrW',
-  SENDER_ID: 'DataMartGH',
+  SENDER_ID: 'unimarketgh',
   BASE_URL: 'https://apps.mnotify.net/smsapi'
 };
 

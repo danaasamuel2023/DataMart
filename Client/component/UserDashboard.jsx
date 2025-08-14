@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, Globe, FileText, AlertTriangle } from 'lucide-react';
+import { CreditCard, Package, Database, DollarSign, TrendingUp, Calendar, AlertCircle, PlusCircle, User, BarChart2, ChevronDown, ChevronUp, Clock, Eye, FileText, AlertTriangle, CheckSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AnimatedCounter, CurrencyCounter } from './Animation'; // Adjust the import path as necessary
 import DailySalesChart from '@/app/week/page';
@@ -42,8 +42,8 @@ const DashboardPage = () => {
     router.push('/registerFriend');
   }
   
-  const navigateToVerificationServices = () => {
-    router.push('/verification-services');
+  const navigateToResultCheckers = () => {
+    router.push('/checkers');
   }
 
   const navigateToReportIssue = () => {
@@ -486,16 +486,16 @@ const DashboardPage = () => {
                 <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Telecel Data</span>
               </button>
               
-              {/* Foreign Number Verification - NEW BUTTON */}
+              {/* Result Checkers Button - UPDATED */}
               <button 
-                onClick={navigateToVerificationServices}
+                onClick={navigateToResultCheckers}
                 className="flex flex-col items-center justify-center p-2 sm:p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 transform hover:scale-105"
-                style={{ backgroundColor: `rgba(75, 85, 99, 0.1)` }} // Gray background
+                style={{ backgroundColor: `rgba(16, 185, 129, 0.1)` }} // Green background
               >
-                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
-                  <Globe className="text-white w-4 h-4 sm:w-8 sm:h-8" />
+                <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mb-1 sm:mb-2 shadow-md">
+                  <CheckSquare className="text-white w-4 h-4 sm:w-8 sm:h-8" />
                 </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Foreign Number</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs sm:text-sm text-center">Result Checkers</span>
               </button>
             </div>
           </div>

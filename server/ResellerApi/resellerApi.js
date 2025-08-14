@@ -59,20 +59,20 @@ const DATA_PACKAGES = [
     { capacity: '100', mb: '100000', price: '341.00', network: 'TELECEL' },
     
     // MTN Packages
-    { capacity: '1', mb: '1000', price: '4.40', network: 'YELLO', inStock: true },
-    { capacity: '2', mb: '2000', price: '8.90', network: 'YELLO', inStock: true },
-    { capacity: '3', mb: '3000', price: '13.20', network: 'YELLO', inStock: true },
-    { capacity: '4', mb: '4000', price: '18.20', network: 'YELLO', inStock: true },
-    { capacity: '5', mb: '5000', price: '23.20', network: 'YELLO', inStock: true },
-    { capacity: '6', mb: '6000', price: '26.20', network: 'YELLO', inStock: true },
-    { capacity: '8', mb: '8000', price: '35.20', network: 'YELLO', inStock: true },
-    { capacity: '10', mb: '10000', price: '43.20', network: 'YELLO', inStock: true },
-    { capacity: '15', mb: '15000', price: '62.20', network: 'YELLO', inStock: true },
-    { capacity: '20', mb: '20000', price: '82.20', network: 'YELLO', inStock: true },
-    { capacity: '25', mb: '25000', price: '103.00', network: 'YELLO', inStock: true },
-    { capacity: '30', mb: '30000', price: '122.00', network: 'YELLO', inStock: true },
-    { capacity: '40', mb: '40000', price: '165.00', network: 'YELLO', inStock: true },
-    { capacity: '50', mb: '50000', price: '206.00', network: 'YELLO', inStock: true },
+    { capacity: '1', mb: '1000', price: '4.50', network: 'YELLO', inStock: true },
+    { capacity: '2', mb: '2000', price: '9.20', network: 'YELLO', inStock: true },
+    { capacity: '3', mb: '3000', price: '13.50', network: 'YELLO', inStock: true },
+    { capacity: '4', mb: '4000', price: '18.50', network: 'YELLO', inStock: true },
+    { capacity: '5', mb: '5000', price: '23.50', network: 'YELLO', inStock: true },
+    { capacity: '6', mb: '6000', price: '27.00', network: 'YELLO', inStock: true },
+    { capacity: '8', mb: '8000', price: '35.50', network: 'YELLO', inStock: true },
+    { capacity: '10', mb: '10000', price: '43.50', network: 'YELLO', inStock: true },
+    { capacity: '15', mb: '15000', price: '62.50', network: 'YELLO', inStock: true },
+    { capacity: '20', mb: '20000', price: '83.00', network: 'YELLO', inStock: true },
+    { capacity: '25', mb: '25000', price: '105.00', network: 'YELLO', inStock: true },
+    { capacity: '30', mb: '30000', price: '129.00', network: 'YELLO', inStock: true },
+    { capacity: '40', mb: '40000', price: '166.00', network: 'YELLO', inStock: true },
+    { capacity: '50', mb: '50000', price: '207.00', network: 'YELLO', inStock: true },
     { capacity: '100', mb: '100000', price: '407.00', network: 'YELLO', inStock: true },
     
     // AirtelTigo Packages
@@ -89,8 +89,75 @@ const DATA_PACKAGES = [
     { capacity: '25', mb: '25000', price: '95.00', network: 'at' },
     { capacity: '30', mb: '30000', price: '115.00', network: 'at' },
     { capacity: '40', mb: '40000', price: '151.00', network: 'at' },
-    { capacity: '50', mb: '50000', price: '190.00', network: 'at' }
+    { capacity: '50', mb: '50000', price: '190.00', network: 'at' },
+    
+    // AT_PREMIUM Packages (same pricing as regular 'at')
+    { capacity: '1', mb: '1000', price: '3.95', network: 'AT_PREMIUM' },
+    { capacity: '2', mb: '2000', price: '8.35', network: 'AT_PREMIUM' },
+    { capacity: '3', mb: '3000', price: '13.25', network: 'AT_PREMIUM' },
+    { capacity: '4', mb: '4000', price: '16.50', network: 'AT_PREMIUM' },
+    { capacity: '5', mb: '5000', price: '19.50', network: 'AT_PREMIUM' },
+    { capacity: '6', mb: '6000', price: '23.50', network: 'AT_PREMIUM' },
+    { capacity: '8', mb: '8000', price: '30.50', network: 'AT_PREMIUM' },
+    { capacity: '10', mb: '10000', price: '38.50', network: 'AT_PREMIUM' },
+    { capacity: '12', mb: '12000', price: '45.50', network: 'AT_PREMIUM' },
+    { capacity: '15', mb: '15000', price: '57.50', network: 'AT_PREMIUM' },
+    { capacity: '25', mb: '25000', price: '95.00', network: 'AT_PREMIUM' },
+    { capacity: '30', mb: '30000', price: '115.00', network: 'AT_PREMIUM' },
+    { capacity: '40', mb: '40000', price: '151.00', network: 'AT_PREMIUM' },
+    { capacity: '50', mb: '50000', price: '190.00', network: 'AT_PREMIUM' }
 ];
+
+// Phone number validation function
+const validatePhoneNumber = (network, phoneNumber) => {
+    const cleanNumber = phoneNumber.replace(/[\s-]/g, '');
+    
+    switch (network) {
+        case 'YELLO': // MTN validation
+            const mtnPrefixes = ['024', '054', '055', '059','026','025','053','027','057','023','020', '050'];
+            if (cleanNumber.length === 10 && cleanNumber.startsWith('0')) {
+                const prefix = cleanNumber.substring(0, 3);
+                if (mtnPrefixes.includes(prefix)) {
+                    return { isValid: true, message: '' };
+                } else {
+                    return { isValid: false, message: 'Please enter a valid MTN number (024, 054, 055, 059)' };
+                }
+            } else {
+                return { isValid: false, message: 'Please enter a valid 10-digit MTN number starting with 0' };
+            }
+            
+        case 'at': // AirtelTigo validation
+        case 'AT_PREMIUM': // AT_PREMIUM uses same prefixes as regular at
+            const airtelTigoPrefixes = ['026', '056', '027', '057', '023', '053'];
+            if (cleanNumber.length === 10) {
+                const prefix = cleanNumber.substring(0, 3);
+                if (airtelTigoPrefixes.includes(prefix)) {
+                    return { isValid: true, message: '' };
+                } else {
+                    return { isValid: false, message: 'Please enter a valid AirtelTigo number (026, 056, 027, 057, 023, 053)' };
+                }
+            } else {
+                return { isValid: false, message: 'Please enter a valid 10-digit AirtelTigo number' };
+            }
+            
+        case 'TELECEL': // Telecel validation
+            const telecelPrefixes = ['020', '050'];
+            const cleanTelecelNumber = phoneNumber.trim().replace(/[\s-]/g, '');
+            if (cleanTelecelNumber.length === 10) {
+                const prefix = cleanTelecelNumber.substring(0, 3);
+                if (telecelPrefixes.includes(prefix)) {
+                    return { isValid: true, message: '' };
+                } else {
+                    return { isValid: false, message: 'Please enter a valid Telecel number (020, 050)' };
+                }
+            } else {
+                return { isValid: false, message: 'Please enter a valid 10-digit Telecel number' };
+            }
+            
+        default:
+            return { isValid: false, message: 'Unsupported network' };
+    }
+};
 
 // FIXED: Use same balance check as web interface
 const checkAgentBalance = async () => {
@@ -541,6 +608,24 @@ router.post('/purchase', async (req, res, next) => {
             });
         }
 
+        // Validate phone number
+        const phoneValidation = validatePhoneNumber(network, phoneNumber);
+        if (!phoneValidation.isValid) {
+            logOperation('PHONE_VALIDATION_FAILED', {
+                network,
+                phoneNumber: phoneNumber.substring(0, 3) + 'XXXXXXX',
+                validationMessage: phoneValidation.message
+            });
+            
+            await session.abortTransaction();
+            session.endSession();
+            
+            return res.status(400).json({
+                status: 'error',
+                message: phoneValidation.message
+            });
+        }
+
         // Get package details from server-side pricing data
         const dataPackage = findDataPackage(capacity, network);
         const price = dataPackage.price;
@@ -638,7 +723,9 @@ router.post('/purchase', async (req, res, next) => {
             } else {
                 orderReferencePrefix = 'TC-'; // Direct Telecel API prefix
             }
-        } else if (skipGeonettech) {
+        } else if (network === 'AT_PREMIUM') {
+            orderReferencePrefix = 'ATP-'; // Special prefix for AT_PREMIUM
+        } else if (skipGeonettech && network !== 'AT_PREMIUM') {
             orderReferencePrefix = 'MN-'; // Manual processing prefix
         } else {
             orderReferencePrefix = 'GN-'; // General Geonettech prefix
@@ -686,12 +773,19 @@ router.post('/purchase', async (req, res, next) => {
         let orderStatus = 'completed';
         let processingMethod = 'api';
         
+        // Determine if we should skip Geonettech
+        // Note: AT_PREMIUM always uses Geonettech, never skip
+        const shouldSkipGeonet = skipGeonettech && (network !== 'AT_PREMIUM');
+        
         logOperation('API_PROCESSING_DECISION', {
             network,
             skipGeonettech: skipGeonettech,
+            shouldSkipGeonet,
             orderReference,
             prefix: orderReferencePrefix,
-            requestType: isApiRequest ? 'API' : 'WEB'
+            requestType: isApiRequest ? 'API' : 'WEB',
+            isATPremium: network === 'AT_PREMIUM',
+            isTelecel: network === 'TELECEL'
         });
 
         // FIXED: Process based on network - matching web route logic
@@ -860,7 +954,86 @@ router.post('/purchase', async (req, res, next) => {
                     });
                 }
             }
-        } else if (skipGeonettech) {
+        } else if (network === 'AT_PREMIUM') {
+            // AT_PREMIUM always uses Geonettech API
+            processingMethod = 'geonettech_api';
+            try {
+                const geonetOrderPayload = {
+                    network_key: 'AT_PREMIUM', // Use AT_PREMIUM as the network key
+                    ref: orderReference,
+                    recipient: phoneNumber,
+                    capacity: capacity
+                };
+                
+                logOperation('GEONETTECH_AT_PREMIUM_ORDER_REQUEST', {
+                    ...geonetOrderPayload,
+                    processingMethod,
+                    requestType: isApiRequest ? 'API' : 'WEB'
+                });
+                
+                const geonetResponse = await geonetClient.post('/placeOrder', geonetOrderPayload);
+                orderResponse = geonetResponse.data;
+                
+                if (!orderResponse || !orderResponse.status || orderResponse.status !== 'success') {
+                    logOperation('GEONETTECH_AT_PREMIUM_API_UNSUCCESSFUL_RESPONSE', {
+                        response: orderResponse,
+                        orderReference
+                    });
+                    
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    let errorMessage = 'Could not complete your purchase. Please try again later.';
+                    
+                    if (orderResponse && orderResponse.message) {
+                        const msg = orderResponse.message.toLowerCase();
+                        
+                        if (msg.includes('duplicate') || msg.includes('within 5 minutes')) {
+                            errorMessage = 'A similar order was recently placed. Please wait a few minutes before trying again.';
+                        } else if (msg.includes('invalid') || msg.includes('phone')) {
+                            errorMessage = 'The phone number you entered appears to be invalid. Please check and try again.';
+                        } else {
+                            errorMessage = orderResponse.message;
+                        }
+                    }
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: errorMessage
+                    });
+                }
+                
+                apiOrderId = orderResponse.data ? orderResponse.data.orderId : orderReference;
+                orderStatus = 'completed';
+                
+                logOperation('GEONETTECH_AT_PREMIUM_ORDER_SUCCESS', {
+                    orderId: apiOrderId,
+                    orderReference,
+                    processingMethod,
+                    responseData: orderResponse
+                });
+            } catch (apiError) {
+                logOperation('GEONETTECH_AT_PREMIUM_API_ERROR', {
+                    error: apiError.message,
+                    response: apiError.response ? apiError.response.data : null,
+                    orderReference
+                });
+                
+                await session.abortTransaction();
+                session.endSession();
+                
+                let errorMessage = 'Could not complete your purchase. Please try again later.';
+                
+                if (apiError.response && apiError.response.data && apiError.response.data.message) {
+                    errorMessage = apiError.response.data.message;
+                }
+                
+                return res.status(400).json({
+                    status: 'error',
+                    message: errorMessage
+                });
+            }
+        } else if (shouldSkipGeonet) {
             // Skip Geonettech API - store as pending for all networks when skipGeonettech is true
             processingMethod = 'manual';
             logOperation('SKIPPING_GEONETTECH_API', {
@@ -879,7 +1052,7 @@ router.post('/purchase', async (req, res, next) => {
                 message: 'Order stored for manual processing',
                 reference: orderReference,
                 processingMethod: 'manual',
-                skipReason: 'API disabled for network'
+                skipReason: 'API disabled for network (API)'
             };
         } else {
             // Use Geonettech API for other networks (YELLO, at) when skipGeonettech is false
@@ -1008,7 +1181,7 @@ router.post('/purchase', async (req, res, next) => {
             geonetReference: orderReference,
             apiOrderId: apiOrderId,
             apiResponse: orderResponse,
-            skipGeonettech: skipGeonettech,
+            skipGeonettech: shouldSkipGeonet,
             processingMethod: processingMethod,
             orderReferencePrefix: orderReferencePrefix,
             originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null
@@ -1047,12 +1220,13 @@ router.post('/purchase', async (req, res, next) => {
             orderStatus,
             orderReference,
             processingMethod,
-            skipGeonettech,
+            skipGeonettech: shouldSkipGeonet,
             balanceBefore,
             balanceAfter,
             requestType: isApiRequest ? 'API' : 'WEB',
             usedGeonettech: processingMethod === 'geonettech_api',
-            usedTelecelAPI: processingMethod === 'telecel_api'
+            usedTelecelAPI: processingMethod === 'telecel_api',
+            isATPremium: network === 'AT_PREMIUM'
         });
 
         res.status(201).json({
@@ -1074,6 +1248,7 @@ router.post('/purchase', async (req, res, next) => {
                 orderPrefix: orderReferencePrefix,
                 usedGeonettech: processingMethod === 'geonettech_api',
                 usedTelecelAPI: processingMethod === 'telecel_api',
+                isATPremium: network === 'AT_PREMIUM',
                 apiResponse: orderResponse
             }
         });
