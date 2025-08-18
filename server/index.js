@@ -5,6 +5,7 @@ const ConnectDB = require('./DataBaseConnection/connection.js');
 // Either import just the router or destructure it from the object
 const authRouter = require('./AuthRoutes/Auth.js').router; 
 const dataOrderRoutes = require('./orderRou/order.js');
+const BulkPurchase = require('./orderRou/bulkorder.js');
 const Deposit = require('./DepositeRoutes/UserDeposite.js');
 const Developer = require('./ResellerApi/resellerApi.js')
 const HubnetAt = require('./HubnetInteraction/hubnet.js');
@@ -62,6 +63,7 @@ app.use('/api/transfers', TransferMonitoringRoutes);
 app.use('/api/smm', SmmRoutes);
 app.use('/api/result-checkers', Checkers);
 app.use('/api/checkers', CheckersApi);
+app.use('/api', BulkPurchase);
  
 
 // Default Route

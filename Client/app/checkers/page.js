@@ -165,7 +165,7 @@ const UserResultCheckers = () => {
       setProcessingPurchase(true);
       const authToken = localStorage.getItem('authToken');
       
-      const response = await axios.post('http://localhost:5000/api/result-checkers/purchase', 
+      const response = await axios.post('https://api.datamartgh.shop/api/result-checkers/purchase', 
         {
           checkerType: selectedProduct.name,
           paymentMethod: 'wallet'

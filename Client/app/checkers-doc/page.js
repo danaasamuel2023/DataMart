@@ -1,10 +1,214 @@
 'use client'
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Copy, Check, Key, Package, ShoppingCart, Clock, History, Wallet, CheckCircle, ExternalLink, AlertCircle, MessageSquare, Info } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Check, Key, Package, ShoppingCart, Clock, History, Wallet, CheckCircle, ExternalLink, AlertCircle, MessageSquare, Info, X, Loader2, ArrowRight } from 'lucide-react';
+
+// Simple modal for API key generation
+const ApiKeyModal = ({ isOpen, onClose }) => {
+  const [keyName, setKeyName] = useState('');
+  const [expiresIn, setExpiresIn] = useState('30');
+  const [generatedKey, setGeneratedKey] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleGenerate = async () => {
+    if (!keyName.trim()) {
+      setError('Please enter a name for your API key');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError('');
+
+    // Simulate API call - replace with actual API call
+    try {
+      // const response = await axios.post('/api/developer/generate-api-key', {
+      //   name: keyName,
+      //   expiresIn
+      // });
+      // setGeneratedKey(response.data.data.key);
+      
+      // Simulated response for demo
+      setTimeout(() => {
+        setGeneratedKey('sk_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+        setIsGenerating(false);
+      }, 1500);
+    } catch (err) {
+      setError('Failed to generate API key. Please try again.');
+      setIsGenerating(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const resetModal = () => {
+    setKeyName('');
+    setExpiresIn('30');
+    setGeneratedKey('');
+    setError('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Generate API Key</h2>
+          <button
+            onClick={resetModal}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {!generatedKey ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Key Name
+                </label>
+                <input
+                  type="text"
+                  value={keyName}
+                  onChange={(e) => setKeyName(e.target.value)}
+                  placeholder="e.g., Production Key"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Expires In
+                </label>
+                <select
+                  value={expiresIn}
+                  onChange={(e) => setExpiresIn(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="7">7 days</option>
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                  <option value="365">1 year</option>
+                  <option value="">Never</option>
+                </select>
+              </div>
+
+              {error && (
+                <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Generate API Key'
+                )}
+              </button>
+
+              <div className="text-center">
+                <a
+                  href="/api-keys"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center"
+                >
+                  Manage all your API keys
+                  <ArrowRight className="w-3 h-3 ml-1" />
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
+                  <div>
+                    <p className="text-green-800 dark:text-green-300 font-medium">API Key Generated Successfully!</p>
+                    <p className="text-green-700 dark:text-green-400 text-sm mt-1">
+                      Make sure to copy this key now. You won't be able to see it again.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Your API Key
+                </label>
+                <div className="relative">
+                  <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-3 pr-12 font-mono text-sm text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 break-all">
+                    {generatedKey}
+                  </div>
+                  <button
+                    onClick={copyToClipboard}
+                    className="absolute top-2 right-2 p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors border border-slate-600"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-gray-300" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Name:</span>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{keyName}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Expires:</span>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {expiresIn ? `${expiresIn} days` : 'Never'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={resetModal}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  Done
+                </button>
+                <a
+                  href="/api-keys"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center"
+                >
+                  Manage Keys
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ResultCheckerApiDocs = () => {
   const [copiedCode, setCopiedCode] = useState('');
   const [expandedEndpoint, setExpandedEndpoint] = useState(null);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   const copyToClipboard = (code, id) => {
     navigator.clipboard.writeText(code);
@@ -119,7 +323,7 @@ const ResultCheckerApiDocs = () => {
   "x-api-key": "YOUR_API_KEY_HERE"
 }`,
         body: null,
-        example: 'GET https://datamartbackened.onrender.com/api/checkers/order-status/CHKW17345678900001'
+        example: 'GET https://api.datamartgh.shop/api/checkers/order-status/CHKW17345678900001'
       },
       response: `{
   "status": "success",
@@ -162,7 +366,7 @@ const ResultCheckerApiDocs = () => {
   "startDate": "2024-03-01",    // Filter by start date
   "endDate": "2024-03-31"       // Filter by end date
 }`,
-        example: 'GET https://datamartbackened.onrender.com/api/checkers/purchase-history?page=1&limit=10&checkerType=WAEC'
+        example: 'GET https://api.datamartgh.shop/api/checkers/purchase-history?page=1&limit=10&checkerType=WAEC'
       },
       response: `{
   "status": "success",
@@ -271,6 +475,9 @@ const ResultCheckerApiDocs = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
+      {/* API Key Modal */}
+      <ApiKeyModal isOpen={showApiKeyModal} onClose={() => setShowApiKeyModal(false)} />
+
       {/* Header */}
       <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -299,9 +506,25 @@ const ResultCheckerApiDocs = () => {
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
             <div className="flex items-start space-x-2">
               <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
-              <div>
+              <div className="flex-1">
                 <p className="text-yellow-800 dark:text-yellow-300 font-medium">API Key Required</p>
                 <p className="text-yellow-700 dark:text-yellow-400 text-sm mt-1">All endpoints require an API key to be passed in the request headers.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setShowApiKeyModal(true)}
+                    className="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Key className="w-4 h-4 mr-2" />
+                    Generate API Key
+                  </button>
+                  <a
+                    href="/api-keys"
+                    className="inline-flex items-center px-4 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:hover:bg-yellow-900/60 text-yellow-800 dark:text-yellow-300 text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Manage API Keys
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -318,13 +541,13 @@ const ResultCheckerApiDocs = () => {
         <section className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border border-gray-200 dark:border-slate-700">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Base URL</h2>
           <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-            https://datamartbackened.onrender.com
+           https://api.datamartgh.shop
           </div>
           <p className="text-slate-600 dark:text-slate-400 text-sm mt-3">
             All endpoints should be prefixed with this base URL. For example:
           </p>
           <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 mt-2 font-mono text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-            https://datamartbackened.onrender.com/api/checkers/products
+           https://api.datamartgh.shop/api/checkers/products
           </div>
         </section>
 
@@ -523,7 +746,7 @@ const ResultCheckerApiDocs = () => {
 async function purchaseResultChecker() {
   try {
     const response = await axios.post(
-      'https://datamartbackened.onrender.com/api/checkers/purchase',
+      'https://api.datamartgh.shop/api/checkers/purchase',
       {
         checkerType: 'WAEC',
         phoneNumber: '0241234567',
