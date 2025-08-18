@@ -281,6 +281,13 @@ const ResultCheckerApiDocs = () => {
       title: 'Purchase Result Checker',
       description: 'Purchase a WAEC or BECE result checker using wallet balance',
       icon: <ShoppingCart className="w-5 h-5" />,
+      requestBodyParams: [
+        { name: 'checkerType', type: 'string', required: true, description: 'Type of checker: "WAEC" or "BECE"' },
+        { name: 'phoneNumber', type: 'string', required: true, description: 'User phone number for SMS delivery' },
+        { name: 'ref', type: 'string', required: false, description: 'Custom reference for the purchase (must be unique)' },
+        { name: 'webhookUrl', type: 'string', required: false, description: 'URL to receive webhook notification on completion' },
+        { name: 'skipSms', type: 'boolean', required: false, description: 'Set to true to skip SMS sending and handle it yourself (default: false)' }
+      ],
       request: {
         headers: `{
   "Content-Type": "application/json",
@@ -290,7 +297,8 @@ const ResultCheckerApiDocs = () => {
   "checkerType": "WAEC",
   "phoneNumber": "0241234567",
   "ref": "CUSTOM-REF-123",        // Optional: Custom reference
-  "webhookUrl": "https://your-app.com/webhook"  // Optional: Webhook URL
+  "webhookUrl": "https://your-app.com/webhook",  // Optional: Webhook URL
+  "skipSms": false                // Optional: Set to true if you want to handle SMS yourself
 }`
       },
       response: `{
@@ -307,7 +315,11 @@ const ResultCheckerApiDocs = () => {
     "balanceBefore": 100.00,
     "balanceAfter": 80.00,
     "transactionId": "65f4a3d9c9e77c001c8e456a",
-    "createdAt": "2024-03-15T14:30:00.000Z"
+    "createdAt": "2024-03-15T14:30:00.000Z",
+    "smsNotification": {
+      "sent": true,
+      "message": "SMS sent successfully"
+    }
   }
 }`
     },
@@ -460,7 +472,11 @@ const ResultCheckerApiDocs = () => {
     "balanceBefore": 100.00,
     "balanceAfter": 80.00,
     "transactionId": "65f4a3d9c9e77c001c8e456a",
-    "createdAt": "2024-03-15T14:30:00.000Z"
+    "createdAt": "2024-03-15T14:30:00.000Z",
+    "smsNotification": {
+      "sent": true,
+      "message": "SMS sent successfully"
+    }
   }
 }`
   };
@@ -558,23 +574,34 @@ const ResultCheckerApiDocs = () => {
               <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">Important: SMS Sender ID Configuration</h3>
-              <div className="space-y-2 text-blue-800 dark:text-blue-200">
-                <p className="flex items-start">
-                  <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                  <span>SMS notifications are sent using the sender ID <strong>"unimarketgh"</strong> instead of "DataMart".</span>
-                </p>
-                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 mt-3">
-                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">Why this configuration?</p>
+              <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">SMS Notification Options</h3>
+              <div className="space-y-3 text-blue-800 dark:text-blue-200">
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Default SMS Behavior</p>
                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                    Since this platform is called <strong>DataMart</strong>, we cannot use "DataMart" or "DataMartGH" as the SMS sender ID. 
-                    This prevents confusion when users search for our platform online. The sender ID "unimarketgh" ensures clear 
-                    differentiation between SMS notifications and the platform's brand identity.
+                    By default, DataMart automatically sends SMS notifications to users with the result checker details 
+                    using the sender ID <strong>"unimarketgh"</strong>.
                   </p>
                 </div>
+                
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Skip SMS Option</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+                    Set <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">"skipSms": true</code> in your 
+                    purchase request if you want to handle SMS notifications yourself. This is useful when:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300 space-y-1 ml-2">
+                    <li>You want to use your own SMS provider</li>
+                    <li>You want to customize the message format</li>
+                    <li>You want to use your own sender ID</li>
+                    <li>You want to send via other channels (WhatsApp, email, etc.)</li>
+                  </ul>
+                </div>
+
                 <p className="text-sm mt-2 text-blue-700 dark:text-blue-300">
-                  <strong>Note:</strong> When users receive SMS confirmations for their result checker purchases, 
-                  the message will appear from "unimarketgh" but will reference DataMart services in the message content.
+                  <strong>Note:</strong> When <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">skipSms</code> is 
+                  set to <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">true</code>, you'll receive the 
+                  serial number and PIN in the API response to send to your users through your preferred channel.
                 </p>
               </div>
             </div>
@@ -622,9 +649,49 @@ const ResultCheckerApiDocs = () => {
                       <CodeBlock code={endpoint.request.headers} id={`${endpoint.id}-headers`} />
                     </div>
                     
+                    {endpoint.requestBodyParams && (
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Request Body Parameters</h4>
+                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 dark:border-slate-700">
+                                <th className="text-left py-2 text-slate-700 dark:text-slate-300">Parameter</th>
+                                <th className="text-left py-2 text-slate-700 dark:text-slate-300">Type</th>
+                                <th className="text-left py-2 text-slate-700 dark:text-slate-300">Required</th>
+                                <th className="text-left py-2 text-slate-700 dark:text-slate-300">Description</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {endpoint.requestBodyParams.map((param, idx) => (
+                                <tr key={idx} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                                  <td className="py-2">
+                                    <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-slate-700 dark:text-slate-300">
+                                      {param.name}
+                                    </code>
+                                  </td>
+                                  <td className="py-2 text-slate-600 dark:text-slate-400">{param.type}</td>
+                                  <td className="py-2">
+                                    <span className={`text-xs px-2 py-1 rounded ${
+                                      param.required 
+                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' 
+                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                                    }`}>
+                                      {param.required ? 'Required' : 'Optional'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 text-slate-600 dark:text-slate-400">{param.description}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    
                     {endpoint.request.body && (
                       <div>
-                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Request Body</h4>
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Request Body Example</h4>
                         <CodeBlock code={endpoint.request.body} id={`${endpoint.id}-body`} />
                       </div>
                     )}
@@ -736,14 +803,17 @@ const ResultCheckerApiDocs = () => {
 
         {/* Quick Start Example */}
         <section className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 rounded-xl p-6 border border-blue-200 dark:border-slate-700">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">Quick Start Example</h2>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
-            Here's a complete example of purchasing a WAEC result checker using Node.js:
-          </p>
-          <CodeBlock 
-            code={`const axios = require('axios');
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">Quick Start Examples</h2>
+          
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Example 1: Purchase with Automatic SMS</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              Default behavior - DataMart sends SMS to the user:
+            </p>
+            <CodeBlock 
+              code={`const axios = require('axios');
 
-async function purchaseResultChecker() {
+async function purchaseWithSMS() {
   try {
     const response = await axios.post(
       'https://api.datamartgh.shop/api/checkers/purchase',
@@ -752,6 +822,7 @@ async function purchaseResultChecker() {
         phoneNumber: '0241234567',
         ref: 'ORDER-' + Date.now(),
         webhookUrl: 'https://your-app.com/webhook/checker-purchase'
+        // skipSms defaults to false - SMS will be sent
       },
       {
         headers: {
@@ -762,17 +833,67 @@ async function purchaseResultChecker() {
     );
     
     console.log('Purchase successful:', response.data);
-    console.log('Serial Number:', response.data.data.serialNumber);
-    console.log('PIN:', response.data.data.pin);
+    console.log('SMS Status:', response.data.data.smsNotification);
+    
+  } catch (error) {
+    console.error('Purchase failed:', error.response?.data || error.message);
+  }
+}`}
+              id="quick-start-sms"
+            />
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Example 2: Purchase without SMS (Handle Yourself)</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              Skip DataMart SMS and send notifications through your own channel:
+            </p>
+            <CodeBlock 
+              code={`const axios = require('axios');
+
+async function purchaseWithoutSMS() {
+  try {
+    const response = await axios.post(
+      'https://api.datamartgh.shop/api/checkers/purchase',
+      {
+        checkerType: 'WAEC',
+        phoneNumber: '0241234567',
+        ref: 'ORDER-' + Date.now(),
+        skipSms: true  // Skip SMS - you'll handle notification
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'YOUR_API_KEY_HERE'
+        }
+      }
+    );
+    
+    // Extract the details to send to user
+    const { serialNumber, pin, phoneNumber } = response.data.data;
+    
+    // Now send SMS/WhatsApp/Email through your own service
+    await sendCustomNotification(phoneNumber, {
+      serialNumber,
+      pin,
+      type: 'WAEC'
+    });
+    
+    console.log('Purchase successful, notification sent via custom channel');
     
   } catch (error) {
     console.error('Purchase failed:', error.response?.data || error.message);
   }
 }
 
-purchaseResultChecker();`}
-            id="quick-start"
-          />
+// Your custom notification function
+async function sendCustomNotification(phone, details) {
+  // Implement your own SMS/WhatsApp/Email logic here
+  console.log(\`Sending to \${phone}:\`, details);
+}`}
+              id="quick-start-no-sms"
+            />
+          </div>
         </section>
       </div>
     </div>

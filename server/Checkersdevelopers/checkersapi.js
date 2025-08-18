@@ -243,7 +243,8 @@ router.post('/purchase', authenticateApiKey, async (req, res) => {
             checkerType, 
             phoneNumber,
             ref, // Custom reference from developer (optional)
-            webhookUrl // Optional webhook URL for notifications
+            webhookUrl, // Optional webhook URL for notifications
+            skipSms = false // New flag: if true, don't send SMS (developer will handle it)
         } = req.body;
 
         logOperation('API_CHECKER_PURCHASE_REQUEST', {
@@ -252,6 +253,7 @@ router.post('/purchase', authenticateApiKey, async (req, res) => {
             phoneNumber,
             customReference: ref,
             webhookUrl,
+            skipSms, // Log the SMS preference
             timestamp: new Date()
         });
 
@@ -398,7 +400,7 @@ router.post('/purchase', authenticateApiKey, async (req, res) => {
         // Calculate balance after
         const balanceAfter = balanceBefore - product.price;
 
-        // Create purchase record
+        // Create purchase record with skipSms flag
         const purchase = new ResultCheckerPurchase({
             userId: req.user._id,
             checkerType: product.name,
@@ -409,7 +411,8 @@ router.post('/purchase', authenticateApiKey, async (req, res) => {
             status: 'completed',
             paymentMethod: 'wallet',
             method: 'api', // Mark as API purchase
-            webhookUrl // Store webhook URL if provided
+            webhookUrl, // Store webhook URL if provided
+            skipSms // Store SMS preference
         });
         
         await purchase.save({ session });
@@ -456,17 +459,38 @@ router.post('/purchase', authenticateApiKey, async (req, res) => {
             purchaseReference,
             checkerType,
             balanceBefore,
-            balanceAfter
+            balanceAfter,
+            skipSms
         });
 
-        // Send SMS notification
-        await sendCheckerPurchaseSMS(
-            phoneNumber, 
-            purchase.checkerType, 
-            purchase.serialNumber, 
-            purchase.pin,
-            user.name
-        );
+        // Variable to track SMS status
+        let smsStatus = null;
+
+        // Send SMS notification only if skipSms is false
+        if (!skipSms) {
+            const smsResult = await sendCheckerPurchaseSMS(
+                phoneNumber, 
+                purchase.checkerType, 
+                purchase.serialNumber, 
+                purchase.pin,
+                user.name
+            );
+            
+            smsStatus = {
+                sent: smsResult.success,
+                message: smsResult.success ? 'SMS sent successfully' : smsResult.error
+            };
+            
+            logOperation('API_CHECKER_SMS_STATUS', {
+                purchaseReference,
+                smsStatus
+            });
+        } else {
+            logOperation('API_CHECKER_SMS_SKIPPED', {
+                purchaseReference,
+                reason: 'skipSms flag set to true by developer'
+            });
+        }
 
         // Prepare response
         const responseData = {
@@ -483,7 +507,12 @@ router.post('/purchase', authenticateApiKey, async (req, res) => {
                 balanceBefore,
                 balanceAfter,
                 transactionId: transaction._id,
-                createdAt: purchase.createdAt
+                createdAt: purchase.createdAt,
+                // Include SMS status in response
+                smsNotification: skipSms ? {
+                    sent: false,
+                    message: 'SMS skipped as per request'
+                } : smsStatus
             }
         };
 

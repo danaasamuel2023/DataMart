@@ -85,9 +85,30 @@ const ResultCheckerPurchaseSchema = new mongoose.Schema({
     enum: ["wallet", "paystack", "manual"],
     default: "wallet"
   },
+  method: {
+    type: String,
+    enum: ["web", "api"],
+    default: "web"
+  },
   transactionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Transaction"
+  },
+  webhookUrl: {
+    type: String, // Store webhook URL for API purchases
+    default: null
+  },
+  skipSms: {
+    type: Boolean, // Flag to skip SMS sending (developer handles it)
+    default: false
+  },
+  smsStatus: {
+    sent: {
+      type: Boolean,
+      default: false
+    },
+    message: String,
+    sentAt: Date
   },
   createdAt: {
     type: Date,
@@ -160,6 +181,8 @@ ResultCheckerPurchaseSchema.index({ purchaseReference: 1 });
 ResultCheckerPurchaseSchema.index({ status: 1 });
 ResultCheckerPurchaseSchema.index({ checkerType: 1 });
 ResultCheckerPurchaseSchema.index({ createdAt: -1 });
+ResultCheckerPurchaseSchema.index({ method: 1 }); // New index for API vs Web purchases
+ResultCheckerPurchaseSchema.index({ skipSms: 1 }); // New index for SMS preference
 
 // Inventory indexes
 ResultCheckerInventorySchema.index({ checkerType: 1, status: 1 });
