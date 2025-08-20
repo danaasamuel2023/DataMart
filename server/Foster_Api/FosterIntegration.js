@@ -656,7 +656,7 @@ router.get('/order-status/:orderId', async (req, res) => {
     
     res.status(500).json({
       status: 'error',
-      message: 'Failed to check order status'
+      message: 'Failed to check order statuss'
     });
   }
 });

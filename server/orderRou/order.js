@@ -29,6 +29,7 @@ const logOperation = (operation, data) => {
 };
 
 // ===== OFFICIAL PRICING STRUCTURES =====
+// ===== OFFICIAL PRICING STRUCTURES =====
 const OFFICIAL_PRICING = {
   'YELLO': { // MTN pricing structure
     '1': 4.50,
@@ -63,7 +64,7 @@ const OFFICIAL_PRICING = {
     '40': 151.00,
     '50': 190.00
   },
-  'AT_PREMIUM': { // AirtelTigo Premium pricing structure (same as regular AT)
+  'AT_PREMIUM': { // AirtelTigo Premium pricing structure
     '1': 3.95,
     '2': 8.35,
     '3': 13.25,
