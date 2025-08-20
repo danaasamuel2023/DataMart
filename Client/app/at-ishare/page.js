@@ -150,7 +150,7 @@ const AirtelTigoPremiumBundleCards = () => {
     try {
       const token = localStorage.getItem('authToken');
       // Using the main purchase-data endpoint with AT_PREMIUM network key
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
+      const response = await axios.post('https://api.datamartgh.shop/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network, // This will be 'AT_PREMIUM'
