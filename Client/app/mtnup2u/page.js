@@ -372,7 +372,7 @@ const MTNBundleCards = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://datamartbackened.onrender.com/api/v1/data/purchase-data', {
+      const response = await axios.post('https://api.datamartgh.shop/api/v1/data/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network,
