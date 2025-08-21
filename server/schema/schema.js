@@ -20,8 +20,6 @@ const RegisteredFriendSchema = new mongoose.Schema({
 });
 
 // User Schema with blocked devices, registered friends and admin approval
-// Updated UserSchema section to add in your schema.js file
-
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -85,22 +83,39 @@ UserSchema.index({ googleId: 1 });
 UserSchema.index({ approvalStatus: 1 });
 UserSchema.index({ authProvider: 1 });
 
+// Data Purchase Schema - Updated with user processing method tracking
 const DataPurchaseSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   phoneNumber: { type: String, required: true }, 
   network: { type: String, enum: ["YELLO", "TELECEL", "AT_PREMIUM","airteltigo","at"], required: true },
   capacity: { type: Number, required: true }, 
+  mb: { type: Number, required: true },
   gateway: { type: String, required: true }, 
   method: { type: String, enum: ["web", "api"], required: true }, 
   price: { type: Number, required: true }, 
   geonetReference: { type: String, required: true }, 
+  apiOrderId: { type: String },
+  apiResponse: { type: Object },
   status: { type: String, enum: ["pending", "completed", "failed","processing","refunded","refund","delivered","on","waiting","accepted"], default: "pending" }, 
   processing: { type: Boolean, default: false },
+  skipGeonettech: { type: Boolean, default: false },
+  processingMethod: { type: String, enum: ["geonettech_api", "telecel_api", "manual", "auto"], default: "auto" },
+  orderReferencePrefix: { type: String },
+  originalReference: { type: String },
+  
+  // New fields for tracking user-specific processing
+  userProcessingRule: { type: String, enum: ["user_specific", "inventory_default", "global_default"], default: "global_default" },
+  userProcessingSource: { type: String }, // "network-specific", "global-user-setting", "inventory-default"
+  
   adminNotes: { type: String },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   updatedAt: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
+
+DataPurchaseSchema.index({ userId: 1, createdAt: -1 });
+DataPurchaseSchema.index({ geonetReference: 1 });
+DataPurchaseSchema.index({ network: 1, status: 1 });
 
 // Updated Transaction Schema with balance tracking
 const TransactionSchema = new mongoose.Schema({
@@ -118,7 +133,7 @@ const TransactionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  // NEW FIELDS FOR BALANCE TRACKING
+  // Balance tracking fields
   balanceBefore: {
     type: Number,
     required: true,
@@ -148,12 +163,10 @@ const TransactionSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  // Optional: Add description for better transaction tracking
   description: {
     type: String,
     default: null
   },
-  // Optional: Add related purchase ID for purchase transactions
   relatedPurchaseId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DataPurchase',
@@ -172,6 +185,7 @@ const TransactionSchema = new mongoose.Schema({
 // Add index for faster queries
 TransactionSchema.index({ userId: 1, createdAt: -1 });
 TransactionSchema.index({ reference: 1 });
+
 const ReferralBonusSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
   referredUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, 
@@ -279,7 +293,121 @@ const apiKeySchema = new Schema({
 apiKeySchema.index({ key: 1 });
 apiKeySchema.index({ userId: 1 });
 
-// NEW REPORT SYSTEM SCHEMAS
+// NEW: API User Processing Preferences Schema
+const ApiUserProcessingSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    unique: true
+  },
+  // Global setting for this user (applies to all networks if network-specific not set)
+  globalSkipGeonettech: {
+    type: Boolean,
+    default: false
+  },
+  // Processing priority - which settings to use first
+  processingPriority: {
+    type: String,
+    enum: ["user_override", "inventory_first", "always_manual", "always_api"],
+    default: "user_override"
+  },
+  // Network-specific settings (overrides global)
+  networkSettings: {
+    YELLO: {
+      skipGeonettech: { type: Boolean, default: null }, // null means use global
+      enabled: { type: Boolean, default: true },
+      customNotes: { type: String }
+    },
+    TELECEL: {
+      skipGeonettech: { type: Boolean, default: null },
+      enabled: { type: Boolean, default: true },
+      customNotes: { type: String }
+    },
+    AT_PREMIUM: {
+      skipGeonettech: { type: Boolean, default: null },
+      enabled: { type: Boolean, default: true },
+      customNotes: { type: String }
+    },
+    at: {
+      skipGeonettech: { type: Boolean, default: null },
+      enabled: { type: Boolean, default: true },
+      customNotes: { type: String }
+    }
+  },
+  // Order limits and restrictions
+  orderLimits: {
+    dailyOrderLimit: { type: Number, default: null }, // null means no limit
+    hourlyOrderLimit: { type: Number, default: null },
+    maxOrderAmount: { type: Number, default: null }, // Max GB per order
+    minOrderAmount: { type: Number, default: null }  // Min GB per order
+  },
+  // Current usage tracking
+  currentUsage: {
+    dailyOrders: {
+      count: { type: Number, default: 0 },
+      date: { type: Date, default: Date.now }
+    },
+    hourlyOrders: {
+      count: { type: Number, default: 0 },
+      hour: { type: Date, default: Date.now }
+    },
+    totalOrders: { type: Number, default: 0 },
+    lastOrderAt: { type: Date }
+  },
+  // Additional settings
+  settings: {
+    requireManualApproval: { type: Boolean, default: false },
+    allowDuplicateOrders: { type: Boolean, default: true },
+    duplicateOrderTimeWindow: { type: Number, default: 5 }, // minutes
+    notifyOnOrder: { type: Boolean, default: false },
+    notificationEmail: { type: String },
+    isVIP: { type: Boolean, default: false },
+    customPricing: { type: Boolean, default: false }
+  },
+  // Status and metadata
+  status: {
+    type: String,
+    enum: ["active", "suspended", "limited", "monitoring"],
+    default: "active"
+  },
+  suspensionReason: { type: String },
+  notes: { type: String },
+  tags: [{ type: String }], // For categorizing users
+  // Audit fields
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  lastReviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  lastReviewedAt: { type: Date },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+ApiUserProcessingSchema.index({ userId: 1 });
+ApiUserProcessingSchema.index({ status: 1 });
+ApiUserProcessingSchema.index({ 'settings.isVIP': 1 });
+ApiUserProcessingSchema.index({ tags: 1 });
+
+// Pre-save middleware to update timestamps
+ApiUserProcessingSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
 
 // Report Settings Schema - Admin controls for reporting system
 const ReportSettingsSchema = new mongoose.Schema({
@@ -300,7 +428,6 @@ const ReportSettingsSchema = new mongoose.Schema({
     min: 1,
     max: 8760 // Max 1 year
   },
-  // For specific days reporting
   allowedReportDays: {
     type: Number,
     default: 1,
@@ -487,19 +614,16 @@ const ReportAnalyticsSchema = new mongoose.Schema({
     of: Number,
     default: {}
   },
-  // Hourly breakdown for "Data not received" reports
   dataNotReceivedByHour: {
     type: Map,
     of: Number,
     default: {}
   },
-  // Network-wise breakdown for "Data not received"
   dataNotReceivedByNetwork: {
     type: Map,
     of: Number,
     default: {}
   },
-  // Time-based patterns for all report types
   reportsByHour: {
     type: Map,
     of: Number,
@@ -513,13 +637,11 @@ const ReportAnalyticsSchema = new mongoose.Schema({
     type: Number, // percentage
     default: 0
   },
-  // Peak hours analysis
   peakReportingHours: [{
     hour: Number,
     count: Number,
     percentage: Number
   }],
-  // Critical insights
   insights: {
     mostProblematicHour: {
       hour: Number,
@@ -540,6 +662,7 @@ const ReportAnalyticsSchema = new mongoose.Schema({
 });
 
 ReportAnalyticsSchema.index({ date: -1 });
+
 const SMSHistorySchema = new mongoose.Schema({
   campaignId: { type: String, unique: true },
   sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -572,11 +695,11 @@ const Transaction = mongoose.model("Transaction", TransactionSchema);
 const ReferralBonus = mongoose.model("ReferralBonus", ReferralBonusSchema);
 const ApiKey = mongoose.model('ApiKey', apiKeySchema);
 const DataInventory = mongoose.model("DataInventory", DataInventorySchema);
+const ApiUserProcessing = mongoose.model("ApiUserProcessing", ApiUserProcessingSchema);
 const ReportSettings = mongoose.model("ReportSettings", ReportSettingsSchema);
 const OrderReport = mongoose.model("OrderReport", OrderReportSchema);
 const ReportAnalytics = mongoose.model("ReportAnalytics", ReportAnalyticsSchema);
 const SMSHistory = mongoose.model('SMSHistory', SMSHistorySchema);
-
 
 module.exports = { 
   User, 
@@ -584,9 +707,10 @@ module.exports = {
   Transaction, 
   ReferralBonus, 
   ApiKey, 
-  DataInventory, 
+  DataInventory,
+  ApiUserProcessing,
   ReportSettings,
   OrderReport, 
-  ReportAnalytics ,
+  ReportAnalytics,
   SMSHistory
 };

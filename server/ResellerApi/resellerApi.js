@@ -13,7 +13,8 @@ const {
     Transaction, 
     ReferralBonus,
     ApiKey,
-    DataInventory
+    DataInventory,
+    ApiUserProcessing
 } = require('../schema/schema');
 
 // Constants
@@ -412,6 +413,42 @@ async function processTelecelOrder(recipient, capacity, reference) {
     }
 }
 
+// Helper function to update user usage stats
+async function updateUserUsageStats(userProcessingPrefs, session) {
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const currentHour = new Date();
+    currentHour.setMinutes(0, 0, 0);
+    
+    // Reset daily counter if needed
+    if (userProcessingPrefs.currentUsage.dailyOrders.date < today) {
+        userProcessingPrefs.currentUsage.dailyOrders = {
+            count: 1,
+            date: today
+        };
+    } else {
+        userProcessingPrefs.currentUsage.dailyOrders.count += 1;
+    }
+    
+    // Reset hourly counter if needed
+    if (userProcessingPrefs.currentUsage.hourlyOrders.hour < currentHour) {
+        userProcessingPrefs.currentUsage.hourlyOrders = {
+            count: 1,
+            hour: currentHour
+        };
+    } else {
+        userProcessingPrefs.currentUsage.hourlyOrders.count += 1;
+    }
+    
+    // Update total orders and last order time
+    userProcessingPrefs.currentUsage.totalOrders += 1;
+    userProcessingPrefs.currentUsage.lastOrderAt = now;
+    
+    await userProcessingPrefs.save({ session });
+}
+
 // Create new API key
 router.post('/generate-api-key', authenticateUser, async (req, res) => {
     try {
@@ -549,7 +586,7 @@ router.get('/data-packages', async (req, res) => {
     }
 });
 
-// Updated purchase endpoint with correct processing logic
+// Updated purchase endpoint with user-specific processing control
 router.post('/purchase', async (req, res, next) => {
     // Determine if this is an API request
     const isApiRequest = !!req.headers['x-api-key'];
@@ -671,28 +708,258 @@ router.post('/purchase', async (req, res, next) => {
             });
         }
 
+        // NEW: Get user-specific API processing preferences
+        let userProcessingPrefs = null;
+        let userProcessingSource = 'global_default';
+        let userProcessingRule = 'global_default';
+        
+        if (isApiRequest) {
+            userProcessingPrefs = await ApiUserProcessing.findOne({ 
+                userId: req.user._id 
+            }).session(session);
+            
+            if (userProcessingPrefs) {
+                // Check if user account is active
+                if (userProcessingPrefs.status !== 'active') {
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    let message = 'Your API account is not active.';
+                    if (userProcessingPrefs.status === 'suspended' && userProcessingPrefs.suspensionReason) {
+                        message += ` Reason: ${userProcessingPrefs.suspensionReason}`;
+                    }
+                    
+                    return res.status(403).json({
+                        status: 'error',
+                        message,
+                        accountStatus: userProcessingPrefs.status
+                    });
+                }
+                
+                // Check daily limit if set
+                if (userProcessingPrefs.orderLimits.dailyOrderLimit) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    // Reset counter if it's a new day
+                    if (userProcessingPrefs.currentUsage.dailyOrders.date < today) {
+                        userProcessingPrefs.currentUsage.dailyOrders = {
+                            count: 0,
+                            date: today
+                        };
+                        await userProcessingPrefs.save({ session });
+                    }
+                    
+                    if (userProcessingPrefs.currentUsage.dailyOrders.count >= userProcessingPrefs.orderLimits.dailyOrderLimit) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        
+                        return res.status(429).json({
+                            status: 'error',
+                            message: 'Daily order limit exceeded. Please try again tomorrow.',
+                            limit: userProcessingPrefs.orderLimits.dailyOrderLimit,
+                            current: userProcessingPrefs.currentUsage.dailyOrders.count
+                        });
+                    }
+                }
+                
+                // Check hourly limit if set
+                if (userProcessingPrefs.orderLimits.hourlyOrderLimit) {
+                    const currentHour = new Date();
+                    currentHour.setMinutes(0, 0, 0);
+                    
+                    // Reset counter if it's a new hour
+                    if (userProcessingPrefs.currentUsage.hourlyOrders.hour < currentHour) {
+                        userProcessingPrefs.currentUsage.hourlyOrders = {
+                            count: 0,
+                            hour: currentHour
+                        };
+                        await userProcessingPrefs.save({ session });
+                    }
+                    
+                    if (userProcessingPrefs.currentUsage.hourlyOrders.count >= userProcessingPrefs.orderLimits.hourlyOrderLimit) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        
+                        return res.status(429).json({
+                            status: 'error',
+                            message: 'Hourly order limit exceeded. Please try again later.',
+                            limit: userProcessingPrefs.orderLimits.hourlyOrderLimit,
+                            current: userProcessingPrefs.currentUsage.hourlyOrders.count
+                        });
+                    }
+                }
+                
+                // Check order amount limits
+                const capacityNum = parseInt(capacity);
+                if (userProcessingPrefs.orderLimits.maxOrderAmount && capacityNum > userProcessingPrefs.orderLimits.maxOrderAmount) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: `Maximum order amount is ${userProcessingPrefs.orderLimits.maxOrderAmount}GB`,
+                        requested: capacityNum,
+                        maxAllowed: userProcessingPrefs.orderLimits.maxOrderAmount
+                    });
+                }
+                
+                if (userProcessingPrefs.orderLimits.minOrderAmount && capacityNum < userProcessingPrefs.orderLimits.minOrderAmount) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    return res.status(400).json({
+                        status: 'error',
+                        message: `Minimum order amount is ${userProcessingPrefs.orderLimits.minOrderAmount}GB`,
+                        requested: capacityNum,
+                        minRequired: userProcessingPrefs.orderLimits.minOrderAmount
+                    });
+                }
+                
+                // Check if network is enabled for this user
+                if (userProcessingPrefs.networkSettings[network] && 
+                    userProcessingPrefs.networkSettings[network].enabled === false) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    
+                    return res.status(403).json({
+                        status: 'error',
+                        message: `${network} network is not enabled for your API account.`
+                    });
+                }
+                
+                // Check for duplicate orders if not allowed
+                if (!userProcessingPrefs.settings.allowDuplicateOrders) {
+                    const timeWindow = userProcessingPrefs.settings.duplicateOrderTimeWindow || 5;
+                    const timeAgo = new Date();
+                    timeAgo.setMinutes(timeAgo.getMinutes() - timeWindow);
+                    
+                    const duplicateOrder = await DataPurchase.findOne({
+                        userId: user._id,
+                        phoneNumber,
+                        network,
+                        capacity,
+                        createdAt: { $gte: timeAgo }
+                    }).session(session);
+                    
+                    if (duplicateOrder) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        
+                        return res.status(400).json({
+                            status: 'error',
+                            message: `Duplicate order detected. Please wait ${timeWindow} minutes before placing the same order.`,
+                            previousOrderId: duplicateOrder._id,
+                            previousOrderTime: duplicateOrder.createdAt
+                        });
+                    }
+                }
+            }
+        }
+
         // Get the inventory record
         const inventory = await DataInventory.findOne({ network }).session(session);
         
-        // Check inventory based on request type
+        // Determine processing method with user-specific overrides
         let inStock, skipGeonettech;
         
-        if (isApiRequest) {
-            // Use API-specific settings
-            inStock = inventory ? (inventory.apiInStock !== undefined ? inventory.apiInStock : inventory.inStock) : true;
-            skipGeonettech = inventory ? (inventory.apiSkipGeonettech !== undefined ? inventory.apiSkipGeonettech : inventory.skipGeonettech) : false;
+        if (isApiRequest && userProcessingPrefs) {
+            // Handle different processing priorities
+            if (userProcessingPrefs.processingPriority === 'always_manual') {
+                skipGeonettech = true;
+                userProcessingSource = 'always_manual_priority';
+                userProcessingRule = 'user_specific';
+            } else if (userProcessingPrefs.processingPriority === 'always_api') {
+                skipGeonettech = false;
+                userProcessingSource = 'always_api_priority';
+                userProcessingRule = 'user_specific';
+            } else if (userProcessingPrefs.processingPriority === 'inventory_first') {
+                // Use inventory settings first
+                skipGeonettech = inventory ? 
+                    (inventory.apiSkipGeonettech !== undefined ? 
+                        inventory.apiSkipGeonettech : inventory.skipGeonettech) : false;
+                userProcessingSource = 'inventory_first_priority';
+                userProcessingRule = 'inventory_default';
+            } else {
+                // Default: user_override - Check user-specific settings first
+                const networkSetting = userProcessingPrefs.networkSettings[network];
+                
+                if (networkSetting && networkSetting.skipGeonettech !== null) {
+                    skipGeonettech = networkSetting.skipGeonettech;
+                    userProcessingSource = 'network-specific';
+                    userProcessingRule = 'user_specific';
+                    
+                    logOperation('USER_SPECIFIC_NETWORK_SETTING', {
+                        userId: req.user._id,
+                        network,
+                        skipGeonettech,
+                        source: 'network-specific'
+                    });
+                } else if (userProcessingPrefs.globalSkipGeonettech !== null) {
+                    skipGeonettech = userProcessingPrefs.globalSkipGeonettech;
+                    userProcessingSource = 'global-user-setting';
+                    userProcessingRule = 'user_specific';
+                    
+                    logOperation('USER_SPECIFIC_GLOBAL_SETTING', {
+                        userId: req.user._id,
+                        network,
+                        skipGeonettech,
+                        source: 'global-user-setting'
+                    });
+                } else {
+                    // Fall back to inventory settings
+                    skipGeonettech = inventory ? 
+                        (inventory.apiSkipGeonettech !== undefined ? 
+                            inventory.apiSkipGeonettech : inventory.skipGeonettech) : false;
+                    userProcessingSource = 'inventory-default';
+                    userProcessingRule = 'inventory_default';
+                    
+                    logOperation('INVENTORY_DEFAULT_SETTING', {
+                        userId: req.user._id,
+                        network,
+                        skipGeonettech,
+                        source: 'inventory-default'
+                    });
+                }
+            }
+            
+            // Stock status still from inventory
+            inStock = inventory ? 
+                (inventory.apiInStock !== undefined ? 
+                    inventory.apiInStock : inventory.inStock) : true;
+        } else if (isApiRequest) {
+            // API user without specific preferences - use inventory settings
+            inStock = inventory ? 
+                (inventory.apiInStock !== undefined ? 
+                    inventory.apiInStock : inventory.inStock) : true;
+            skipGeonettech = inventory ? 
+                (inventory.apiSkipGeonettech !== undefined ? 
+                    inventory.apiSkipGeonettech : inventory.skipGeonettech) : false;
+            userProcessingSource = 'inventory-default';
+            userProcessingRule = 'inventory_default';
         } else {
-            // Use Web-specific settings
-            inStock = inventory ? (inventory.webInStock !== undefined ? inventory.webInStock : inventory.inStock) : true;
-            skipGeonettech = inventory ? (inventory.webSkipGeonettech !== undefined ? inventory.webSkipGeonettech : inventory.skipGeonettech) : false;
+            // Web user - use web-specific settings
+            inStock = inventory ? 
+                (inventory.webInStock !== undefined ? 
+                    inventory.webInStock : inventory.inStock) : true;
+            skipGeonettech = inventory ? 
+                (inventory.webSkipGeonettech !== undefined ? 
+                    inventory.webSkipGeonettech : inventory.skipGeonettech) : false;
+            userProcessingSource = 'web-inventory';
+            userProcessingRule = 'inventory_default';
         }
         
         logOperation('DATA_INVENTORY_CHECK', {
             network,
             inventoryFound: !!inventory,
             requestType: isApiRequest ? 'API' : 'WEB',
+            hasUserPrefs: !!userProcessingPrefs,
+            userStatus: userProcessingPrefs?.status,
+            processingPriority: userProcessingPrefs?.processingPriority,
             inStock: inStock,
-            skipGeonettech: skipGeonettech
+            skipGeonettech: skipGeonettech,
+            userProcessingSource,
+            userProcessingRule
         });
         
         // Check if in stock
@@ -710,6 +977,19 @@ router.post('/purchase', async (req, res, next) => {
                 status: 'error',
                 message: `${network} data bundles are currently out of stock. Please try again later or choose another network.`
             });
+        }
+
+        // Check if manual approval is required
+        if (userProcessingPrefs && userProcessingPrefs.settings.requireManualApproval) {
+            logOperation('MANUAL_APPROVAL_REQUIRED', {
+                userId: user._id,
+                network,
+                capacity
+            });
+            
+            // Still process but mark for manual approval
+            skipGeonettech = true;
+            userProcessingSource = 'manual_approval_required';
         }
 
         // Generate unique references
@@ -785,7 +1065,9 @@ router.post('/purchase', async (req, res, next) => {
             prefix: orderReferencePrefix,
             requestType: isApiRequest ? 'API' : 'WEB',
             isATPremium: network === 'AT_PREMIUM',
-            isTelecel: network === 'TELECEL'
+            isTelecel: network === 'TELECEL',
+            userProcessingSource,
+            userProcessingRule
         });
 
         // FIXED: Process based on network - matching web route logic
@@ -1042,17 +1324,20 @@ router.post('/purchase', async (req, res, next) => {
                 capacity,
                 orderReference,
                 processingMethod,
-                requestType: isApiRequest ? 'API' : 'WEB'
+                requestType: isApiRequest ? 'API' : 'WEB',
+                userProcessingSource
             });
             
-            orderStatus = 'pending';
+            orderStatus = userProcessingPrefs?.settings?.requireManualApproval ? 'waiting' : 'pending';
             apiOrderId = orderReference;
             orderResponse = {
-                status: 'pending',
-                message: 'Order stored for manual processing',
+                status: orderStatus,
+                message: userProcessingPrefs?.settings?.requireManualApproval ? 
+                    'Order requires manual approval' : 
+                    'Order stored for manual processing',
                 reference: orderReference,
                 processingMethod: 'manual',
-                skipReason: 'API disabled for network (API)'
+                skipReason: userProcessingSource
             };
         } else {
             // Use Geonettech API for other networks (YELLO, at) when skipGeonettech is false
@@ -1167,7 +1452,7 @@ router.post('/purchase', async (req, res, next) => {
             description: `Data purchase: ${capacity}GB ${network} for ${phoneNumber}`
         });
 
-        // Create Data Purchase with reference
+        // Create Data Purchase with reference and user processing tracking
         const dataPurchase = new DataPurchase({
             userId: user._id,
             phoneNumber,
@@ -1184,7 +1469,9 @@ router.post('/purchase', async (req, res, next) => {
             skipGeonettech: shouldSkipGeonet,
             processingMethod: processingMethod,
             orderReferencePrefix: orderReferencePrefix,
-            originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null
+            originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null,
+            userProcessingRule: userProcessingRule,
+            userProcessingSource: userProcessingSource
         });
 
         // Link transaction to purchase
@@ -1205,13 +1492,20 @@ router.post('/purchase', async (req, res, next) => {
         await transaction.save({ session });
         await user.save({ session });
 
+        // Update user usage stats if API user with preferences
+        if (isApiRequest && userProcessingPrefs) {
+            await updateUserUsageStats(userProcessingPrefs, session);
+        }
+
         // Commit transaction
         await session.commitTransaction();
         session.endSession();
 
         // Prepare response message based on order status
         let responseMessage = 'Data bundle purchased successfully';
-        if (orderStatus === 'pending' && processingMethod === 'manual') {
+        if (orderStatus === 'waiting') {
+            responseMessage = 'Order placed successfully. Awaiting manual approval.';
+        } else if (orderStatus === 'pending' && processingMethod === 'manual') {
             responseMessage = 'Order placed successfully. Your order will be processed manually.';
         }
 
@@ -1226,7 +1520,9 @@ router.post('/purchase', async (req, res, next) => {
             requestType: isApiRequest ? 'API' : 'WEB',
             usedGeonettech: processingMethod === 'geonettech_api',
             usedTelecelAPI: processingMethod === 'telecel_api',
-            isATPremium: network === 'AT_PREMIUM'
+            isATPremium: network === 'AT_PREMIUM',
+            userProcessingRule,
+            userProcessingSource
         });
 
         res.status(201).json({
@@ -1321,6 +1617,8 @@ router.get('/order-status/:reference', async (req, res, next) => {
                 price: order.price,
                 orderStatus: order.status,
                 processingMethod: order.processingMethod,
+                userProcessingRule: order.userProcessingRule,
+                userProcessingSource: order.userProcessingSource,
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
                 balanceInfo: transaction ? {
@@ -1629,6 +1927,742 @@ router.get('/balance', async (req, res, next) => {
         res.status(500).json({
             status: 'error',
             message: 'Failed to retrieve balance'
+        });
+    }
+});
+
+// ADMIN ENDPOINTS FOR MANAGING API USER PROCESSING
+
+// Get all users who have API keys
+router.get('/admin/users-with-api-keys', authenticateUser, async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        // Find all API keys (including inactive ones to show full history)
+        const apiKeys = await ApiKey.find()
+            .populate('userId', 'name email phoneNumber role walletBalance')
+            .sort({ createdAt: -1 });
+
+        // Group API keys by user
+        const userMap = {};
+        apiKeys.forEach(apiKey => {
+            if (!apiKey.userId) return;
+            
+            const userId = apiKey.userId._id.toString();
+            if (!userMap[userId]) {
+                userMap[userId] = {
+                    _id: userId,
+                    name: apiKey.userId.name,
+                    email: apiKey.userId.email,
+                    phoneNumber: apiKey.userId.phoneNumber,
+                    role: apiKey.userId.role,
+                    walletBalance: apiKey.userId.walletBalance,
+                    apiKeys: []
+                };
+            }
+            
+            userMap[userId].apiKeys.push({
+                _id: apiKey._id,
+                name: apiKey.name,
+                key: apiKey.key, // Include key for admin view (be careful with this)
+                isActive: apiKey.isActive,
+                createdAt: apiKey.createdAt,
+                lastUsed: apiKey.lastUsed,
+                expiresAt: apiKey.expiresAt
+            });
+        });
+
+        // Convert map to array
+        const usersWithApiKeys = Object.values(userMap);
+
+        // Get processing preferences for these users
+        const userIds = usersWithApiKeys.map(u => u._id);
+        const processingPrefs = await ApiUserProcessing.find({
+            userId: { $in: userIds }
+        });
+
+        // Add processing status to each user
+        const prefsMap = {};
+        processingPrefs.forEach(pref => {
+            prefsMap[pref.userId.toString()] = pref;
+        });
+
+        const enhancedUsers = usersWithApiKeys.map(user => ({
+            ...user,
+            hasProcessingConfig: !!prefsMap[user._id],
+            processingMethod: prefsMap[user._id]?.globalSkipGeonettech ? 'manual' : 'api',
+            processingStatus: prefsMap[user._id]?.status || 'not-configured'
+        }));
+
+        res.json({
+            status: 'success',
+            data: enhancedUsers,
+            summary: {
+                totalUsers: enhancedUsers.length,
+                totalApiKeys: apiKeys.length,
+                configuredUsers: processingPrefs.length,
+                activeKeys: apiKeys.filter(k => k.isActive).length,
+                inactiveKeys: apiKeys.filter(k => !k.isActive).length
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching API users:', error);
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Revoke API key (admin)
+router.delete('/admin/revoke-api-key/:keyId', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const apiKey = await ApiKey.findById(req.params.keyId);
+        
+        if (!apiKey) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'API key not found'
+            });
+        }
+
+        apiKey.isActive = false;
+        await apiKey.save();
+
+        res.json({
+            status: 'success',
+            message: 'API key revoked successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Get detailed API key statistics
+router.get('/admin/api-key-stats', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        // Get all API keys
+        const apiKeys = await ApiKey.find().populate('userId', 'name email');
+
+        // Calculate statistics
+        const stats = {
+            total: apiKeys.length,
+            active: apiKeys.filter(k => k.isActive).length,
+            inactive: apiKeys.filter(k => !k.isActive).length,
+            expired: apiKeys.filter(k => k.expiresAt && new Date(k.expiresAt) < new Date()).length,
+            usedToday: apiKeys.filter(k => {
+                if (!k.lastUsed) return false;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return new Date(k.lastUsed) >= today;
+            }).length,
+            usedThisWeek: apiKeys.filter(k => {
+                if (!k.lastUsed) return false;
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return new Date(k.lastUsed) >= weekAgo;
+            }).length,
+            neverUsed: apiKeys.filter(k => !k.lastUsed).length
+        };
+
+        // Get top users by API key count
+        const userKeyCount = {};
+        apiKeys.forEach(key => {
+            if (key.userId) {
+                const userId = key.userId._id.toString();
+                const userName = key.userId.name;
+                if (!userKeyCount[userId]) {
+                    userKeyCount[userId] = { 
+                        name: userName, 
+                        email: key.userId.email,
+                        count: 0, 
+                        active: 0 
+                    };
+                }
+                userKeyCount[userId].count++;
+                if (key.isActive) userKeyCount[userId].active++;
+            }
+        });
+
+        const topUsers = Object.entries(userKeyCount)
+            .map(([userId, data]) => ({ userId, ...data }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        res.json({
+            status: 'success',
+            data: {
+                stats,
+                topUsers
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Get API usage statistics for a specific user
+router.get('/admin/api-user-usage/:userId', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const { userId } = req.params;
+        const { days = 30 } = req.query;
+
+        // Get user's API keys
+        const apiKeys = await ApiKey.find({ userId });
+
+        // Get user's processing preferences
+        const processingPrefs = await ApiUserProcessing.findOne({ userId });
+
+        // Get recent purchases
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - parseInt(days));
+
+        const purchases = await DataPurchase.find({
+            userId,
+            method: 'api',
+            createdAt: { $gte: startDate }
+        }).sort({ createdAt: -1 });
+
+        // Calculate daily usage
+        const dailyUsage = {};
+        purchases.forEach(purchase => {
+            const date = new Date(purchase.createdAt).toISOString().split('T')[0];
+            if (!dailyUsage[date]) {
+                dailyUsage[date] = {
+                    count: 0,
+                    totalAmount: 0,
+                    networks: {}
+                };
+            }
+            dailyUsage[date].count++;
+            dailyUsage[date].totalAmount += purchase.price;
+            
+            if (!dailyUsage[date].networks[purchase.network]) {
+                dailyUsage[date].networks[purchase.network] = 0;
+            }
+            dailyUsage[date].networks[purchase.network]++;
+        });
+
+        // Calculate network distribution
+        const networkDistribution = {};
+        purchases.forEach(purchase => {
+            if (!networkDistribution[purchase.network]) {
+                networkDistribution[purchase.network] = {
+                    count: 0,
+                    totalAmount: 0,
+                    avgCapacity: 0,
+                    capacities: []
+                };
+            }
+            networkDistribution[purchase.network].count++;
+            networkDistribution[purchase.network].totalAmount += purchase.price;
+            networkDistribution[purchase.network].capacities.push(purchase.capacity);
+        });
+
+        // Calculate average capacities
+        Object.keys(networkDistribution).forEach(network => {
+            const caps = networkDistribution[network].capacities;
+            networkDistribution[network].avgCapacity = 
+                caps.reduce((a, b) => a + b, 0) / caps.length;
+            delete networkDistribution[network].capacities; // Remove raw data
+        });
+
+        // Calculate processing method distribution
+        const processingMethods = {
+            manual: purchases.filter(p => p.processingMethod === 'manual').length,
+            geonettech_api: purchases.filter(p => p.processingMethod === 'geonettech_api').length,
+            telecel_api: purchases.filter(p => p.processingMethod === 'telecel_api').length
+        };
+
+        res.json({
+            status: 'success',
+            data: {
+                userId,
+                period: `Last ${days} days`,
+                apiKeys: {
+                    total: apiKeys.length,
+                    active: apiKeys.filter(k => k.isActive).length,
+                    lastUsed: apiKeys
+                        .filter(k => k.lastUsed)
+                        .sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed))[0]?.lastUsed
+                },
+                processingConfig: processingPrefs ? {
+                    globalMethod: processingPrefs.globalSkipGeonettech ? 'manual' : 'api',
+                    status: processingPrefs.status,
+                    dailyLimit: processingPrefs.orderLimits?.dailyOrderLimit,
+                    isVIP: processingPrefs.settings?.isVIP
+                } : null,
+                usage: {
+                    totalOrders: purchases.length,
+                    totalSpent: purchases.reduce((sum, p) => sum + p.price, 0),
+                    avgOrderValue: purchases.length > 0 
+                        ? purchases.reduce((sum, p) => sum + p.price, 0) / purchases.length 
+                        : 0,
+                    dailyUsage,
+                    networkDistribution,
+                    processingMethods
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Search users with API keys
+router.get('/admin/search-api-users', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const { query } = req.query;
+
+        if (!query || query.length < 2) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Search query must be at least 2 characters'
+            });
+        }
+
+        // Search users by name, email, or phone
+        const users = await User.find({
+            $or: [
+                { name: { $regex: query, $options: 'i' } },
+                { email: { $regex: query, $options: 'i' } },
+                { phoneNumber: { $regex: query, $options: 'i' } }
+            ]
+        }).select('_id name email phoneNumber');
+
+        const userIds = users.map(u => u._id);
+
+        // Get API keys for these users
+        const apiKeys = await ApiKey.find({ 
+            userId: { $in: userIds } 
+        });
+
+        // Filter to only users with API keys
+        const usersWithKeys = users.filter(user => 
+            apiKeys.some(key => key.userId.toString() === user._id.toString())
+        );
+
+        // Get processing preferences
+        const processingPrefs = await ApiUserProcessing.find({
+            userId: { $in: usersWithKeys.map(u => u._id) }
+        });
+
+        // Enhance user data
+        const enhancedUsers = usersWithKeys.map(user => {
+            const userKeys = apiKeys.filter(k => k.userId.toString() === user._id.toString());
+            const userPrefs = processingPrefs.find(p => p.userId.toString() === user._id.toString());
+            
+            return {
+                ...user.toObject(),
+                apiKeys: userKeys.map(k => ({
+                    _id: k._id,
+                    name: k.name,
+                    isActive: k.isActive,
+                    lastUsed: k.lastUsed
+                })),
+                hasProcessingConfig: !!userPrefs,
+                processingMethod: userPrefs?.globalSkipGeonettech ? 'manual' : 'api'
+            };
+        });
+
+        res.json({
+            status: 'success',
+            data: enhancedUsers,
+            count: enhancedUsers.length
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Get all API user processing preferences
+router.get('/admin/api-user-processing', authenticateUser, async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const preferences = await ApiUserProcessing.find()
+            .populate('userId', 'name email phoneNumber')
+            .populate('createdBy', 'name')
+            .populate('updatedBy', 'name')
+            .sort({ createdAt: -1 });
+
+        res.json({
+            status: 'success',
+            data: preferences
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Get specific user's processing preferences
+router.get('/admin/api-user-processing/:userId', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const preferences = await ApiUserProcessing.findOne({ 
+            userId: req.params.userId 
+        }).populate('userId', 'name email phoneNumber');
+
+        if (!preferences) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'No processing preferences found for this user'
+            });
+        }
+
+        res.json({
+            status: 'success',
+            data: preferences
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Create or update user processing preferences
+router.post('/admin/api-user-processing/:userId', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const { userId } = req.params;
+        const updateData = req.body;
+
+        // Check if user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'User not found'
+            });
+        }
+
+        let preferences = await ApiUserProcessing.findOne({ userId });
+
+        if (preferences) {
+            // Update existing preferences
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] !== undefined) {
+                    preferences[key] = updateData[key];
+                }
+            });
+            preferences.updatedBy = req.user._id;
+            preferences.updatedAt = new Date();
+        } else {
+            // Create new preferences
+            preferences = new ApiUserProcessing({
+                userId,
+                ...updateData,
+                createdBy: req.user._id,
+                updatedBy: req.user._id
+            });
+        }
+
+        await preferences.save();
+
+        res.json({
+            status: 'success',
+            message: 'Processing preferences updated successfully',
+            data: preferences
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Bulk update multiple users
+router.post('/admin/api-user-processing/bulk-update', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const { userIds, settings } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Please provide an array of user IDs'
+            });
+        }
+
+        const bulkOps = userIds.map(userId => ({
+            updateOne: {
+                filter: { userId },
+                update: {
+                    $set: {
+                        ...settings,
+                        updatedBy: req.user._id,
+                        updatedAt: new Date()
+                    },
+                    $setOnInsert: {
+                        userId,
+                        createdBy: req.user._id,
+                        createdAt: new Date()
+                    }
+                },
+                upsert: true
+            }
+        }));
+
+        const result = await ApiUserProcessing.bulkWrite(bulkOps);
+
+        res.json({
+            status: 'success',
+            message: 'Bulk update completed',
+            data: {
+                matched: result.matchedCount,
+                modified: result.modifiedCount,
+                upserted: result.upsertedCount
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Delete user processing preferences
+router.delete('/admin/api-user-processing/:userId', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const result = await ApiUserProcessing.findOneAndDelete({ 
+            userId: req.params.userId 
+        });
+
+        if (!result) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'No processing preferences found for this user'
+            });
+        }
+
+        res.json({
+            status: 'success',
+            message: 'Processing preferences deleted successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Get processing statistics
+router.get('/admin/api-processing-stats', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const stats = await ApiUserProcessing.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalUsers: { $sum: 1 },
+                    manualProcessingUsers: {
+                        $sum: { $cond: ['$globalSkipGeonettech', 1, 0] }
+                    },
+                    autoProcessingUsers: {
+                        $sum: { $cond: ['$globalSkipGeonettech', 0, 1] }
+                    },
+                    activeUsers: {
+                        $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
+                    },
+                    suspendedUsers: {
+                        $sum: { $cond: [{ $eq: ['$status', 'suspended'] }, 1, 0] }
+                    },
+                    vipUsers: {
+                        $sum: { $cond: ['$settings.isVIP', 1, 0] }
+                    }
+                }
+            }
+        ]);
+
+        const networkStats = await ApiUserProcessing.aggregate([
+            {
+                $project: {
+                    networks: { $objectToArray: '$networkSettings' }
+                }
+            },
+            { $unwind: '$networks' },
+            {
+                $group: {
+                    _id: '$networks.k',
+                    skipGeonettechCount: {
+                        $sum: {
+                            $cond: ['$networks.v.skipGeonettech', 1, 0]
+                        }
+                    },
+                    disabledCount: {
+                        $sum: {
+                            $cond: [{ $eq: ['$networks.v.enabled', false] }, 1, 0]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        res.json({
+            status: 'success',
+            data: {
+                general: stats[0] || {
+                    totalUsers: 0,
+                    manualProcessingUsers: 0,
+                    autoProcessingUsers: 0,
+                    activeUsers: 0,
+                    suspendedUsers: 0,
+                    vipUsers: 0
+                },
+                byNetwork: networkStats
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// Get users with specific processing settings
+router.get('/admin/api-users-by-settings', authenticateUser, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized'
+            });
+        }
+
+        const { 
+            processingType, // 'manual' or 'api'
+            status,
+            isVIP,
+            network,
+            networkProcessing // 'manual' or 'api' for specific network
+        } = req.query;
+
+        let filter = {};
+
+        if (processingType === 'manual') {
+            filter.globalSkipGeonettech = true;
+        } else if (processingType === 'api') {
+            filter.globalSkipGeonettech = false;
+        }
+
+        if (status) {
+            filter.status = status;
+        }
+
+        if (isVIP !== undefined) {
+            filter['settings.isVIP'] = isVIP === 'true';
+        }
+
+        if (network && networkProcessing) {
+            const key = `networkSettings.${network}.skipGeonettech`;
+            filter[key] = networkProcessing === 'manual';
+        }
+
+        const users = await ApiUserProcessing.find(filter)
+            .populate('userId', 'name email phoneNumber')
+            .sort({ createdAt: -1 });
+
+        res.json({
+            status: 'success',
+            data: users,
+            count: users.length
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
         });
     }
 });

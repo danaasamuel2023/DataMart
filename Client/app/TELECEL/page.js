@@ -270,7 +270,7 @@ const TelecelBundleCards = () => {
       }, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        } 
       });
 
       if (response.data.status === 'success') {
