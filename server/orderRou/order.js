@@ -985,23 +985,24 @@ router.post('/purchase-data', async (req, res) => {
     });
 
     // Create Data Purchase
-    const dataPurchase = new DataPurchase({
-      userId,
-      phoneNumber,
-      network,
-      capacity,
-      gateway: 'wallet',
-      method: 'web',
-      price: validatedPrice,
-      status: orderStatus,
-      geonetReference: orderReference,
-      apiOrderId: apiOrderId,
-      apiResponse: orderResponse,
-      skipGeonettech: shouldSkipGeonet,
-      processingMethod: processingMethod,
-      orderReferencePrefix: orderReferencePrefix,
-      originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null
-    });
+const dataPurchase = new DataPurchase({
+  userId,
+  phoneNumber,
+  network,
+  capacity,
+  mb: capacity * 1024, // Add this line - convert GB to MB
+  gateway: 'wallet',
+  method: 'web',
+  price: validatedPrice,
+  status: orderStatus,
+  geonetReference: orderReference,
+  apiOrderId: apiOrderId,
+  apiResponse: orderResponse,
+  skipGeonettech: shouldSkipGeonet,
+  processingMethod: processingMethod,
+  orderReferencePrefix: orderReferencePrefix,
+  originalReference: (network === 'TELECEL' && skipGeonettech) ? originalInternalReference : null
+});
 
     // Update user wallet
     user.walletBalance = balanceAfter;
