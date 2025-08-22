@@ -156,7 +156,7 @@ const DataMartDocumentation = () => {
               <FaMoneyBillWave className="mr-2" /> Data Purchase Endpoint
             </h2>
             <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-              <p className="font-medium text-gray-800">POST  https://datamartbackened.onrender.com/api/developer/purchase</p>
+              <p className="font-medium text-gray-800">POST https://dataswap-ydgo.onrender.com/api/developer/purchase</p>
               <p className="text-gray-600 mt-2">Endpoint to purchase mobile data for a phone number</p>
               
               <h3 className="font-semibold mt-4 text-gray-800">Request Body:</h3>
@@ -467,7 +467,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await axios.post(
-      'https://datamartbackened.onrender.com/api/developer/purchase',
+      'https://dataswap-ydgo.onrender.com/api/developer/purchase',
       {
         phoneNumber,
         network,
@@ -502,7 +502,7 @@ const axios = require('axios');
 class DataMartService {
   constructor(apiKey) {
     this.apiKey = apiKey;
-    this.baseUrl = 'https://datamartbackened.onrender.com/api/developer';
+    this.baseUrl = 'https://dataswap-ydgo.onrender.com/api/developer';
     this.httpClient = axios.create({
       baseURL: this.baseUrl,
       headers: {
@@ -552,7 +552,7 @@ import requests
 class DataMartClient:
     def __init__(self, api_key):
         self.api_key = api_key
-        self.base_url = 'https://datamartbackened.onrender.com/api/developer'
+        self.base_url = 'https://dataswap-ydgo.onrender.com/api/developer'
         self.headers = {
             'Content-Type': 'application/json',
             'X-API-Key': api_key
