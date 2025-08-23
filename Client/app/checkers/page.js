@@ -65,7 +65,7 @@ const UserResultCheckers = () => {
   const checkAuth = () => {
     const token = localStorage.getItem('authToken');
     if (!token) {
-      router.push('/login?redirect=/result-checkers');
+      router.push('/SignIn?redirect=/result-checkers');
       return;
     }
   };
@@ -100,7 +100,7 @@ const UserResultCheckers = () => {
       if (err.response && err.response.status === 401) {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userData');
-        router.push('/login');
+        router.push('/SignIn');
       } else {
         toast.error('Failed to fetch wallet balance');
       }
@@ -124,7 +124,7 @@ const UserResultCheckers = () => {
       console.error('Error fetching products:', err);
       if (err.response?.status === 401) {
         localStorage.removeItem('authToken');
-        router.push('/login');
+        router.push('/SignIn');
       } else {
         toast.error('Failed to load products');
       }
