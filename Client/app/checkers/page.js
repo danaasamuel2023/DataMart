@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import Head from 'next/head';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { ChevronLeft, Wallet, ShoppingBag, Clock, CheckCircle, XCircle, Sun, Moon, Copy, Eye, EyeOff, Download, CreditCard, AlertCircle, Code2, Sparkles, ExternalLink } from 'lucide-react';
+import { 
+  ChevronLeft, Wallet, ShoppingBag, Clock, CheckCircle, XCircle, 
+  Sun, Moon, Copy, Eye, EyeOff, Download, CreditCard, AlertCircle, 
+  Code2, ExternalLink, Info, MessageSquareOff, Shield, TrendingUp,
+  Award, BookOpen, GraduationCap, FileText, Check
+} from 'lucide-react';
 
 const UserResultCheckers = () => {
   const router = useRouter();
@@ -65,7 +70,7 @@ const UserResultCheckers = () => {
     }
   };
 
-  // Fetch user balance using the user stats pattern
+  // Fetch user balance
   const fetchUserBalance = async () => {
     try {
       const authToken = localStorage.getItem('authToken');
@@ -114,15 +119,7 @@ const UserResultCheckers = () => {
         }
       });
       
-      // Add visual properties to products
-      const productsWithVisuals = response.data.data.map(product => ({
-        ...product,
-        color: product.name === 'WAEC' ? 'from-blue-500 to-blue-700' : 'from-purple-500 to-purple-700',
-        bgPattern: product.name === 'WAEC' ? 'bg-gradient-to-br from-blue-50 to-blue-100' : 'bg-gradient-to-br from-purple-50 to-purple-100',
-        icon: product.name === 'WAEC' ? '🎓' : '📚'
-      }));
-      
-      setProducts(productsWithVisuals);
+      setProducts(response.data.data);
     } catch (err) {
       console.error('Error fetching products:', err);
       if (err.response?.status === 401) {
@@ -179,7 +176,7 @@ const UserResultCheckers = () => {
       
       setPurchaseSuccess(response.data.data);
       setUserBalance(response.data.data.newWalletBalance);
-      toast.success('Purchase successful! Check your SMS for details.');
+      toast.success('Purchase successful! View your credentials below.');
       
       // Show success screen
       setShowPurchaseModal(false);
@@ -187,7 +184,7 @@ const UserResultCheckers = () => {
         setActiveTab('history');
         fetchMyPurchases();
         setPurchaseSuccess(null);
-      }, 5000);
+      }, 7000);
       
     } catch (err) {
       console.error('Purchase error:', err);
@@ -201,41 +198,10 @@ const UserResultCheckers = () => {
     }
   };
 
-  // WAEC Logo SVG Component
-  const WAECLogo = ({ className }) => (
-    <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="100" r="90" fill="url(#waec-gradient)" />
-      <defs>
-        <linearGradient id="waec-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#1E40AF" />
-        </linearGradient>
-      </defs>
-      <text x="100" y="90" fontSize="24" fontWeight="bold" fill="white" textAnchor="middle">WAEC</text>
-      <path d="M50 120 L100 140 L150 120" stroke="white" strokeWidth="3" fill="none" />
-      <circle cx="100" cy="120" r="5" fill="white" />
-    </svg>
-  );
-
-  // BECE Logo SVG Component
-  const BECELogo = ({ className }) => (
-    <svg className={className} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="10" y="10" width="180" height="180" rx="20" fill="url(#bece-gradient)" />
-      <defs>
-        <linearGradient id="bece-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#A855F7" />
-          <stop offset="100%" stopColor="#7C3AED" />
-        </linearGradient>
-      </defs>
-      <text x="100" y="90" fontSize="24" fontWeight="bold" fill="white" textAnchor="middle">BECE</text>
-      <rect x="60" y="110" width="80" height="50" rx="5" fill="white" fillOpacity="0.3" />
-      <circle cx="100" cy="135" r="8" fill="white" />
-    </svg>
-  );
-
   const copyToClipboard = (text, type) => {
     navigator.clipboard.writeText(text);
     setCopiedText(type);
+    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} copied!`);
     setTimeout(() => setCopiedText(''), 2000);
   };
 
@@ -250,261 +216,290 @@ const UserResultCheckers = () => {
   };
 
   return (
-    <div className={`min-h-screen transition-all duration-500 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
+    <div className={`min-h-screen transition-all duration-300 ${
+      darkMode 
+        ? 'bg-gradient-to-b from-gray-900 via-gray-900 to-black' 
+        : 'bg-gradient-to-b from-gray-50 via-white to-gray-50'
+    }`}>
       <Head>
-        <title>Result Checkers - WAEC & BECE</title>
+        <title>Result Checkers - WAEC & BECE | Professional Service</title>
       </Head>
 
-      {/* Animated Background Pattern */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute -top-40 -right-40 w-80 h-80 ${darkMode ? 'bg-blue-500/10' : 'bg-blue-500/5'} rounded-full blur-3xl animate-pulse`} />
-        <div className={`absolute -bottom-40 -left-40 w-80 h-80 ${darkMode ? 'bg-purple-500/10' : 'bg-purple-500/5'} rounded-full blur-3xl animate-pulse animation-delay-2000`} />
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 space-y-4 md:space-y-0">
-          <div className="animate-fadeIn">
-            <h1 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} flex items-center gap-3`}>
-              <span className="text-5xl">📝</span>
-              Result Checkers
-            </h1>
-            <p className={`text-lg mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Purchase WAEC and BECE result checkers instantly
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-4 animate-slideInRight">
-            {/* Balance Card */}
-            <div className={`px-6 py-4 rounded-2xl ${darkMode ? 'bg-gradient-to-r from-gray-800 to-gray-700' : 'bg-gradient-to-r from-white to-gray-50'} shadow-xl border ${darkMode ? 'border-gray-700' : 'border-gray-200'} animate-float`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-full ${darkMode ? 'bg-green-500/20' : 'bg-green-100'}`}>
-                  <Wallet className={`w-6 h-6 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-                </div>
-                <div>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Wallet Balance</p>
-                  <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-green-600">
-                    GHS {userBalance.toFixed(2)}
-                  </p>
-                </div>
-              </div>
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div>
+              <h1 className={`text-3xl lg:text-4xl font-bold ${
+                darkMode ? 'text-white' : 'text-gray-900'
+              } mb-2`}>
+                Result Checker Service
+              </h1>
+              <p className={`text-base lg:text-lg ${
+                darkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Official WAEC and BECE result verification cards
+              </p>
             </div>
             
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-3 rounded-full transition-all duration-300 transform hover:scale-110 ${
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Balance Card */}
+              <div className={`px-5 py-3 rounded-xl ${
                 darkMode 
-                  ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 shadow-lg shadow-yellow-500/25' 
-                  : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
-              }`}
-            >
-              {darkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
-            </button>
-            
-            {/* Back Button */}
-            <button
-              onClick={() => router.push('/dashboard')}
-              className={`px-6 py-3 rounded-full flex items-center gap-2 transition-all duration-300 transform hover:scale-105 ${
-                darkMode 
-                  ? 'bg-gray-800 hover:bg-gray-700 text-white' 
-                  : 'bg-white hover:bg-gray-50 text-gray-700 shadow-md'
-              }`}
-            >
-              <ChevronLeft className="w-5 h-5" />
-              Dashboard
-            </button>
+                  ? 'bg-gray-800/80 backdrop-blur border border-gray-700' 
+                  : 'bg-white shadow-md border border-gray-200'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <Wallet className={`w-5 h-5 ${
+                    darkMode ? 'text-emerald-400' : 'text-emerald-600'
+                  }`} />
+                  <div className="flex flex-col">
+                    <span className={`text-xs ${
+                      darkMode ? 'text-gray-500' : 'text-gray-500'
+                    }`}>Balance</span>
+                    <span className={`text-lg font-semibold ${
+                      darkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      GHS {userBalance.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-3 rounded-xl transition-all duration-200 ${
+                  darkMode 
+                    ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' 
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              
+              {/* Back Button */}
+              <button
+                onClick={() => router.push('/dashboard')}
+                className={`px-5 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 ${
+                  darkMode 
+                    ? 'bg-gray-800 hover:bg-gray-700 text-white' 
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Animated Tabs */}
-        <div className="flex gap-2 mb-8">
-          {['buy', 'history'].map((tab) => (
+        {/* SMS Service Notice */}
+        <div className={`mb-6 p-4 rounded-xl border ${
+          darkMode 
+            ? 'bg-amber-900/20 border-amber-800/50' 
+            : 'bg-amber-50 border-amber-200'
+        }`}>
+          <div className="flex items-start gap-3">
+            <MessageSquareOff className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+              darkMode ? 'text-amber-400' : 'text-amber-600'
+            }`} />
+            <div className="flex-1">
+              <h3 className={`font-semibold mb-1 ${
+                darkMode ? 'text-amber-300' : 'text-amber-800'
+              }`}>
+                SMS Service Temporarily Unavailable
+              </h3>
+              <p className={`text-sm ${
+                darkMode ? 'text-amber-400/80' : 'text-amber-700'
+              }`}>
+                SMS notifications are currently offline. Don't worry - all your purchase details are safely stored 
+                and can be viewed anytime in your purchase history. Click "View Details" on any purchase to see 
+                your serial number and PIN.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          {[
+            { id: 'buy', label: 'Available Cards', icon: ShoppingBag },
+            { id: 'history', label: 'My Purchases', icon: Clock }
+          ].map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-8 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-                activeTab === tab
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-xl shadow-blue-500/25'
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
+                activeTab === tab.id
+                  ? darkMode
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white'
                   : darkMode 
-                  ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
-                  : 'bg-white hover:bg-gray-50 text-gray-600 shadow-md'
+                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
+                    : 'bg-white hover:bg-gray-50 text-gray-600 border border-gray-200'
               }`}
             >
-              <div className="flex items-center gap-2">
-                {tab === 'buy' ? <ShoppingBag className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
-                {tab === 'buy' ? 'Buy Checkers' : 'My Purchases'}
-              </div>
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* API Promotion Section */}
-        <div className="mb-8 animate-slideInUp">
-          <div className={`relative overflow-hidden rounded-2xl ${
-            darkMode 
-              ? 'bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50' 
-              : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500'
-          } p-1`}>
-            <div className={`rounded-xl ${darkMode ? 'bg-gray-900' : 'bg-white'} p-6`}>
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${
-                    darkMode 
-                      ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/20' 
-                      : 'bg-gradient-to-br from-indigo-100 to-purple-100'
-                  }`}>
-                    <Code2 className={`w-8 h-8 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Are You a Developer?
-                      </h3>
-                      <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
-                    </div>
-                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      Integrate WAEC & BECE result checker sales into your platform with our API
-                    </p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => router.push('/checkers-doc')}
-                  className="group px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25 flex items-center gap-2"
-                >
-                  <span>View API Documentation</span>
-                  <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-              
-              {/* Features */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                  darkMode ? 'bg-gray-800' : 'bg-gray-50'
-                }`}>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    RESTful API Integration
-                  </span>
-                </div>
-                <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                  darkMode ? 'bg-gray-800' : 'bg-gray-50'
-                }`}>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Real-time Webhooks
-                  </span>
-                </div>
-                <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                  darkMode ? 'bg-gray-800' : 'bg-gray-50'
-                }`}>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Instant SMS Delivery
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Success Alert */}
         {purchaseSuccess && (
-          <div className="mb-8 animate-bounceIn">
-            <div className={`p-6 rounded-2xl ${darkMode ? 'bg-gradient-to-r from-green-900/50 to-green-800/50' : 'bg-gradient-to-r from-green-50 to-green-100'} border ${darkMode ? 'border-green-700' : 'border-green-300'} shadow-xl`}>
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-green-500 rounded-full animate-pulse">
-                  <CheckCircle className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className={`text-xl font-bold ${darkMode ? 'text-green-300' : 'text-green-800'} mb-3`}>
-                    Purchase Successful! 🎉
-                  </h3>
-                  <div className={`space-y-2 ${darkMode ? 'text-green-200' : 'text-green-700'}`}>
-                    <p><strong>Type:</strong> {purchaseSuccess.checkerType}</p>
-                    <p><strong>Serial:</strong> <span className="font-mono bg-white/20 px-2 py-1 rounded">{purchaseSuccess.serialNumber}</span></p>
-                    <p><strong>PIN:</strong> <span className="font-mono bg-white/20 px-2 py-1 rounded">{purchaseSuccess.pin}</span></p>
-                    <p className="text-sm mt-3 italic">📱 Check your SMS for details!</p>
+          <div className={`mb-6 p-6 rounded-xl ${
+            darkMode 
+              ? 'bg-emerald-900/30 border border-emerald-700/50' 
+              : 'bg-emerald-50 border border-emerald-200'
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-emerald-500 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-lg font-semibold mb-3 ${
+                  darkMode ? 'text-emerald-300' : 'text-emerald-800'
+                }`}>
+                  Purchase Successful!
+                </h3>
+                <div className={`space-y-2 ${
+                  darkMode ? 'text-emerald-200' : 'text-emerald-700'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Type:</span>
+                    <span className="font-mono bg-white/20 px-2 py-0.5 rounded">
+                      {purchaseSuccess.checkerType}
+                    </span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Serial:</span>
+                    <span className="font-mono bg-white/20 px-2 py-0.5 rounded">
+                      {purchaseSuccess.serialNumber}
+                    </span>
+                    <button
+                      onClick={() => copyToClipboard(purchaseSuccess.serialNumber, 'serial')}
+                      className="p-1 hover:bg-white/10 rounded transition-colors"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">PIN:</span>
+                    <span className="font-mono bg-white/20 px-2 py-0.5 rounded">
+                      {purchaseSuccess.pin}
+                    </span>
+                    <button
+                      onClick={() => copyToClipboard(purchaseSuccess.pin, 'pin')}
+                      className="p-1 hover:bg-white/10 rounded transition-colors"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className={`text-sm mt-3 flex items-center gap-2 ${
+                    darkMode ? 'text-emerald-300' : 'text-emerald-600'
+                  }`}>
+                    <Info className="w-4 h-4" />
+                    Saved to your purchase history for future reference
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Content */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
-              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-500 absolute top-0 left-0" style={{ animationDelay: '-0.5s', animationDirection: 'reverse' }}></div>
-            </div>
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
           <>
             {/* Buy Tab */}
             {activeTab === 'buy' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
-                  {products.map((product, index) => (
+              <div className="space-y-6">
+                {/* Products Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {products.map((product) => (
                     <div
                       key={product._id}
-                      className={`group relative overflow-hidden rounded-3xl transition-all duration-500 transform hover:scale-105 hover:-rotate-1 animate-slideInUp`}
-                      style={{ animationDelay: `${index * 100}ms` }}
+                      className={`rounded-xl overflow-hidden transition-all duration-200 ${
+                        darkMode 
+                          ? 'bg-gray-800 hover:bg-gray-750 border border-gray-700' 
+                          : 'bg-white hover:shadow-lg border border-gray-200'
+                      }`}
                     >
-                      {/* Card Background */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${product.color} opacity-90`} />
-                      
-                      {/* Pattern Overlay */}
-                      <div className="absolute inset-0 opacity-10">
-                        <div className="absolute inset-0" style={{
-                          backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)`
-                        }} />
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="relative p-8 text-white">
-                        {/* Header */}
-                        <div className="flex justify-between items-start mb-6">
+                      {/* Product Header */}
+                      <div className={`p-6 ${
+                        product.name === 'WAEC' 
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700' 
+                          : 'bg-gradient-to-r from-purple-600 to-purple-700'
+                      }`}>
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            {product.name === 'WAEC' ? 
-                              <WAECLogo className="w-20 h-20 animate-float" /> : 
-                              <BECELogo className="w-20 h-20 animate-float" />
-                            }
+                            <div className="p-3 bg-white/20 rounded-lg backdrop-blur">
+                              {product.name === 'WAEC' ? 
+                                <GraduationCap className="w-8 h-8 text-white" /> : 
+                                <BookOpen className="w-8 h-8 text-white" />
+                              }
+                            </div>
                             <div>
-                              <h3 className="text-3xl font-bold mb-2">{product.name}</h3>
-                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                                product.available 
-                                  ? 'bg-green-400/20 text-green-100 border border-green-400/30' 
-                                  : 'bg-red-400/20 text-red-100 border border-red-400/30'
-                              }`}>
-                                {product.available ? (
-                                  <>
-                                    <CheckCircle className="w-4 h-4" />
-                                    {product.stockCount} Available
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="w-4 h-4" />
-                                    Out of Stock
-                                  </>
-                                )}
-                              </div>
+                              <h3 className="text-2xl font-bold text-white">
+                                {product.name}
+                              </h3>
+                              <p className="text-white/80 text-sm mt-1">
+                                Result Checker Card
+                              </p>
                             </div>
                           </div>
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            product.available 
+                              ? 'bg-green-400/20 text-green-100 border border-green-400/30' 
+                              : 'bg-red-400/20 text-red-100 border border-red-400/30'
+                          }`}>
+                            {product.available ? `${product.stockCount} Available` : 'Out of Stock'}
+                          </div>
                         </div>
-                        
-                        {/* Description */}
-                        <p className="text-white/90 mb-8 text-lg leading-relaxed">
+                      </div>
+                      
+                      {/* Product Body */}
+                      <div className={`p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                        <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                           {product.description}
                         </p>
                         
+                        {/* Features */}
+                        <div className="space-y-2 mb-6">
+                          {[
+                            'Instant digital delivery',
+                            'Valid for current examination year',
+                            'Secure and authenticated',
+                            'One-time use per card'
+                          ].map((feature, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Check className={`w-4 h-4 ${
+                                darkMode ? 'text-emerald-400' : 'text-emerald-600'
+                              }`} />
+                              <span className={`text-sm ${
+                                darkMode ? 'text-gray-400' : 'text-gray-600'
+                              }`}>
+                                {feature}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        
                         {/* Price and Action */}
-                        <div className="flex justify-between items-center">
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                           <div>
-                            <p className="text-white/70 text-sm mb-1">Price</p>
-                            <p className="text-4xl font-bold">
+                            <p className={`text-sm ${
+                              darkMode ? 'text-gray-500' : 'text-gray-500'
+                            }`}>
+                              Price
+                            </p>
+                            <p className={`text-2xl font-bold ${
+                              darkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
                               GHS {product.price.toFixed(2)}
                             </p>
                           </div>
@@ -517,101 +512,127 @@ const UserResultCheckers = () => {
                               }
                             }}
                             disabled={!product.available}
-                            className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-110 ${
+                            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
                               product.available
-                                ? 'bg-white text-gray-900 hover:shadow-2xl hover:shadow-white/25'
-                                : 'bg-gray-400/30 text-gray-200 cursor-not-allowed'
+                                ? product.name === 'WAEC'
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                           >
-                            {product.available ? 'Buy Now' : 'Unavailable'}
+                            {product.available ? 'Purchase Now' : 'Unavailable'}
                           </button>
                         </div>
-                        
-                        {/* Decorative Elements */}
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                        <div className="absolute -top-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
                       </div>
                     </div>
                   ))}
-
-                  {products.length === 0 && (
-                    <div className="col-span-2 text-center py-20">
-                      <div className="text-6xl mb-4">🔍</div>
-                      <p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        No products available at the moment.
-                      </p>
-                    </div>
-                  )}
                 </div>
 
-                {/* Developer Integration Section - Now inside Buy tab */}
-                {products.length > 0 && (
-                  <div className={`mt-12 text-center p-8 rounded-2xl ${
-                    darkMode ? 'bg-gray-800' : 'bg-gradient-to-br from-gray-50 to-gray-100'
-                  } border-2 border-dashed ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
-                    <Code2 className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                    <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Developer? Integrate Our API
-                    </h3>
-                    <p className={`mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Add result checker sales to your platform • Set your own prices • Manage via API
-                    </p>
+                {/* API Integration Card */}
+                <div className={`rounded-xl p-6 ${
+                  darkMode 
+                    ? 'bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-700/30' 
+                    : 'bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200'
+                }`}>
+                  <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white/10 backdrop-blur rounded-lg">
+                        <Code2 className={`w-6 h-6 ${
+                          darkMode ? 'text-indigo-400' : 'text-indigo-600'
+                        }`} />
+                      </div>
+                      <div>
+                        <h3 className={`font-semibold mb-1 ${
+                          darkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          Developer API Available
+                        </h3>
+                        <p className={`text-sm ${
+                          darkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          Integrate result checker sales into your platform
+                        </p>
+                      </div>
+                    </div>
+                    
                     <button
                       onClick={() => router.push('/checkers-doc')}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-all duration-200"
                     >
-                      <span>View API Documentation</span>
+                      View Documentation
                       <ExternalLink className="w-4 h-4" />
                     </button>
                   </div>
-                )}
-              </>
+                </div>
+              </div>
             )}
 
             {/* History Tab */}
             {activeTab === 'history' && (
-              <div className="animate-fadeIn">
+              <div className="space-y-4">
                 {myPurchases.length > 0 ? (
-                  <div className="grid gap-4">
-                    {myPurchases.map((purchase, index) => (
-                      <div
-                        key={purchase._id}
-                        className={`group p-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] animate-slideInUp ${
-                          darkMode ? 'bg-gray-800 hover:bg-gray-750' : 'bg-white hover:bg-gray-50'
-                        } shadow-lg hover:shadow-2xl`}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                          {/* Left Section */}
-                          <div className="flex items-center gap-4">
-                            <div className={`p-4 rounded-2xl ${
+                  myPurchases.map((purchase) => (
+                    <div
+                      key={purchase._id}
+                      className={`rounded-xl overflow-hidden transition-all duration-200 ${
+                        darkMode 
+                          ? 'bg-gray-800 hover:bg-gray-750 border border-gray-700' 
+                          : 'bg-white hover:shadow-md border border-gray-200'
+                      }`}
+                    >
+                      <div className="p-6">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                          {/* Purchase Info */}
+                          <div className="flex items-start gap-4">
+                            <div className={`p-3 rounded-lg ${
                               purchase.checkerType === 'WAEC' 
-                                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
-                                : 'bg-gradient-to-br from-purple-500 to-purple-600'
+                                ? 'bg-blue-100 dark:bg-blue-900/30' 
+                                : 'bg-purple-100 dark:bg-purple-900/30'
                             }`}>
-                              <span className="text-3xl text-white">
-                                {purchase.checkerType === 'WAEC' ? '🎓' : '📚'}
-                              </span>
+                              {purchase.checkerType === 'WAEC' ? 
+                                <GraduationCap className={`w-6 h-6 ${
+                                  purchase.checkerType === 'WAEC'
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-purple-600 dark:text-purple-400'
+                                }`} /> : 
+                                <BookOpen className={`w-6 h-6 ${
+                                  purchase.checkerType === 'WAEC'
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-purple-600 dark:text-purple-400'
+                                }`} />
+                              }
                             </div>
                             
                             <div>
-                              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Reference: {purchase.purchaseReference}
-                              </p>
-                              <h4 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              <h4 className={`text-lg font-semibold ${
+                                darkMode ? 'text-white' : 'text-gray-900'
+                              }`}>
                                 {purchase.checkerType} Result Checker
                               </h4>
-                              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-sm mt-1 ${
+                                darkMode ? 'text-gray-400' : 'text-gray-500'
+                              }`}>
+                                Ref: {purchase.purchaseReference}
+                              </p>
+                              <p className={`text-xs mt-1 ${
+                                darkMode ? 'text-gray-500' : 'text-gray-400'
+                              }`}>
                                 {formatDate(purchase.createdAt)}
                               </p>
                             </div>
                           </div>
                           
-                          {/* Right Section */}
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Amount</p>
-                              <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {/* Actions */}
+                          <div className="flex items-center gap-3">
+                            <div className="text-right mr-4">
+                              <p className={`text-sm ${
+                                darkMode ? 'text-gray-500' : 'text-gray-500'
+                              }`}>
+                                Amount
+                              </p>
+                              <p className={`text-lg font-semibold ${
+                                darkMode ? 'text-white' : 'text-gray-900'
+                              }`}>
                                 GHS {purchase.price.toFixed(2)}
                               </p>
                             </div>
@@ -621,26 +642,38 @@ const UserResultCheckers = () => {
                                 setSelectedPurchase(purchase);
                                 setShowDetailsModal(true);
                               }}
-                              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25"
+                              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
                             >
+                              <FileText className="w-4 h-4" />
                               View Details
                             </button>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 ) : (
-                  <div className={`text-center py-20 rounded-3xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
-                    <div className="text-6xl mb-4 animate-bounce">📭</div>
-                    <p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-6`}>
-                      No purchases yet. Buy your first result checker!
+                  <div className={`text-center py-16 rounded-xl ${
+                    darkMode ? 'bg-gray-800' : 'bg-white border border-gray-200'
+                  }`}>
+                    <ShoppingBag className={`w-16 h-16 mx-auto mb-4 ${
+                      darkMode ? 'text-gray-600' : 'text-gray-400'
+                    }`} />
+                    <p className={`text-lg mb-2 ${
+                      darkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      No purchases yet
+                    </p>
+                    <p className={`text-sm mb-6 ${
+                      darkMode ? 'text-gray-500' : 'text-gray-500'
+                    }`}>
+                      Purchase your first result checker to get started
                     </p>
                     <button
                       onClick={() => setActiveTab('buy')}
-                      className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200"
                     >
-                      Browse Checkers
+                      Browse Available Cards
                     </button>
                   </div>
                 )}
@@ -652,64 +685,81 @@ const UserResultCheckers = () => {
 
       {/* Purchase Modal */}
       {showPurchaseModal && selectedProduct && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl transform transition-all duration-300 animate-slideInUp ${
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`w-full max-w-md rounded-xl overflow-hidden ${
             darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            {/* Modal Header with Gradient */}
-            <div className={`p-8 bg-gradient-to-br ${selectedProduct.color} text-white relative overflow-hidden`}>
-              <div className="absolute inset-0 opacity-10">
-                <div className="absolute inset-0" style={{
-                  backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)`
-                }} />
-              </div>
-              
-              <div className="relative">
-                <h2 className="text-2xl font-bold mb-2">Confirm Purchase</h2>
-                <p className="text-white/90">You're about to purchase</p>
-                <div className="mt-4 flex items-center gap-3">
+          } shadow-2xl`}>
+            {/* Modal Header */}
+            <div className={`p-6 ${
+              selectedProduct.name === 'WAEC' 
+                ? 'bg-gradient-to-r from-blue-600 to-blue-700' 
+                : 'bg-gradient-to-r from-purple-600 to-purple-700'
+            }`}>
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Confirm Purchase
+              </h2>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
                   {selectedProduct.name === 'WAEC' ? 
-                    <WAECLogo className="w-16 h-16" /> : 
-                    <BECELogo className="w-16 h-16" />
+                    <GraduationCap className="w-6 h-6 text-white" /> : 
+                    <BookOpen className="w-6 h-6 text-white" />
                   }
-                  <div>
-                    <p className="text-3xl font-bold">{selectedProduct.name}</p>
-                    <p className="text-white/80">Result Checker</p>
-                  </div>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white">
+                    {selectedProduct.name}
+                  </p>
+                  <p className="text-white/80 text-sm">Result Checker Card</p>
                 </div>
               </div>
             </div>
             
             {/* Modal Body */}
-            <div className={`p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <div className="space-y-4 mb-6">
-                <div className={`flex justify-between items-center p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Price:</span>
-                  <span className="font-bold text-xl">GHS {selectedProduct.price.toFixed(2)}</span>
+            <div className={`p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              <div className="space-y-3 mb-6">
+                <div className={`flex justify-between items-center p-3 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                    Price
+                  </span>
+                  <span className="font-semibold">GHS {selectedProduct.price.toFixed(2)}</span>
                 </div>
                 
-                <div className={`flex justify-between items-center p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Your Balance:</span>
-                  <span className={`font-bold text-xl ${userBalance >= selectedProduct.price ? 'text-green-500' : 'text-red-500'}`}>
+                <div className={`flex justify-between items-center p-3 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                    Your Balance
+                  </span>
+                  <span className={`font-semibold ${
+                    userBalance >= selectedProduct.price ? 'text-green-500' : 'text-red-500'
+                  }`}>
                     GHS {userBalance.toFixed(2)}
                   </span>
                 </div>
                 
-                <div className={`flex justify-between items-center p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-gray-600'}>After Purchase:</span>
-                  <span className="font-bold text-xl">
+                <div className={`flex justify-between items-center p-3 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                    After Purchase
+                  </span>
+                  <span className="font-semibold">
                     GHS {(userBalance - selectedProduct.price).toFixed(2)}
                   </span>
                 </div>
               </div>
               
               {userBalance < selectedProduct.price && (
-                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-xl flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-red-700 dark:text-red-300 font-semibold">Insufficient Balance</p>
-                    <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-                      Please top up your wallet before purchasing.
+                    <p className="text-red-700 dark:text-red-300 font-medium text-sm">
+                      Insufficient Balance
+                    </p>
+                    <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                      Please top up your wallet to continue.
                     </p>
                   </div>
                 </div>
@@ -722,8 +772,10 @@ const UserResultCheckers = () => {
                     setShowPurchaseModal(false);
                     setSelectedProduct(null);
                   }}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                    darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                  className={`flex-1 px-5 py-3 rounded-lg font-medium transition-all duration-200 ${
+                    darkMode 
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                   disabled={processingPurchase}
                 >
@@ -733,21 +785,21 @@ const UserResultCheckers = () => {
                 <button
                   onClick={handlePurchase}
                   disabled={userBalance < selectedProduct.price || processingPurchase}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                  className={`flex-1 px-5 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
                     userBalance >= selectedProduct.price && !processingPurchase
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg hover:shadow-blue-500/25 transform hover:scale-105'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
                 >
                   {processingPurchase ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Processing...
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Processing
                     </>
                   ) : (
                     <>
-                      <CreditCard className="w-5 h-5" />
-                      Confirm Purchase
+                      <CreditCard className="w-4 h-4" />
+                      Confirm
                     </>
                   )}
                 </button>
@@ -759,149 +811,189 @@ const UserResultCheckers = () => {
 
       {/* Details Modal */}
       {showDetailsModal && selectedPurchase && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className={`w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl transform transition-all duration-300 animate-slideInUp ${
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`w-full max-w-lg rounded-xl overflow-hidden ${
             darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
+          } shadow-2xl`}>
             {/* Modal Header */}
-            <div className={`p-8 bg-gradient-to-br ${
+            <div className={`p-6 ${
               selectedPurchase.checkerType === 'WAEC' 
-                ? 'from-blue-500 to-blue-700' 
-                : 'from-purple-500 to-purple-700'
-            } text-white relative`}>
+                ? 'bg-gradient-to-r from-blue-600 to-blue-700' 
+                : 'bg-gradient-to-r from-purple-600 to-purple-700'
+            } relative`}>
               <button
                 onClick={() => {
                   setShowDetailsModal(false);
                   setSelectedPurchase(null);
                   setShowPin(false);
                 }}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                className="absolute top-4 right-4 p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
               >
-                <XCircle className="w-6 h-6" />
+                <XCircle className="w-5 h-5 text-white" />
               </button>
               
-              <div className="flex items-center gap-4">
-                {selectedPurchase.checkerType === 'WAEC' ? 
-                  <WAECLogo className="w-20 h-20" /> : 
-                  <BECELogo className="w-20 h-20" />
-                }
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-white/20 rounded-lg">
+                  {selectedPurchase.checkerType === 'WAEC' ? 
+                    <GraduationCap className="w-8 h-8 text-white" /> : 
+                    <BookOpen className="w-8 h-8 text-white" />
+                  }
+                </div>
                 <div>
-                  <h2 className="text-2xl font-bold">{selectedPurchase.checkerType} Result Checker</h2>
-                  <p className="text-white/80 mt-1">Purchase Details</p>
+                  <h2 className="text-xl font-semibold text-white">
+                    {selectedPurchase.checkerType} Result Checker
+                  </h2>
+                  <p className="text-white/80 text-sm mt-1">Purchase Details</p>
                 </div>
               </div>
             </div>
             
             {/* Modal Body */}
-            <div className={`p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <div className="space-y-4">
+            <div className={`p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              {/* Important Notice */}
+              <div className={`mb-4 p-3 rounded-lg ${
+                darkMode 
+                  ? 'bg-blue-900/30 border border-blue-700/50' 
+                  : 'bg-blue-50 border border-blue-200'
+              }`}>
+                <div className="flex items-start gap-2">
+                  <Shield className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                    darkMode ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
+                  <p className={`text-sm ${
+                    darkMode ? 'text-blue-300' : 'text-blue-700'
+                  }`}>
+                    Your credentials are secure. Copy and save them for checking your results.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
                 {/* Reference */}
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Reference Number</p>
+                <div className={`p-4 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <p className={`text-xs mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    Reference
+                  </p>
                   <div className="flex items-center justify-between">
-                    <p className="font-mono font-bold text-lg">{selectedPurchase.purchaseReference}</p>
+                    <p className="font-mono font-semibold">
+                      {selectedPurchase.purchaseReference}
+                    </p>
                     <button
                       onClick={() => copyToClipboard(selectedPurchase.purchaseReference, 'reference')}
-                      className={`p-2 rounded-lg transition-colors ${
+                      className={`p-1.5 rounded transition-colors ${
                         darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
                       }`}
                     >
-                      {copiedText === 'reference' ? 
-                        <CheckCircle className="w-5 h-5 text-green-500" /> : 
-                        <Copy className="w-5 h-5" />
-                      }
+                      <Copy className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
                 
                 {/* Serial Number */}
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Serial Number</p>
+                <div className={`p-4 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <p className={`text-xs mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    Serial Number
+                  </p>
                   <div className="flex items-center justify-between">
-                    <p className="font-mono font-bold text-lg text-blue-500">{selectedPurchase.serialNumber}</p>
+                    <p className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+                      {selectedPurchase.serialNumber}
+                    </p>
                     <button
                       onClick={() => copyToClipboard(selectedPurchase.serialNumber, 'serial')}
-                      className={`p-2 rounded-lg transition-colors ${
+                      className={`p-1.5 rounded transition-colors ${
                         darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
                       }`}
                     >
-                      {copiedText === 'serial' ? 
-                        <CheckCircle className="w-5 h-5 text-green-500" /> : 
-                        <Copy className="w-5 h-5" />
-                      }
+                      <Copy className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
                 
                 {/* PIN */}
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>PIN</p>
+                <div className={`p-4 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <p className={`text-xs mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    PIN
+                  </p>
                   <div className="flex items-center justify-between">
-                    <p className="font-mono font-bold text-lg text-green-500">
-                      {showPin ? selectedPurchase.pin : '••••••••••'}
+                    <p className="font-mono font-semibold text-green-600 dark:text-green-400">
+                      {showPin ? selectedPurchase.pin : '••••••••••••'}
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <button
                         onClick={() => setShowPin(!showPin)}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={`p-1.5 rounded transition-colors ${
                           darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
                         }`}
                       >
-                        {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => copyToClipboard(selectedPurchase.pin, 'pin')}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={`p-1.5 rounded transition-colors ${
                           darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
                         }`}
                       >
-                        {copiedText === 'pin' ? 
-                          <CheckCircle className="w-5 h-5 text-green-500" /> : 
-                          <Copy className="w-5 h-5" />
-                        }
+                        <Copy className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                 </div>
                 
                 {/* Additional Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Amount Paid</p>
-                    <p className="font-bold text-lg">GHS {selectedPurchase.price.toFixed(2)}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`p-3 rounded-lg ${
+                    darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                  }`}>
+                    <p className={`text-xs mb-1 ${
+                      darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      Amount
+                    </p>
+                    <p className="font-semibold">GHS {selectedPurchase.price.toFixed(2)}</p>
                   </div>
                   
-                  <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Status</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                      <p className="font-bold text-lg capitalize">{selectedPurchase.status}</p>
+                  <div className={`p-3 rounded-lg ${
+                    darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                  }`}>
+                    <p className={`text-xs mb-1 ${
+                      darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      Status
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <p className="font-semibold capitalize">{selectedPurchase.status}</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Purchase Date</p>
-                  <p className="font-semibold">{formatDate(selectedPurchase.createdAt)}</p>
-                </div>
-                
-                {/* Warning Message */}
-                <div className={`p-4 rounded-xl border ${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-300'}`}>
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-                    <div>
-                      <p className={`font-semibold ${darkMode ? 'text-yellow-300' : 'text-yellow-700'}`}>Important</p>
-                      <p className={`text-sm mt-1 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                        Keep your serial number and PIN safe. You'll need them to check your results on the official website.
-                      </p>
-                    </div>
-                  </div>
+                <div className={`p-3 rounded-lg ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}>
+                  <p className={`text-xs mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    Purchase Date
+                  </p>
+                  <p className="font-medium text-sm">{formatDate(selectedPurchase.createdAt)}</p>
                 </div>
                 
                 {/* Actions */}
-                <div className="flex gap-3 pt-4">
-                  <button className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25 flex items-center justify-center gap-2">
-                    <Download className="w-5 h-5" />
+                <div className="flex gap-3 pt-3">
+                  <button className="flex-1 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <Download className="w-4 h-4" />
                     Download Receipt
                   </button>
                   
@@ -911,8 +1003,10 @@ const UserResultCheckers = () => {
                       setSelectedPurchase(null);
                       setShowPin(false);
                     }}
-                    className={`px-8 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                      darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                    className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                      darkMode 
+                        ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                     }`}
                   >
                     Close
@@ -924,130 +1018,11 @@ const UserResultCheckers = () => {
         </div>
       )}
 
-      {/* Floating API Button - Always Visible */}
-      <div className="fixed bottom-6 right-6 z-40 animate-bounceIn">
-        <div className="relative group">
-          {/* Tooltip */}
-          <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-            <div className={`px-3 py-2 rounded-lg shadow-lg whitespace-nowrap ${
-              darkMode ? 'bg-gray-800 text-white' : 'bg-gray-900 text-white'
-            }`}>
-              <p className="text-xs font-medium">For Developers</p>
-              <p className="text-xs opacity-90">Integrate with your platform</p>
-            </div>
-            <div className={`absolute bottom-[-4px] right-6 w-2 h-2 rotate-45 ${
-              darkMode ? 'bg-gray-800' : 'bg-gray-900'
-            }`} />
-          </div>
-          
-          {/* Button */}
-          <button
-            onClick={() => router.push('/checkers-doc')}
-            className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-110"
-          >
-            <Code2 className="w-5 h-5" />
-            <span className="font-semibold">API Integration</span>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
-          </button>
-        </div>
-      </div>
-
-      {/* Dark mode styles */}
+      {/* Styles */}
       <style jsx global>{`
         .dark-mode {
-          background-color: #111827;
-          color: #f3f4f6;
-        }
-        
-        .dark-mode ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        
-        .dark-mode ::-webkit-scrollbar-track {
-          background: #374151;
-        }
-        
-        .dark-mode ::-webkit-scrollbar-thumb {
-          background: #4b5563;
-          border-radius: 4px;
-        }
-        
-        .dark-mode ::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
-        }
-        
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        
-        @keyframes slideInUp {
-          from { 
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to { 
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes slideInRight {
-          from { 
-            opacity: 0;
-            transform: translateX(20px);
-          }
-          to { 
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        
-        @keyframes bounceIn {
-          0% { 
-            opacity: 0;
-            transform: scale(0.3);
-          }
-          50% { 
-            transform: scale(1.05);
-          }
-          70% { 
-            transform: scale(0.9);
-          }
-          100% { 
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-        }
-        
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out;
-        }
-        
-        .animate-slideInUp {
-          animation: slideInUp 0.5s ease-out;
-        }
-        
-        .animate-slideInRight {
-          animation: slideInRight 0.5s ease-out;
-        }
-        
-        .animate-bounceIn {
-          animation: bounceIn 0.6s ease-out;
-        }
-        
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-        
-        .animation-delay-2000 {
-          animation-delay: 2s;
+          background-color: #0f172a;
+          color: #f1f5f9;
         }
       `}</style>
     </div>
