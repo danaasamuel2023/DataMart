@@ -139,7 +139,7 @@ const UserResultCheckers = () => {
       setLoading(true);
       const authToken = localStorage.getItem('authToken');
       
-      const response = await axios.get('https://datamartbackened.onrender.com/api/result-checkers/my-purchases', {
+      const response = await axios.get('http://localhost:5000/api/result-checkers/my-purchases', {
         headers: {
           'x-auth-token': authToken
         }
