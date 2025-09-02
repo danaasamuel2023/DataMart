@@ -96,7 +96,7 @@ export default function LoginPage() {
       };
 
       // Send to your backend
-      const response = await fetch('http://localhost:5000/api/v1/google-signin', {
+      const response = await fetch('https://datamartbackened.onrender.com/api/v1/google-signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,7 +162,7 @@ export default function LoginPage() {
         userAgent: navigator.userAgent
       };
 
-      const response = await fetch('http://localhost:5000/api/v1/login', {
+      const response = await fetch('https://datamartbackened.onrender.com/api/v1/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
