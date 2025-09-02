@@ -910,4 +910,109 @@ router.get('/purchase/:id', auth, async (req, res) => {
   }
 });
 
+
+router.delete('/inventory/delete-by-type/:checkerType' , async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { checkerType } = req.params;
+    const { confirm } = req.query;
+    
+    // Validate checker type
+    if (!['WAEC', 'BECE'].includes(checkerType)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid checker type. Must be either WAEC or BECE'
+      });
+    }
+    
+    // Safety check - require confirmation
+    if (confirm !== 'true') {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Please confirm deletion by adding ?confirm=true to the request',
+        warning: `This will permanently delete all ${checkerType} checkers from inventory`
+      });
+    }
+    
+    // Get count before deletion for reporting
+    const countBeforeDeletion = await ResultCheckerInventory.countDocuments({
+      checkerType: checkerType
+    });
+    
+    if (countBeforeDeletion === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: `No ${checkerType} checkers found in inventory`
+      });
+    }
+    
+    // Get breakdown by status before deletion
+    const statusBreakdown = await ResultCheckerInventory.aggregate([
+      {
+        $match: { checkerType: checkerType }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]).session(session);
+    
+    // Delete all checkers of the specified type
+    const deleteResult = await ResultCheckerInventory.deleteMany(
+      { checkerType: checkerType },
+      { session }
+    );
+    
+    // Log the deletion for audit purposes
+    // console.log(`Admin ${req.user.email} deleted ${deleteResult.deletedCount} ${checkerType} checkers`, {
+    //   // adminId: req.user.id,
+    //   // adminEmail: req.user.email,
+    //   // checkerType: checkerType,
+    //   // deletedCount: deleteResult.deletedCount,
+    //   // statusBreakdown: statusBreakdown,
+    //   // timestamp: new Date()
+    // });
+    
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.json({
+      success: true,
+      message: `Successfully deleted all ${checkerType} checkers from inventory`,
+      data: {
+        checkerType: checkerType,
+        deletedCount: deleteResult.deletedCount,
+        statusBreakdown: statusBreakdown.reduce((acc, curr) => {
+          acc[curr._id] = curr.count;
+          return acc;
+        }, {}),
+        deletedBy: {
+          id: req.user.id,
+          email: req.user.email
+        },
+        deletedAt: new Date()
+      }
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Delete checkers by type error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

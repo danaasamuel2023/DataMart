@@ -364,7 +364,7 @@ const MTNBundleCards = () => {
   };
 
   // Process the actual purchase after modal confirmation
-  const processPurchase = async () => {
+  const processPurchase = async () => { 
     if (!pendingPurchase) return; 
     
     const { bundle, index } = pendingPurchase;

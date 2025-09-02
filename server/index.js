@@ -27,6 +27,7 @@ const TransferMonitoringRoutes = require('./TransferRoutes/transferMonitoringRou
 const SmmRoutes = require('./smmroutes/smmroutes.js');
 const Checkers = require('./WaecRoutes/Waec.js');
 const CheckersApi = require('./Checkersdevelopers/checkersapi.js');
+const Agenr_store = require ('./agent_store_routes/agent_store.js')
 dotenv.config();
 
 // Initialize Express app
@@ -41,7 +42,7 @@ ConnectDB();
 
 // Routes
 app.use('/api/v1', authRouter); // Use the router property
-app.use('/api/v1/data', dataOrderRoutes);
+app.use('/api/v1/dat', dataOrderRoutes);
 app.use('/api/v1', Deposit);
 app.use('/api/developer', Developer)
 app.use('/api/v1', HubnetAt);
@@ -64,6 +65,7 @@ app.use('/api/smm', SmmRoutes);
 app.use('/api/result-checkers', Checkers);
 app.use('/api/checkers', CheckersApi);
 app.use('/api', BulkPurchase);
+app.use ('/api/v1/agent-stores', Agenr_store)
  
 
 // Default Route
