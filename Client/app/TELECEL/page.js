@@ -261,7 +261,7 @@ const TelecelBundleCards = () => {
     
     try {
       const token = localStorage.getItem('authToken');
-      const response = await axios.post('https://api.datamartgh.shop/api/v1/data/purchase-data', {
+      const response = await axios.post('https://api.datamartgh.shop/api/v1/dat/purchase-data', {
         userId: userData.id,
         phoneNumber: phoneNumber,
         network: bundle.network,
